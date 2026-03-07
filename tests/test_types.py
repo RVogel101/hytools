@@ -73,11 +73,11 @@ class TestDocumentRecord:
             text="sample text",
         )
         with pytest.raises(FrozenInstanceError):
-            doc.text = "new text"
+            doc.text = "new text"  # type: ignore[attr-defined]
 
     def test_equality(self):
         kwargs = dict(document_id="test-1", source_family="test", text="hello")
-        assert DocumentRecord(**kwargs) == DocumentRecord(**kwargs)
+        assert DocumentRecord(**kwargs) == DocumentRecord(**kwargs)  # type: ignore[arg-type]
 
     def test_metadata_default_not_shared(self):
         """Each instance should get its own empty dict, not a shared one."""
@@ -118,7 +118,7 @@ class TestLexiconEntry:
     def test_frozen(self):
         entry = LexiconEntry(lemma="test")
         with pytest.raises(FrozenInstanceError):
-            entry.lemma = "other"
+            entry.lemma = "other"  # type: ignore[attr-defined]
 
 
 class TestPhoneticResult:
@@ -150,4 +150,4 @@ class TestPhoneticResult:
             max_phonetic_difficulty=1.0,
         )
         with pytest.raises(FrozenInstanceError):
-            result.word = "other"
+            result.word = "other"  # type: ignore[attr-defined]

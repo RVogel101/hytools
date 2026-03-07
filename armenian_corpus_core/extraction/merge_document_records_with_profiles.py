@@ -36,7 +36,13 @@ import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
+
+
+class _QualityScorer(Protocol):
+    """Protocol for record quality scoring functions."""
+
+    def __call__(self, record: dict[str, Any]) -> tuple[int, int, int, int]: ...
 
 
 @dataclass
@@ -158,7 +164,7 @@ def _record_quality_score_corpus_ready(record: dict[str, Any]) -> tuple[int, int
     return (metadata_count, has_text, text_len, is_local)
 
 
-def _get_quality_scorer(profile: str) -> callable:
+def _get_quality_scorer(profile: str) -> "_QualityScorer":
     """Return the quality scoring function for the given profile."""
     if profile == "app-ready":
         return _record_quality_score_app_ready

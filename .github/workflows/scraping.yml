@@ -1,0 +1,157 @@
+name: Scraping Pipeline
+
+on:
+  schedule:
+    # Weekly: Monday 03:00 UTC — Wikipedia + Wikisource dumps
+    - cron: '0 3 * * 1'
+    # Daily: 06:00 UTC — Newspapers + News agencies
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      stages:
+        description: 'Comma-separated stage names to run (empty = all enabled)'
+        required: false
+        default: ''
+      skip_stages:
+        description: 'Comma-separated stage names to skip'
+        required: false
+        default: ''
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours max
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install package
+        run: pip install -e '.[all]'
+
+      - name: Restore scraping cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/raw/
+            data/logs/
+            data/frequencies/
+          key: scraping-data-${{ runner.os }}-${{ github.run_number }}
+          restore-keys: |
+            scraping-data-${{ runner.os }}-
+
+      - name: Determine stages from schedule
+        id: stages
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "only=${{ github.event.inputs.stages }}" >> "$GITHUB_OUTPUT"
+            echo "skip=${{ github.event.inputs.skip_stages }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 3 * * 1" ]; then
+            # Weekly: Wikipedia, Wikisource, Archive.org, HathiTrust, LOC
+            echo "only=wikipedia,wikisource,archive_org,hathitrust,loc" >> "$GITHUB_OUTPUT"
+            echo "skip=" >> "$GITHUB_OUTPUT"
+          else
+            # Daily: Newspapers, News agencies, CulturaX, RSS news, English sources
+            echo "only=newspaper,nayiri,eastern_armenian,culturax,rss_news,english_sources" >> "$GITHUB_OUTPUT"
+            echo "skip=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create scraping config
+        run: |
+          mkdir -p config data/raw data/logs
+          cat > config/settings.yaml << 'EOF'
+          paths:
+            raw_dir: data/raw
+            data_root: data
+            log_dir: data/logs
+          scraping:
+            wikipedia:
+              enabled: true
+              dump_date: latest
+            wikisource:
+              enabled: true
+            archive_org:
+              enabled: true
+              max_results: 200
+              apply_wa_filter: true
+            culturax:
+              enabled: true
+              dataset_name: uonlp/CulturaX
+              language: hy
+              streaming: true
+              apply_wa_filter: true
+              max_docs: 50000
+            hathitrust:
+              enabled: true
+              apply_wa_filter: true
+            loc:
+              enabled: true
+              apply_wa_filter: true
+            newspapers:
+              enabled: true
+              sources: [aztag, horizon]
+              max_pages: 50
+              max_articles_per_source: 200
+              validate_wa: true
+            nayiri:
+              enabled: true
+              max_prefixes: 100
+              request_delay: 2.0
+            eastern_armenian:
+              enabled: true
+              wikipedia: true
+              news: true
+              max_articles_per_agency: 200
+            frequency_aggregator:
+              enabled: true
+            rss_news:
+              enabled: true
+              request_delay: 1.5
+            english_sources:
+              enabled: true
+              wikipedia: true
+              hyestart: true
+              csu_fresno: true
+              request_delay: 2.0
+          EOF
+
+      - name: Run scraping pipeline
+        run: |
+          ONLY_ARG=""
+          SKIP_ARG=""
+          if [ -n "${{ steps.stages.outputs.only }}" ]; then
+            ONLY_ARG="--only $(echo '${{ steps.stages.outputs.only }}' | tr ',' ' ')"
+          fi
+          if [ -n "${{ steps.stages.outputs.skip }}" ]; then
+            SKIP_ARG="--skip $(echo '${{ steps.stages.outputs.skip }}' | tr ',' ' ')"
+          fi
+          python -m armenian_corpus_core.scraping.runner run \
+            --config config/settings.yaml \
+            $ONLY_ARG $SKIP_ARG
+
+      - name: Upload scrape summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-summary-${{ github.run_number }}
+          path: data/logs/scrape_summary.json
+          retention-days: 30
+
+      - name: Upload frequency lists
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frequency-lists-${{ github.run_number }}
+          path: |
+            data/wa_frequency_list.json
+            data/wa_frequency_list.csv
+            data/frequencies/
+          retention-days: 90
+          if-no-files-found: ignore

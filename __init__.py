@@ -25,7 +25,6 @@ try:
     )
     
     __all__ = [
-        "extraction",
         "get_registry",
         "get_tool_spec", 
         "list_all_tools",
@@ -34,4 +33,4 @@ try:
     ]
 except ImportError:
     # Fallback if extraction module not available
-    __all__ = ["extraction"]
+    __all__ = ["__version__", "__author__"]
