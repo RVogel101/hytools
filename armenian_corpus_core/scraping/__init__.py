@@ -13,6 +13,7 @@ Provides data acquisition from multiple Armenian sources:
 - ``eastern_armenian`` — Eastern Armenian Wikipedia + news agencies
 - ``rss_news``         — 21 RSS news feeds (Armenian, diaspora, international)
 - ``english_sources``  — English Wikipedia history, Hyestart, CSU Fresno
+- ``mss_nkr``         — MSS NKR (mss.nkr.am) PDF and image downloads
 - ``frequency_aggregator`` — merge all sources into unified frequency list
 - ``runner``           — unified pipeline runner with per-stage error isolation
 - ``metadata``         — TextMetadata model and dialect/source enums
