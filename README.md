@@ -187,14 +187,15 @@ python -m armenian_corpus_core.extraction.run_extraction_pipeline \
 ```
 
 ### CI/CD (GitHub Actions)
-GitHub Actions workflow runs automatically:
-- **Schedule**: Daily at 2 AM UTC
-- **Manual trigger**: Via `workflow_dispatch`
-- **Triggers**: On push to main if extraction tools or contracts changed
+This repository currently ships extraction tooling only and does not yet include
+its own GitHub Actions workflow. Pipeline automation is currently expected to run
+from an integration repository (for example lousardzag) where source databases
+and migration exports are available.
 
-File: `.github/workflows/extraction_pipeline.yml`
-
-**Artifacts**: All JSONL + stats + reports uploaded for 90 days
+Recommended automation setup:
+- Run `python -m armenian_corpus_core.extraction.run_extraction_pipeline --project <path>` from the integration repo context.
+- Persist generated `08-data` outputs and `pipeline_execution_report.json` as build artifacts.
+- Add schedule/dispatch triggers in the integration repo workflow where source data is accessible.
 
 ---
 

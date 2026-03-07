@@ -44,7 +44,7 @@ Local development installation capability successfully implemented and validated
   - User-friendly messages
 - **Status**: ✅ Created, syntax validated
 
-#### c. `DEVELOPMENT.md` (Installation Guide - 380 lines)
+#### c. `docs/development/DEVELOPMENT.md` (Installation Guide - 380 lines)
 - **Sections**:
   - Quick Start (5-minute installation)
   - Detailed Installation Steps
@@ -289,12 +289,12 @@ python your_script.py
 **Total Files Created**: 2 (install scripts)  
 **Total Files Modified**: 3 (package __init__.py, extraction __init__.py, core_adapters.py)  
 **Total Files Reorganized**: 4 (__init__.py, extraction/, registry.py, run_extraction_pipeline.py)  
-**Total Configuration**: 1 (.gitignore, DEVELOPMENT.md)
+**Total Configuration**: 1 (.gitignore, docs/development/DEVELOPMENT.md)
 
 **Lines of Code Added**:
 - install.sh: 180 lines
 - install.ps1: 250 lines
-- DEVELOPMENT.md: 380 lines
+- docs/development/DEVELOPMENT.md: 380 lines
 - Enhanced __init__.py and adapters: ~100 lines total
 
 **Validation Tests**: 7/7 passed ✅
