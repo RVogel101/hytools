@@ -31,7 +31,8 @@ try:
         normalize_text_for_hash,
         sha256_normalized,
     )
-    
+    from armenian_corpus_core import data_sources
+
     __all__ = [
         "extraction",
         "get_registry",
@@ -45,6 +46,7 @@ try:
         "PhoneticResult",
         "normalize_text_for_hash",
         "sha256_normalized",
+        "data_sources",
     ]
 except ImportError:
     # Fallback if extraction module not available
