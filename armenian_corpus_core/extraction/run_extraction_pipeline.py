@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -126,7 +127,15 @@ class ExtractionPipelineRunner:
                 duration_seconds=0,
             )
         
-        cmd = [sys.executable, str(tool_script)]
+        # Run as module and inject this repository root into PYTHONPATH so
+        # imports work even when cwd points at another project (e.g. lousardzag).
+        cmd = [sys.executable, "-m", f"armenian_corpus_core.extraction.{tool_name}"]
+        env = os.environ.copy()
+        repo_root = str(self.extraction_dir.parent.parent)
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            f"{repo_root}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else repo_root
+        )
         
         print(f"\n[{idx}/{total}] Running {tool_name}...")
         
@@ -147,6 +156,7 @@ class ExtractionPipelineRunner:
             result = subprocess.run(
                 cmd,
                 cwd=self.project_root,
+                env=env,
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout per tool
