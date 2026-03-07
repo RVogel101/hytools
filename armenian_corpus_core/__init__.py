@@ -23,6 +23,14 @@ try:
         get_pipeline_execution_order,
         ExtractionRegistry,
     )
+    from armenian_corpus_core.core_contracts import (
+        DialectTag,
+        DocumentRecord,
+        LexiconEntry,
+        PhoneticResult,
+        normalize_text_for_hash,
+        sha256_normalized,
+    )
     
     __all__ = [
         "extraction",
@@ -31,7 +39,13 @@ try:
         "list_all_tools",
         "get_pipeline_execution_order",
         "ExtractionRegistry",
+        "DialectTag",
+        "DocumentRecord",
+        "LexiconEntry",
+        "PhoneticResult",
+        "normalize_text_for_hash",
+        "sha256_normalized",
     ]
 except ImportError:
     # Fallback if extraction module not available
-    __all__ = ["extraction"]
+    __all__ = ["extraction", "core_contracts"]

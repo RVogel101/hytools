@@ -13,7 +13,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from lousardzag.core_shims.mappers import (
+from armenian_corpus_core.extraction.mappers import (
     anki_card_row_to_lexicon_entry,
     sentence_row_to_document_record,
 )

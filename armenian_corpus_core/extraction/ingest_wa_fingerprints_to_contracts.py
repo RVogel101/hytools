@@ -8,7 +8,7 @@ import csv
 import json
 from pathlib import Path
 
-from lousardzag.core_shims.mappers import wa_fingerprint_row_to_document_record
+from armenian_corpus_core.extraction.mappers import wa_fingerprint_row_to_document_record
 
 
 def parse_args() -> argparse.Namespace:
