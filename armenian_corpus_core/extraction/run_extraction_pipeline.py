@@ -55,7 +55,7 @@ class ExtractionPipelineRunner:
         self.dry_run = dry_run
         self.skip_tools = set(skip_tools or [])
         self.results: list[PipelineResult] = []
-        self.extraction_dir = project_root / "07-tools" / "extraction"
+        self.extraction_dir = Path(__file__).resolve().parent
     
     def run_pipeline(self, tools: list[str]) -> bool:
         """Execute the full pipeline."""

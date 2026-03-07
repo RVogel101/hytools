@@ -60,7 +60,7 @@ class ExtractionRegistry:
         self._tools["export_core_contracts_jsonl"] = ExtractionToolSpec(
             name="export_core_contracts_jsonl",
             description="Export lousardzag DB rows to core contract JSONL (LexiconEntry + DocumentRecord)",
-            module="lousardzag.07-tools.extraction.export_core_contracts_jsonl",
+            module="armenian_corpus_core.extraction.export_core_contracts_jsonl",
             function="main",
             inputs=["armenian_cards.db"],
             outputs=["export_lexicon_entries.jsonl", "export_document_records.jsonl"],
@@ -76,7 +76,7 @@ class ExtractionRegistry:
         self._tools["validate_contract_alignment"] = ExtractionToolSpec(
             name="validate_contract_alignment",
             description="Validate cross-project contract alignment (lousardzag vs. WesternArmenianLLM)",
-            module="lousardzag.07-tools.extraction.validate_contract_alignment",
+            module="armenian_corpus_core.extraction.validate_contract_alignment",
             function="main",
             inputs=["export_lexicon_entries.jsonl", "export_document_records.jsonl", "WA_migration_exports/"],
             outputs=["contract_alignment_report.json"],
@@ -90,7 +90,7 @@ class ExtractionRegistry:
         self._tools["ingest_wa_fingerprints_to_contracts"] = ExtractionToolSpec(
             name="ingest_wa_fingerprints_to_contracts",
             description="Convert WesternArmenianLLM corpus fingerprints to DocumentRecord contracts",
-            module="lousardzag.07-tools.extraction.ingest_wa_fingerprints_to_contracts",
+            module="armenian_corpus_core.extraction.ingest_wa_fingerprints_to_contracts",
             function="main",
             inputs=["wa_fingerprints.csv"],
             outputs=["wa_fingerprint_document_records.jsonl"],
@@ -104,7 +104,7 @@ class ExtractionRegistry:
         self._tools["merge_document_records"] = ExtractionToolSpec(
             name="merge_document_records",
             description="Merge and deduplicate DocumentRecord JSONL files (basic)",
-            module="lousardzag.07-tools.extraction.merge_document_records",
+            module="armenian_corpus_core.extraction.merge_document_records",
             function="main",
             inputs=["export_document_records.jsonl", "wa_fingerprint_document_records.jsonl"],
             outputs=["unified_document_records.jsonl"],
@@ -118,7 +118,7 @@ class ExtractionRegistry:
         self._tools["extract_fingerprint_index"] = ExtractionToolSpec(
             name="extract_fingerprint_index",
             description="Separate fingerprint-only records from content-bearing records",
-            module="lousardzag.07-tools.extraction.extract_fingerprint_index",
+            module="armenian_corpus_core.extraction.extract_fingerprint_index",
             function="main",
             inputs=["unified_document_records.jsonl"],
             outputs=["unified_document_records_content_only.jsonl", "unified_document_records_fingerprint_index.jsonl"],
@@ -132,7 +132,7 @@ class ExtractionRegistry:
         self._tools["materialize_dialect_views"] = ExtractionToolSpec(
             name="materialize_dialect_views",
             description="Create dialect-specific materialized views (WA, EA, MIXED)",
-            module="lousardzag.07-tools.extraction.materialize_dialect_views",
+            module="armenian_corpus_core.extraction.materialize_dialect_views",
             function="main",
             inputs=["unified_document_records.jsonl"],
             outputs=["materialized_wa_documents.jsonl", "materialized_ea_documents.jsonl", "materialized_mixed_documents.jsonl"],
@@ -146,7 +146,7 @@ class ExtractionRegistry:
         self._tools["merge_document_records_with_profiles"] = ExtractionToolSpec(
             name="merge_document_records_with_profiles",
             description="Merge with configurable conflict resolution profiles (app-ready, corpus-ready)",
-            module="lousardzag.07-tools.extraction.merge_document_records_with_profiles",
+            module="armenian_corpus_core.extraction.merge_document_records_with_profiles",
             function="main",
             inputs=["export_document_records.jsonl", "wa_fingerprint_document_records.jsonl"],
             outputs=["unified_document_records_app-ready.jsonl", "unified_document_records_corpus-ready.jsonl"],
@@ -160,7 +160,7 @@ class ExtractionRegistry:
         self._tools["summarize_unified_documents"] = ExtractionToolSpec(
             name="summarize_unified_documents",
             description="Generate summary statistics and metrics for unified document corpus",
-            module="lousardzag.07-tools.extraction.summarize_unified_documents",
+            module="armenian_corpus_core.extraction.summarize_unified_documents",
             function="main",
             inputs=["unified_document_records.jsonl"],
             outputs=["corpus_summary_report.json", "statistics_by_dialect.json"],

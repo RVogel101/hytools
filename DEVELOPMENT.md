@@ -127,7 +127,7 @@ cd C:\Users\litni\OneDrive\Documents\anki\lousardzag
 python -m armenian_corpus_core.extraction.run_extraction_pipeline --project lousardzag
 
 # Or run directly
-python ../../armenian-corpus-core/extraction/run_extraction_pipeline.py --project lousardzag
+python ../../armenian-corpus-core/armenian_corpus_core/extraction/run_extraction_pipeline.py --project lousardzag
 ```
 
 ---
@@ -172,7 +172,7 @@ This link allows `import armenian_corpus_core` from anywhere.
 
 ### Making Changes
 
-1. **Modify files** in `armenian-corpus-core/extraction/`
+1. **Modify files** in `armenian-corpus-core/armenian_corpus_core/`
 2. **No reinstall needed**—editable install detects changes automatically
 3. **Test immediately**:
    ```bash
@@ -315,7 +315,7 @@ python -c "from armenian_corpus_core.extraction.registry import get_registry; pr
 
 GitHub Actions will:
 1. Check out the lousardzag repo
-2. See the extraction tools in `07-tools/extraction/`
+2. See the extraction tools in `armenian_corpus_core/extraction/`
 3. Run them with the orchestration CLI
 4. Pass environment variable `LOUSARDZAG_USE_CENTRAL_PACKAGE=1` if installed
 5. Fall back to local tools if central package not available

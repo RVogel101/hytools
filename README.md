@@ -18,20 +18,26 @@ Central package for canonical Armenian language corpus contracts, extraction, an
 
 ```
 armenian-corpus-core/
-├── __init__.py                 # Package metadata
-├── pyproject.toml             # Build configuration
-├── extraction/
-│   ├── __init__.py
-│   ├── registry.py            # Tool registry & invocation interface
-│   ├── run_extraction_pipeline.py  # Orchestration script
-│   ├── export_core_contracts_jsonl.py (Batch 2)
-│   ├── validate_contract_alignment.py (Batch 3)
-│   ├── ingest_wa_fingerprints_to_contracts.py (Batch 4)
-│   ├── merge_document_records.py (Batch 5)
-│   ├── merge_document_records_with_profiles.py (Batch 6)
-│   ├── extract_fingerprint_index.py (Batch 6)
-│   ├── materialize_dialect_views.py (Batch 6)
-│   └── summarize_unified_documents.py (Batch 5)
+├── pyproject.toml              # Build configuration
+├── armenian_corpus_core/
+│   ├── __init__.py             # Package metadata
+│   ├── core_contracts/
+│   │   ├── __init__.py
+│   │   ├── types.py            # DocumentRecord, LexiconEntry, PhoneticResult
+│   │   └── hashing.py          # NFKC normalization and hashing helpers
+│   └── extraction/
+│       ├── __init__.py
+│       ├── registry.py         # Tool registry & invocation interface
+│       ├── run_extraction_pipeline.py  # Orchestration script
+│       ├── mappers.py
+│       ├── export_core_contracts_jsonl.py (Batch 2)
+│       ├── validate_contract_alignment.py (Batch 3)
+│       ├── ingest_wa_fingerprints_to_contracts.py (Batch 4)
+│       ├── merge_document_records.py (Batch 5)
+│       ├── merge_document_records_with_profiles.py (Batch 6)
+│       ├── extract_fingerprint_index.py (Batch 6)
+│       ├── materialize_dialect_views.py (Batch 6)
+│       └── summarize_unified_documents.py (Batch 5)
 └── README.md (this file)
 ```
 
@@ -168,15 +174,13 @@ python -m armenian_corpus_core.extraction.summarize_unified_documents \
 ```bash
 # Run entire pipeline
 cd /path/to/lousardzag
-python ../../armenian-corpus-core/extraction/run_extraction_pipeline.py \
-  --project lousardzag
+python -m armenian_corpus_core.extraction.run_extraction_pipeline --project lousardzag
 
 # Dry-run (show what would execute)
-python ../../armenian-corpus-core/extraction/run_extraction_pipeline.py \
-  --project lousardzag --dry-run
+python -m armenian_corpus_core.extraction.run_extraction_pipeline --project lousardzag --dry-run
 
 # Skip specific tools
-python ../../armenian-corpus-core/extraction/run_extraction_pipeline.py \
+python -m armenian_corpus_core.extraction.run_extraction_pipeline \
   --project lousardzag \
   --skip validate_contract_alignment \
   --skip ingest_wa_fingerprints_to_contracts
@@ -271,14 +275,13 @@ for tool in pipeline:
 Update `lousardzag` to use the central package:
 
 ```python
-# Before (local contracts)
-from lousardzag.core_contracts import DocumentRecord, LexiconEntry
+# Preferred (central package contracts)
+from armenian_corpus_core.core_contracts import DocumentRecord, LexiconEntry
 
-# After (central package with fallback)
+# Fallback (if central package not installed)
 try:
-    from armenian_corpus_core.contracts import DocumentRecord, LexiconEntry
+  from armenian_corpus_core.core_contracts import DocumentRecord, LexiconEntry
 except ImportError:
-    # Fallback to local if central package not installed
     from lousardzag.core_contracts import DocumentRecord, LexiconEntry
 ```
 
@@ -312,8 +315,8 @@ pytest tests/
 
 ### Code Quality
 ```bash
-black extraction/ && isort extraction/
-mypy extraction/
+black armenian_corpus_core/ && isort armenian_corpus_core/
+mypy armenian_corpus_core/
 ```
 
 ---
@@ -357,22 +360,27 @@ mypy extraction/
 ## File Manifest
 
 **Package Files**:
-- `__init__.py` — Package metadata and version
+- `armenian_corpus_core/__init__.py` — Package metadata and version
 - `setup.py` — setuptools installation configuration
 - `pyproject.toml` — Modern Python packaging (PEP 517)
 
+**Core Contracts**:
+- `armenian_corpus_core/core_contracts/__init__.py` — Contract exports
+- `armenian_corpus_core/core_contracts/types.py` — Domain dataclasses
+- `armenian_corpus_core/core_contracts/hashing.py` — Text normalization and hash helpers
+
 **Extraction Tools**:
-- `extraction/__init__.py` — Module exports
-- `extraction/registry.py` — Tool registry and discovery
-- `extraction/run_extraction_pipeline.py` — Orchestration CLI
-- `extraction/export_core_contracts_jsonl.py` (Batch 2)
-- `extraction/validate_contract_alignment.py` (Batch 3)
-- `extraction/ingest_wa_fingerprints_to_contracts.py` (Batch 4)
-- `extraction/merge_document_records.py` (Batch 5)
-- `extraction/merge_document_records_with_profiles.py` (Batch 6)
-- `extraction/extract_fingerprint_index.py` (Batch 6)
-- `extraction/materialize_dialect_views.py` (Batch 6)
-- `extraction/summarize_unified_documents.py` (Batch 5)
+- `armenian_corpus_core/extraction/__init__.py` — Module exports
+- `armenian_corpus_core/extraction/registry.py` — Tool registry and discovery
+- `armenian_corpus_core/extraction/run_extraction_pipeline.py` — Orchestration CLI
+- `armenian_corpus_core/extraction/export_core_contracts_jsonl.py` (Batch 2)
+- `armenian_corpus_core/extraction/validate_contract_alignment.py` (Batch 3)
+- `armenian_corpus_core/extraction/ingest_wa_fingerprints_to_contracts.py` (Batch 4)
+- `armenian_corpus_core/extraction/merge_document_records.py` (Batch 5)
+- `armenian_corpus_core/extraction/merge_document_records_with_profiles.py` (Batch 6)
+- `armenian_corpus_core/extraction/extract_fingerprint_index.py` (Batch 6)
+- `armenian_corpus_core/extraction/materialize_dialect_views.py` (Batch 6)
+- `armenian_corpus_core/extraction/summarize_unified_documents.py` (Batch 5)
 
 ---
 

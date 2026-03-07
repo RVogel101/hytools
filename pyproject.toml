@@ -36,8 +36,9 @@ dev = [
 Repository = "https://github.com/lousardzag/armenian-corpus-core"
 Documentation = "https://github.com/lousardzag/armenian-corpus-core/wiki"
 
-[tool.setuptools]
-packages = ["armenian_corpus_core"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["armenian_corpus_core*"]
 
 [tool.setuptools.package-data]
 armenian_corpus_core = ["py.typed"]
