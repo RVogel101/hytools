@@ -91,5 +91,5 @@ Write-Host "    python -c 'from lousardzag.core_adapters import get_extraction_r
 Write-Host ""
 Write-Host "3. Run the extraction pipeline:" -ForegroundColor Cyan
 Write-Host "    cd ../lousardzag" -ForegroundColor Gray
-Write-Host "    python ../armenian-corpus-core/extraction/run_extraction_pipeline.py --project lousardzag" -ForegroundColor Gray
+Write-Host "    python -m armenian_corpus_core.extraction.run_extraction_pipeline --project lousardzag" -ForegroundColor Gray
 Write-Host ""
