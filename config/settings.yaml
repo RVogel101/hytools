@@ -81,15 +81,21 @@ scraping:
     enabled: true
   dpla:
     enabled: true
-    api_key: "32cd53527e1e313de67b800c18e98f15"   # optional: or set via env DPLA_API_KEY
+    api_key: "DPLA_API_KEY"   # set env DPLA_API_KEY to your key; this placeholder means "read from env"
   newspapers:
     enabled: true
+    # Historical crawler (diaspora newspapers: Aztag, Horizon, Asbarez).
+    # max_pages: 0    # 0 = no explicit cap; crawler stops when listing pages are empty (uses a high internal ceiling)
+    # max_articles_per_source: 0  # 0 = no per-source cap; rely on site pagination to stop
   nayiri:
     enabled: true
   eastern_armenian:
     enabled: true
+    # Historical crawler (Republic / EA agencies: Armenpress, A1+, Armtimes, Aravot).
+    # max_articles_per_agency: 0  # 0 = no cap; crawler stops when feeds + fallback listing pages are exhausted
   rss_news:
     enabled: true
+    # populate_catalog: true  # when true: (1) update news_article_catalog from all RSS (one doc per URL; language_code, content_type, writing_category; sources/feed_urls arrays), (2) scrape each new article, insert into documents with same tags, set catalog.document_id. One process, no duplicate full articles. See docs/concept_guides/NEWS_AND_RSS_CATALOG.md.
   english_sources:
     enabled: true
   cleaning:

@@ -570,6 +570,12 @@ def split_issue_into_articles(
 ) -> List[ArticleChunk]:
     """Split a full-issue OCR blob into article-like chunks.
 
+    Uses heuristics (header-like lines, dates, section keywords) to find split
+    points. Optionally, callers can use the **news_article_catalog** (MongoDB)
+    to supply known article titles/URLs for the same publication to improve
+    segment boundaries and titles; see ingestion.acquisition.news and
+    FUTURE_IMPROVEMENTS.md.
+
     Parameters
     ----------
     text:

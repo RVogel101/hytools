@@ -504,7 +504,7 @@ class BatchWorker:
             )
 
     def _write_output(self, task: Task, text: str) -> None:
-        """Write augmented text to MongoDB only (no filesystem fallback)."""
+        """Write augmented text to MongoDB only (no filesystem output)."""
         use_mongo = (self.cfg.output_backend or "filesystem").strip().lower() == "mongodb"
         if use_mongo and self._mongo_client is not None:
             try:
@@ -521,7 +521,7 @@ class BatchWorker:
         else:
             raise RuntimeError(
                 "Augmentation output_backend must be 'mongodb'. "
-                "Filesystem output is disabled. Set database.use_mongodb and augmentation.output_backend."
+                "Outputs are stored only in MongoDB. Set database.use_mongodb and augmentation.output_backend."
             )
 
     def _write_summary(self) -> None:

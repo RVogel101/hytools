@@ -106,6 +106,11 @@ class MongoDBCorpusClient:
         return self.db["catalogs"]
 
     @property
+    def news_article_catalog(self) -> Any:
+        """News article catalog: RSS-derived metadata (title, url, summary, source_name, published_at) for scrape targets and splitter hints."""
+        return self.db["news_article_catalog"]
+
+    @property
     def book_inventory(self) -> Any:
         """Get book inventory collection."""
         return self.db["book_inventory"]
@@ -195,6 +200,11 @@ class MongoDBCorpusClient:
         # Catalogs collection (source item metadata for LOC, HathiTrust, etc.)
         self.catalogs.create_index([("source", ASCENDING), ("item_id", ASCENDING)], unique=True)
         self.catalogs.create_index([("source", ASCENDING)])
+
+        # News article catalog (one doc per URL; document_id links to documents)
+        if hasattr(self, "news_article_catalog"):
+            self.news_article_catalog.create_index([("url", ASCENDING)])
+            self.news_article_catalog.create_index([("document_id", ASCENDING)])
 
         # Book inventory
         self.book_inventory.create_index([("title", ASCENDING)])
@@ -573,6 +583,7 @@ class MongoDBCorpusClient:
             title=f"{source_doc}::{strategy}::{paragraph_index}",
             text=text,
             metadata={
+                "language_code": "hyw",  # Western Armenian; required for training pipeline export
                 "augmentation_strategy": strategy,
                 "source_doc": source_doc,
                 "paragraph_index": paragraph_index,

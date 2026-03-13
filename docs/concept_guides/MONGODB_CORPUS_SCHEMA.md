@@ -12,6 +12,7 @@ Full documentation of the MongoDB schema used by armenian-corpus-core. All scrap
 |------------|---------|
 | `documents` | Corpus documents (text, hashes, metadata, processing flags) |
 | `catalogs` | Source catalogs (LOC, HathiTrust, archive_org, Gallica, etc.) |
+| `news_article_catalog` | RSS-derived article metadata (one doc per URL); links to `documents` via `document_id`; tagged with language_code, content_type, writing_category. See [NEWS_AND_RSS_CATALOG.md](NEWS_AND_RSS_CATALOG.md). |
 | `metadata` | Pipeline stage metadata (frequency_aggregator, metadata_tagger runs) |
 | `word_frequencies` | Unified word frequency list (weighted by source) |
 | `word_frequencies_facets` | Per-facet word counts (author, source, dialect, year, region) |
@@ -53,9 +54,11 @@ Corpus documents inserted by scrapers and `insert_or_skip` / `MongoDBCorpusClien
         "dialect_subcategory": str | None,
         "region": str | None,
         "language_code": str | None,    # hyw, hye, hy, xcl (classical), etc.
+        "source_language_codes": list | None,   # from news/RSS catalog when article appears in multiple language feeds
         "source_type": str,
         "source_name": str,
         "content_type": str,
+        "writing_category": str | None,  # e.g. news, analysis, diaspora, international (from RSS/news catalog)
         "confidence_dialect": float,
         "confidence_region": float,
         "enrichment_date": str | None,
@@ -140,6 +143,40 @@ Per-source item catalogs (e.g. LOC item IDs, HathiTrust HTIDs). One document per
 
 - `(source, item_id)` **unique**
 - `(source, 1)`
+
+---
+
+## 2b. `news_article_catalog`
+
+RSS-derived catalog: one document per article URL. Used by the news stage to drive full-article scraping and to avoid duplicate full-text documents. Tagged with **language_code**, **source_language_codes**, **content_type**, **writing_category** for filtering.
+
+### Schema (per article URL)
+
+```python
+{
+    "_id": ObjectId,
+    "url": str,
+    "title": str,
+    "summary": str,
+    "published_at": datetime | None,
+    "category": str,           # news, analysis, diaspora, international, etc.
+    "tags": list,
+    "language_code": str,      # primary; hy, hyw, hye, eng, und
+    "source_language_codes": list,    # all from feeds that referenced this URL
+    "content_type": str,       # "article"
+    "writing_category": str,   # same as category
+    "sources": list,           # RSS source names
+    "feed_urls": list,         # RSS feed URLs
+    "document_id": str | None, # _id of representative document in documents
+}
+```
+
+### Indexes
+
+- `(url, 1)`
+- `(document_id, 1)`
+
+See [NEWS_AND_RSS_CATALOG.md](NEWS_AND_RSS_CATALOG.md) for run instructions and tagging details.
 
 ---
 

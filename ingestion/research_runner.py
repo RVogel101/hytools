@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
 from pathlib import Path
 
 from ingestion.discovery.author_extraction import AuthorExtractor, extract_authors_from_corpus
@@ -24,12 +25,13 @@ from ingestion._shared.research_config import get_research_config
 logger = logging.getLogger(__name__)
 
 
-def setup_logging(debug: bool = False):
-    """Setup logging configuration."""
+def setup_logging(debug: bool = False) -> None:
+    """Setup logging configuration for terminal progress and future debugging."""
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
         level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
 
@@ -43,6 +45,7 @@ def run_extraction_phase(
 
     Uses centralized research config (exclude_dirs, error_threshold_pct).
     """
+    phase_start = time.perf_counter()
     logger.info("=" * 60)
     logger.info("PHASE 1: AUTHOR EXTRACTION")
     logger.info("=" * 60)
@@ -51,7 +54,15 @@ def run_extraction_phase(
     exclude_dirs = research_cfg["exclude_dirs"]
     metadata_patterns = research_cfg["metadata_patterns"]
     error_threshold_pct = research_cfg["error_threshold_pct"]
+    logger.info(
+        "Config: corpus_dir=%s, exclude_dirs=%s, metadata_patterns=%s, error_threshold_pct=%s",
+        corpus_dir,
+        exclude_dirs,
+        metadata_patterns,
+        error_threshold_pct,
+    )
 
+    logger.info("Extracting authors from corpus (inventory + metadata + text patterns)...")
     extracted, error_count, total_processed = extract_authors_from_corpus(
         corpus_dir=corpus_dir,
         inventory_file=inventory_file,
@@ -70,25 +81,25 @@ def run_extraction_phase(
             )
         logger.info(f"Extraction errors: {error_count}/{total_processed} ({error_rate:.1f}%)")
 
-    logger.info(f"Extracted {len(extracted)} unique authors")
-    
-    # Create profiles
+    logger.info("Extraction complete: %d unique authors, %d errors in %d processed sources", len(extracted), error_count, total_processed)
+
+    logger.info("Creating author profiles (min_confidence=0.6)...")
     extractor = AuthorExtractor()
     profiles = extractor.create_author_profiles(extracted, min_confidence=0.6)
-    
-    # Add to manager (uses MongoDB when config has database.mongodb_uri)
+    logger.info("Created %d author profiles from %d extractions", len(profiles), len(extracted))
+
+    logger.info("Initializing AuthorProfileManager and persisting profiles...")
     manager = AuthorProfileManager(
         profiles_file=str(output_dir / "author_profiles.jsonl"),
         config=config or {},
     )
-    
     for profile in profiles:
         manager.add_profile(profile)
-    
-    # Save
-    manager.save_profiles()
-    
-    logger.info(f"Created {len(profiles)} author profiles")
+    saved = manager.save_profiles()
+    logger.info("Profiles persisted: %d saved", saved)
+
+    elapsed = time.perf_counter() - phase_start
+    logger.info("PHASE 1 complete in %.2f s | authors=%d, profiles=%d", elapsed, len(extracted), len(profiles))
     return manager
 
 
@@ -107,43 +118,45 @@ def run_enrichment_phase(
     Returns:
         Updated AuthorProfileManager
     """
+    phase_start = time.perf_counter()
     logger.info("=" * 60)
     logger.info("PHASE 2: BIOGRAPHY ENRICHMENT")
     logger.info("=" * 60)
-    
-    # First, enrich from manual database
+    logger.info("Total profiles to process: %d (Wikipedia lookups max=%d)", len(manager.profiles), max_lookups)
+
+    logger.info("Enriching from manual biography database...")
+    manual_count = 0
     for profile_id, profile in manager.profiles.items():
         enriched = ManualBiographyDatabase.enrich_from_manual_data(profile)
+        if enriched != profile:
+            manual_count += 1
         manager.profiles[profile_id] = enriched
-    
-    # Then Wikipedia (if requested)
+    logger.info("Manual enrichment: updated %d profiles", manual_count)
+
     if use_wikipedia:
-        enricher = BiographyEnricher()
-        
-        # Get profiles that need enrichment
         to_enrich = [
             p for p in manager.profiles.values()
             if not p.birth_year or not p.writing_period_start
         ]
-        
-        logger.info(f"Enriching {min(len(to_enrich), max_lookups)} profiles from Wikipedia")
-        
+        batch_size = min(len(to_enrich), max_lookups)
+        logger.info("Enriching %d profiles from Wikipedia (capped at %d)...", len(to_enrich), batch_size)
+        enricher = BiographyEnricher()
         enriched_profiles = enricher.enrich_batch(
             to_enrich[:max_lookups],
             max_profiles=max_lookups,
         )
-        
-        # Update manager
         for profile in enriched_profiles:
             manager.profiles[profile.author_id] = profile
-    
-    # Save updated profiles
-    manager.save_profiles()
-    
-    # Statistics
+        logger.info("Wikipedia enrichment batch complete")
+    else:
+        logger.info("Wikipedia enrichment skipped (use_wikipedia=False)")
+
+    logger.info("Saving updated profiles...")
+    saved = manager.save_profiles()
+    logger.info("Profiles saved: %d", saved)
     complete_profiles = len([p for p in manager.profiles.values() if p.profile_complete])
-    logger.info(f"Enriched profiles: {complete_profiles}/{len(manager.profiles)} complete")
-    
+    elapsed = time.perf_counter() - phase_start
+    logger.info("PHASE 2 complete in %.2f s | complete=%d/%d", elapsed, complete_profiles, len(manager.profiles))
     return manager
 
 
@@ -159,25 +172,31 @@ def run_timeline_phase(
         output_dir: Output directory (unused; retained for API compatibility)
         config: Pipeline config for MongoDB persistence
     """
+    phase_start = time.perf_counter()
     logger.info("=" * 60)
     logger.info("PHASE 3: TIMELINE GENERATION")
     logger.info("=" * 60)
-    
+    logger.info("Authors in manager: %d", len(manager.profiles))
+
     generator = TimelineGenerator(manager)
-    
+    logger.info("Exporting timeline (include_historical=True)...")
     n = generator.export_timeline_json(include_historical=True, config=config)
-    logger.info("Timeline: %s", "saved to MongoDB" if n else "not persisted (no MongoDB)")
-    
+    logger.info("Timeline: %s (%d events)", "saved to MongoDB" if n else "not persisted (no MongoDB)", n or 0)
+
+    logger.info("Exporting period analysis CSV...")
     n = generator.export_period_analysis_csv(config=config)
     logger.info("Period analysis: %s", "saved to MongoDB" if n else "not persisted (no MongoDB)")
-    
+
+    logger.info("Exporting generation report...")
     n = generator.export_generation_report(config=config)
     logger.info("Generation report: %s", "saved to MongoDB" if n else "not persisted (no MongoDB)")
-    
+
     periods = generator.generate_period_analysis(decade_grouping=True)
     logger.info("Authors by period:")
     for period in sorted(periods.keys()):
         logger.info("  %s: %d authors", period, len(periods[period]))
+    elapsed = time.perf_counter() - phase_start
+    logger.info("PHASE 3 complete in %.2f s", elapsed)
 
 
 def run_coverage_phase(
@@ -194,35 +213,39 @@ def run_coverage_phase(
         output_dir: Output directory
         config: Optional config dict (for MongoDB)
     """
+    phase_start = time.perf_counter()
     logger.info("=" * 60)
     logger.info("PHASE 4: COVERAGE ANALYSIS")
     logger.info("=" * 60)
-    
-    # Load inventory (uses MongoDB when config has database.mongodb_uri)
+
+    logger.info("Loading book inventory from %s...", inventory_file)
     inventory_manager = BookInventoryManager(
         inventory_file=str(inventory_file),
         config=config or {},
     )
-    
+    logger.info("Inventory loaded: %d books", len(inventory_manager.books))
+
     analyzer = CoverageAnalyzer(manager, inventory_manager)
-    
-    n = analyzer.export_gaps_report(config=config)
-    logger.info("Coverage gaps: %s", "saved to MongoDB" if n else "not persisted (no MongoDB)")
-    
-    n = analyzer.export_priority_checklist(config=config)
-    logger.info("Acquisition priorities (all + high/medium/low): %s", "saved to MongoDB" if n else "not persisted (no MongoDB)")
-    
-    # Print summary
+    logger.info("Generating comprehensive coverage analysis...")
     gaps = analyzer.generate_comprehensive_analysis()
     high_priority = [g for g in gaps if g.priority == "high"]
-    
-    logger.info(f"\nCoverage Analysis Summary:")
-    logger.info(f"  Total gaps identified: {len(gaps)}")
-    logger.info(f"  High priority: {len(high_priority)}")
-    logger.info(f"  Top 5 priorities:")
-    
+    logger.info("Analysis complete: %d total gaps, %d high priority", len(gaps), len(high_priority))
+
+    logger.info("Exporting coverage gaps report...")
+    n = analyzer.export_gaps_report(config=config)
+    logger.info("Coverage gaps: %s", "saved to MongoDB" if n else "not persisted (no MongoDB)")
+
+    logger.info("Exporting acquisition priority checklist...")
+    n = analyzer.export_priority_checklist(config=config)
+    logger.info("Acquisition priorities: %s", "saved to MongoDB" if n else "not persisted (no MongoDB)")
+
+    logger.info("Coverage analysis summary:")
+    logger.info("  Total gaps: %d | high: %d | medium/low: %d", len(gaps), len(high_priority), len(gaps) - len(high_priority))
+    logger.info("  Top 5 priorities:")
     for gap in gaps[:5]:
-        logger.info(f"    [{gap.priority}] {gap.description}")
+        logger.info("    [%s] %s", gap.priority, gap.description)
+    elapsed = time.perf_counter() - phase_start
+    logger.info("PHASE 4 complete in %.2f s", elapsed)
 
 
 def main():
@@ -296,32 +319,38 @@ def main():
     )
     
     args = parser.parse_args()
-    
+
     setup_logging(debug=args.debug)
-    
-    # Load config for MongoDB
+    pipeline_start = time.perf_counter()
+
+    logger.info("Starting author research pipeline")
     cfg = {}
     config_path = args.config or Path("config/settings.yaml")
     if config_path.exists():
-        import yaml
-        with open(config_path, encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
-    
-    # When using MongoDB, direct file exports to log_dir (zero local storage)
+        try:
+            import yaml
+            with open(config_path, encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            logger.info("Loaded config from %s", config_path)
+        except Exception as e:
+            logger.warning("Could not load config %s: %s; using defaults", config_path, e)
+    else:
+        logger.info("No config file at %s; using defaults", config_path)
+
     use_mongodb = bool(cfg.get("database", {}).get("mongodb_uri") or cfg.get("database", {}).get("use_mongodb"))
     if use_mongodb:
         output_dir = Path(cfg.get("paths", {}).get("log_dir", "data/logs"))
+        logger.info("Using MongoDB for persistence; output_dir=%s", output_dir)
     else:
         output_dir = args.output_dir
+        logger.info("MongoDB not configured; using local output_dir=%s", output_dir)
 
-    logger.info("Starting author research pipeline")
-    logger.info(f"Corpus: {args.corpus_dir}")
-    logger.info(f"Inventory: {args.inventory_file}")
-    logger.info(f"Output: {output_dir}")
-    
-    # Create output directory
+    logger.info("Pipeline inputs: corpus_dir=%s, inventory_file=%s", args.corpus_dir, args.inventory_file)
+    logger.info("Skip flags: extraction=%s, enrichment=%s, timeline=%s, coverage=%s",
+                args.skip_extraction, args.skip_enrichment, args.skip_timeline, args.skip_coverage)
+
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Phase 1: Extraction
     if not args.skip_extraction:
         manager = run_extraction_phase(
@@ -331,13 +360,12 @@ def main():
             config=cfg,
         )
     else:
-        # Load existing profiles (from MongoDB or JSONL)
-        logger.info("Loading existing author profiles...")
+        logger.info("Skipping extraction; loading existing author profiles...")
         manager = AuthorProfileManager(
             profiles_file=str(args.output_dir / "author_profiles.jsonl"),
             config=cfg,
         )
-        logger.info(f"Loaded {len(manager.profiles)} profiles")
+        logger.info("Loaded %d existing profiles", len(manager.profiles))
     
     # Phase 2: Enrichment
     if not args.skip_enrichment:
@@ -364,11 +392,27 @@ def main():
             config=cfg,
         )
     
+    total_elapsed = time.perf_counter() - pipeline_start
     logger.info("=" * 60)
     logger.info("PIPELINE COMPLETE")
     logger.info("=" * 60)
-    logger.info("All author research outputs stored in MongoDB (no local files).")
+    logger.info(
+        "Total time: %.2f s | profiles=%d | outputs in MongoDB",
+        total_elapsed,
+        len(manager.profiles),
+    )
+    if use_mongodb:
+        logger.info("All author research outputs stored in MongoDB (no local files).")
+
+
+def main_with_logging() -> None:
+    """Entry point that catches and logs any unhandled exception for debugging."""
+    try:
+        main()
+    except Exception as e:
+        logger.exception("Pipeline failed: %s", e)
+        raise
 
 
 if __name__ == "__main__":
-    main()
+    main_with_logging()

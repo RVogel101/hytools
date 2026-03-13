@@ -7,6 +7,7 @@
 - docs/armenian_language_guids/ — WA phonetics, grammar, orthography (authoritative for transliteration)
 - docs/development/DEVELOPMENT.md
 - docs/STRUCTURE.md — Package layout and module roles (refactoring reference)
+- docs/concept_guides/NEWS_AND_RSS_CATALOG.md — News/RSS catalog schema, tagging (language_code, content_type, writing_category), and how to run the news stage
 - docs/FUTURE_IMPROVEMENTS.md
 - docs/IMPLEMENTATION_HISTORY.md — Implemented features (audit record)
 - docs/TEST_RUN_CHECKLIST.md — First test run: prerequisites, ready-to-test stages, commands

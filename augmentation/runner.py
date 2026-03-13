@@ -20,6 +20,7 @@ Usage
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 import os
@@ -129,6 +130,28 @@ def _load_config() -> tuple[WorkerConfig, LLMConfig]:
         max_delay=llm_cfg.get("max_delay", 60.0),
         jitter=llm_cfg.get("jitter", 0.25),
     )
+
+    # Allow external callers (e.g. WesternArmenianLLM prepare_training_data) to override
+    # source dir and MongoDB via environment; output always stays MongoDB.
+    ext_src = os.environ.get("AUGMENTATION_SOURCE_DIR", "").strip()
+    if ext_src:
+        worker = dataclasses.replace(
+            worker,
+            source_backend="filesystem",
+            source_dir=Path(ext_src).resolve(),
+        )
+        logger.info("Using external source path: %s (output: MongoDB)", worker.source_dir)
+
+    ext_uri = os.environ.get("AUGMENTATION_MONGODB_URI", "").strip()
+    ext_db = os.environ.get("AUGMENTATION_MONGODB_DATABASE", "").strip()
+    if ext_uri or ext_db:
+        overrides = {}
+        if ext_uri:
+            overrides["mongodb_uri"] = ext_uri
+        if ext_db:
+            overrides["mongodb_database"] = ext_db
+        worker = dataclasses.replace(worker, **overrides)
+        logger.info("Using external MongoDB: uri=%s, database=%s", ext_uri or "(from config)", ext_db or "(from config)")
 
     return worker, llm
 

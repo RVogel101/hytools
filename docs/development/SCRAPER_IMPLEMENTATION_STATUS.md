@@ -43,6 +43,11 @@
 - **Gallica:** SRU API; catalog refresh; MongoDB-only. See [DATA_SOURCES_API_REFERENCE.md](../DATA_SOURCES_API_REFERENCE.md)
 - **DPLA:** REST v2; API key required; implemented in `scraping/dpla.py`. See [DATA_SOURCES_API_REFERENCE.md](../DATA_SOURCES_API_REFERENCE.md)
 
+### News (newspapers, RSS, Eastern Armenian)
+
+- **Diaspora newspapers (Aztag, Horizon, Asbarez):** `ingestion.acquisition.news`; Selenium-based. **Asbarez (asbarez.com):** If requests fail or pages do not load, try disabling VPN; the site may block or throttle VPN IPs. (Needs verification.)
+- **RSS news:** Single process when `populate_catalog` is true (default): (1) Update **news_article_catalog** from all RSS feeds — one catalog document per article URL, with `sources` and `feed_urls` arrays when the same URL appears in multiple feeds. Catalog and resulting documents are tagged with **language_code**, **source_language_codes**, **content_type** (`article`), and **writing_category** (e.g. news, analysis, diaspora, international). (2) For each catalog entry without a `document_id`, fetch full article, insert into **documents** (standard enrichment runs), and set `catalog.document_id` to the representative document. No duplicate full articles; catalog holds a meta link to the document. See [NEWS_AND_RSS_CATALOG.md](../concept_guides/NEWS_AND_RSS_CATALOG.md) for schema, tagging, and run instructions.
+
 ### Wikimedia, news, datasets, reference
 
 - **wikipedia_wa / wikipedia_ea / wikisource:** Stream or API → MongoDB

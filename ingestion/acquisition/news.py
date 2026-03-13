@@ -5,6 +5,12 @@ Combines:
 - Eastern Armenian news agencies (Armenpress, A1+, Armtimes, Aravot) — RSS/HTML
 - RSS news (Armenian + international keyword-filtered feeds)
 
+RSS feeds typically do **not** contain the full article text: they provide title, link,
+description/summary, and often pubDate. Full text is obtained by following the article URL.
+The news pipeline can (1) populate a separate **news_article_catalog** in MongoDB from all
+RSS entries (title, url, summary, source_name, published_at) and (2) use that catalog to
+drive full-article scraping and to inform the newspaper splitter helper (split_issue_into_articles).
+
 Entry point: run(config). Uses a single MongoDB client for all three sub-runners.
 """
 
@@ -35,6 +41,112 @@ _REQUEST_DELAY = 2.0  # seconds between requests
 def _armenian_char_count(text: str) -> int:
     """Count Armenian script characters (U+0530–U+058F). Shared by newspaper and ea_news."""
     return sum(1 for c in text if "\u0530" <= c <= "\u058F")
+
+
+@dataclass
+class ArticleRecord:
+    """Standardized article record for crawlers → Mongo (catalog + documents)."""
+
+    source_id: str
+    url: str
+    title: str
+    text: str
+    publication_date: Optional[str] = None
+    category: Optional[str] = None
+    language_code: str = "und"
+    content_type: str = "article"
+    writing_category: Optional[str] = None
+
+
+def _upsert_article_from_record(
+    record: ArticleRecord,
+    client,
+    config: dict | None = None,
+) -> bool:
+    """Upsert article into news_article_catalog and documents; return True if inserted."""
+    from ingestion._shared.helpers import insert_or_skip
+
+    if client is None:
+        return False
+
+    cfg = config or {}
+    catalog = getattr(client, "news_article_catalog", None)
+    language_code = (record.language_code or "und").strip() or "und"
+    writing_category = record.writing_category or record.category or "news"
+
+    if catalog is not None and record.url:
+        add_to_set = {
+            "sources": record.source_id,
+            "source_language_codes": language_code,
+        }
+        try:
+            catalog.update_one(
+                {"url": record.url},
+                {
+                    "$setOnInsert": {
+                        "url": record.url,
+                        "title": record.title,
+                        "summary": None,
+                        "published_at": record.publication_date,
+                        "category": record.category or writing_category,
+                        "tags": [],
+                        "language_code": language_code,
+                        "source_language_codes": [language_code],
+                        "content_type": record.content_type,
+                        "writing_category": writing_category,
+                        "document_id": None,
+                    },
+                    "$addToSet": add_to_set,
+                },
+                upsert=True,
+            )
+        except Exception:
+            logger.debug("Catalog upsert failed for %s", record.url)
+
+    meta = {
+        "source_type": "news",
+        "category": record.category or writing_category,
+        "published_at": record.publication_date,
+        "tags": [],
+        "rss_sources": [record.source_id],
+        "language_code": language_code,
+        "source_language_codes": [language_code],
+        "content_type": record.content_type,
+        "writing_category": writing_category,
+    }
+
+    inserted = insert_or_skip(
+        client,
+        source=record.source_id,
+        title=record.title,
+        text=record.text,
+        url=record.url,
+        metadata=meta,
+        config=cfg,
+    )
+
+    if not inserted:
+        return False
+
+    if catalog is not None and record.url:
+        try:
+            doc = client.documents.find_one({"metadata.url": record.url}, {"_id": 1})
+            if doc:
+                from bson import ObjectId  # type: ignore[reportMissingImports]
+
+                doc_id = doc["_id"]
+                catalog.update_one(
+                    {"url": record.url},
+                    {
+                        "$set": {
+                            "document_id": str(doc_id) if isinstance(doc_id, ObjectId) else doc_id
+                        }
+                    },
+                )
+        except Exception:
+            logger.debug("Could not set document_id for %s", record.url)
+
+    return True
 
 
 # --- Diaspora newspapers (ex newspaper.py) ---
@@ -94,7 +206,9 @@ AZTAG = NewspaperSource(
 HORIZON = NewspaperSource(
     name="horizon",
     base_url="https://horizonweekly.ca",
-    listing_url_template="https://horizonweekly.ca/en/category/news/page/{page}",
+    # Prefer Armenian content when available: use root/category paths instead of /en/.
+    # Horizon has language filters (including Հայերէն) on the news listing pages.
+    listing_url_template="https://horizonweekly.ca/category/news/page/{page}",
     article_link_selectors=[
         "h2 a",
         ".entry-title a",
@@ -116,8 +230,9 @@ HORIZON = NewspaperSource(
 
 ASBAREZ = NewspaperSource(
     name="asbarez",
-    base_url="https://asbarez.com",
-    listing_url_template="https://asbarez.com/category/armenia/page/{page}",
+    # Prefer Armenian site when available (asbarez.am serves Armenian content).
+    base_url="https://asbarez.am",
+    listing_url_template="https://asbarez.am/page/{page}",
     article_link_selectors=[
         "h2 a",
         ".entry-title a",
@@ -209,7 +324,8 @@ def _collect_article_urls(driver, source: NewspaperSource) -> list[str]:
     all_urls: list[str] = []
     seen: set[str] = set()
 
-    for page_num in range(1, source.max_pages + 1):
+    max_pages = source.max_pages or 10_000
+    for page_num in range(1, max_pages + 1):
         url = source.listing_url_template.format(page=page_num)
         logger.info("  Listing page %d: %s", page_num, url)
         try:
@@ -279,6 +395,7 @@ def _extract_article_text(driver, url: str, source: NewspaperSource) -> str:
     """Load an article URL and extract body text from <p> tags."""
     from selenium.webdriver.common.by import By
 
+    logger.debug("Newspaper crawler: fetching article %s", url)
     driver.get(url)
     time.sleep(_REQUEST_DELAY)
 
@@ -293,6 +410,8 @@ def _extract_article_text(driver, url: str, source: NewspaperSource) -> str:
         except Exception:
             continue
 
+    if not paragraphs:
+        logger.warning("Newspaper crawler: no paragraphs extracted for %s (source=%s)", url, source.name)
     return "\n\n".join(paragraphs)
 
 
@@ -303,9 +422,8 @@ def _scrape_newspaper_source(
     min_armenian_chars: int = _MIN_ARMENIAN_CHARS,
     validate_wa: bool = False,
     config: dict | None = None,
-) -> int:
-    """Scrape articles from a single newspaper source and insert into MongoDB. Returns new count."""
-    from ingestion._shared.helpers import insert_or_skip
+) -> list[ArticleRecord]:
+    """Scrape articles from a single newspaper source and return ArticleRecord list."""
 
     already_scraped = _load_already_scraped_urls(client, source.name)
 
@@ -324,25 +442,30 @@ def _scrape_newspaper_source(
     )
 
     driver = _init_driver()
-    new_count = 0
+    new_records: list[ArticleRecord] = []
     try:
         urls = _collect_article_urls(driver, source)
 
         for url in urls:
             if url in already_scraped:
                 continue
-            if max_articles and new_count >= max_articles:
+            if max_articles > 0 and len(new_records) >= max_articles:
                 break
 
             try:
                 text = _extract_article_text(driver, url, source)
             except Exception as exc:
-                logger.warning("Failed to extract %s: %s", url, exc)
+                logger.warning("Newspaper crawler: failed to extract %s (%s): %s", url, source.name, exc)
                 continue
 
             armenian_chars = _armenian_char_count(text)
             if armenian_chars < min_armenian_chars:
-                logger.debug("Skipping (too few Armenian chars): %s", url)
+                logger.debug(
+                    "Newspaper crawler: skipping (too few Armenian chars %d < %d): %s",
+                    armenian_chars,
+                    min_armenian_chars,
+                    url,
+                )
                 continue
 
             if is_western_armenian is not None:
@@ -354,28 +477,27 @@ def _scrape_newspaper_source(
                     continue
 
             title = url.split("/")[-1] or url
-            if insert_or_skip(
-                client,
-                source=f"newspaper:{source.name}",
+            record = ArticleRecord(
+                source_id=f"newspaper:{source.name}",
+                url=url,
                 title=title,
                 text=text,
-                url=url,
-                metadata={
-                    "source_type": "newspaper",
-                    "armenian_chars": armenian_chars,
-                },
-            ):
-                new_count += 1
-                already_scraped.add(url)
+                publication_date=None,
+                category="diaspora",
+                language_code="hyw",
+                content_type="article",
+                writing_category="diaspora",
+            )
+            new_records.append(record)
 
-            if new_count % 50 == 0:
-                logger.info("  Inserted %d new articles from %s…", new_count, source.name)
+            if len(new_records) % 50 == 0:
+                logger.info("  Discovered %d candidate articles from %s…", len(new_records), source.name)
 
     finally:
         driver.quit()
 
-    logger.info("Inserted %d new articles from %s", new_count, source.name)
-    return new_count
+    logger.info("Discovered %d candidate articles from %s", len(new_records), source.name)
+    return new_records
 
 
 def _run_newspapers(config: dict, client) -> None:
@@ -406,15 +528,19 @@ def _run_newspapers(config: dict, client) -> None:
             allowed_path_prefixes=list(override_cfg.get("allowed_path_prefixes", source.allowed_path_prefixes)),
         )
 
-        inserted = _scrape_newspaper_source(
+        records = _scrape_newspaper_source(
             runtime_source,
-            client,
+            client=client,
             max_articles=int(override_cfg.get("max_articles", default_max_articles)),
             min_armenian_chars=min_armenian_chars,
             validate_wa=validate_wa,
             config=config,
         )
-        logger.info("[%s] MongoDB: %d new articles inserted", source_name, inserted)
+        inserted = 0
+        for record in records:
+            if _upsert_article_from_record(record, client, config=config):
+                inserted += 1
+        logger.info("[%s] MongoDB: %d/%d new articles inserted from %d discovered", source_name, inserted, len(records), len(records))
 
 
 # --- Eastern Armenian news agencies (ex ea_news.py) ---
@@ -689,7 +815,7 @@ def _ea_collect_fallback_article_urls(
             response = requests.get(seed, timeout=timeout, headers=_EA_DEFAULT_HEADERS)
             response.raise_for_status()
         except requests.RequestException as exc:
-            logger.warning("%s fallback seed request failed %s: %s", agency_name, seed, exc)
+            logger.warning("EA crawler: %s fallback seed request failed %s: %s", agency_name, seed, exc)
             continue
 
         urls = _ea_extract_candidate_article_urls(response.text, seed, patterns)
@@ -751,17 +877,20 @@ def _ea_extract_article_page_metadata(html: str) -> dict[str, Optional[str]]:
 def _ea_fetch_article_payload(url: str, timeout: int = 30) -> Optional[dict[str, Optional[str]]]:
     """Fetch article URL and return extracted text + metadata payload."""
     try:
+        logger.debug("EA crawler: fetching article %s", url)
         response = requests.get(url, timeout=timeout, headers=_EA_DEFAULT_HEADERS)
         response.raise_for_status()
     except requests.RequestException as exc:
-        logger.warning("Failed article request %s: %s", url, exc)
+        logger.warning("EA crawler: article request failed %s: %s", url, exc)
         return None
 
     html = response.text
     text = _ea_extract_readable_text(html)
     if len(text) < 250:
+        logger.warning("EA crawler: too-short article (<250 chars) for %s", url)
         return None
     if _armenian_char_count(text) < _MIN_ARMENIAN_CHARS:
+        logger.warning("EA crawler: too few Armenian chars for %s", url)
         return None
 
     meta = _ea_extract_article_page_metadata(html)
@@ -775,12 +904,10 @@ def _ea_fetch_article_payload(url: str, timeout: int = 30) -> Optional[dict[str,
 
 def _scrape_ea_news_agency(
     agency_name: str,
-    client,
     max_articles: int = 500,
     config: dict | None = None,
-) -> tuple[int, int]:
-    """Scrape a single Eastern Armenian news agency. Returns (scraped, inserted)."""
-    from ingestion._shared.helpers import insert_or_skip
+) -> list[ArticleRecord]:
+    """Scrape a single Eastern Armenian news agency and return ArticleRecord list."""
 
     if agency_name not in NEWS_AGENCIES:
         raise ValueError(f"Unknown news agency: {agency_name}")
@@ -795,7 +922,7 @@ def _scrape_ea_news_agency(
     logger.info("Scraping %s news agency from %s...", agency_name, base_url)
 
     scraped = 0
-    inserted = 0
+    records: list[ArticleRecord] = []
     seen_urls: set[str] = set()
 
     all_feed_urls = list(feed_urls)
@@ -810,7 +937,7 @@ def _scrape_ea_news_agency(
             continue
 
         for item in items:
-            if inserted >= max_articles:
+            if max_articles > 0 and len(records) >= max_articles:
                 break
 
             article_url = item.get("url")
@@ -840,33 +967,35 @@ def _scrape_ea_news_agency(
                 "feed_url": feed_url,
             }
 
-            if insert_or_skip(
-                client,
-                source=source_id,
+            record = ArticleRecord(
+                source_id=source_id,
+                url=article_url,
                 title=raw_title,
                 text=article_text or "",
-                url=article_url,
-                metadata=meta.to_dict(),
-                config=config,
-            ):
-                inserted += 1
+                publication_date=meta.publication_date,
+                category=meta.category or "news",
+                language_code="hye",
+                content_type="article",
+                writing_category="news",
+            )
+            records.append(record)
 
-            if inserted % 25 == 0:
-                logger.info("%s: inserted %d/%d articles", agency_name, inserted, max_articles)
+            if len(records) % 50 == 0:
+                logger.info("%s: discovered %d/%d articles", agency_name, len(records), max_articles)
 
             time.sleep(_REQUEST_DELAY)
 
-        if inserted >= max_articles:
+        if max_articles > 0 and len(records) >= max_articles:
             break
 
-    if inserted < max_articles:
-        remaining = max_articles - inserted
+    if max_articles > 0 and len(records) < max_articles:
+        remaining = max_articles - len(records)
         fallback_urls = _ea_collect_fallback_article_urls(agency_name, agency_config, target_count=remaining * 3)
         if fallback_urls:
             logger.info("%s: fallback discovered %d article URLs", agency_name, len(fallback_urls))
 
         for article_url in fallback_urls:
-            if inserted >= max_articles:
+            if len(records) >= max_articles:
                 break
             if article_url in seen_urls:
                 continue
@@ -895,40 +1024,46 @@ def _scrape_ea_news_agency(
                 "ingest_method": "fallback_listing_crawl",
             }
 
-            if insert_or_skip(
-                client,
-                source=source_id,
+            record = ArticleRecord(
+                source_id=source_id,
+                url=article_url,
                 title=raw_title,
                 text=article_text or "",
-                url=article_url,
-                metadata=meta.to_dict(),
-            ):
-                inserted += 1
+                publication_date=meta.publication_date,
+                category=meta.category or "news",
+                language_code="hye",
+                content_type="article",
+                writing_category="news",
+            )
+            records.append(record)
 
-            if inserted % 25 == 0:
-                logger.info("%s: inserted %d/%d articles", agency_name, inserted, max_articles)
+            if len(records) % 50 == 0:
+                logger.info("%s: discovered %d/%d articles", agency_name, len(records), max_articles)
 
             time.sleep(_REQUEST_DELAY)
 
-    return scraped, inserted
+    return records
 
 
 def _run_eastern_armenian(config: dict, client) -> None:
     """Run Eastern Armenian news agency scraping (ex ea_news.run)."""
     ea_cfg = config.get("scraping", {}).get("eastern_armenian", {})
-    max_articles = int(ea_cfg.get("max_articles_per_agency", 500))
+    max_articles = int(ea_cfg.get("max_articles_per_agency", 0))
 
     logger.info("=== Scraping EA News Agencies ===")
     results = {}
     for agency_name in NEWS_AGENCIES:
         try:
-            scraped, inserted = _scrape_ea_news_agency(
+            records = _scrape_ea_news_agency(
                 agency_name,
-                client,
                 max_articles=max_articles,
                 config=config,
             )
-            results[agency_name] = (scraped, inserted)
+            inserted = 0
+            for record in records:
+                if _upsert_article_from_record(record, client, config=config):
+                    inserted += 1
+            results[agency_name] = (len(records), inserted)
             time.sleep(_REQUEST_DELAY)
         except Exception as exc:
             logger.error("Error scraping %s: %s", agency_name, exc)
@@ -949,33 +1084,42 @@ _RSS_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
+# Diaspora newspapers (same as Selenium newspaper sources): include in RSS process so catalog gets their articles too. Mark hyw (Western Armenian).
+_DIASPORA_NEWSPAPER_RSS_SOURCES: list[dict] = [
+    {"name": "Aztag", "url": "https://aztagdaily.com", "rss": "https://aztagdaily.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Horizon Weekly", "url": "https://horizonweekly.ca", "rss": "https://horizonweekly.ca/en/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Asbarez", "url": "https://asbarez.com", "rss": "https://asbarez.com/feed/", "category": "diaspora", "language_code": "hyw"},
+]
+
+# Republic of Armenia sources: prefer Armenian feeds when the site offers them; mark Armenian content as hye (Eastern).
+# language_code: ISO 639-3 (hyw=Western, hye=Eastern, eng=English, hy=undetermined).
 _ARMENIAN_SOURCES: list[dict] = [
-    {"name": "Armenpress", "url": "https://armenpress.am/eng/news/", "rss": "https://armenpress.am/eng/rss/news/", "category": "news"},
-    {"name": "Armenian Weekly", "url": "https://armenianweekly.com", "rss": "https://armenianweekly.com/feed/", "category": "news"},
-    {"name": "Azatutyun", "url": "https://www.azatutyun.am", "rss": "https://www.azatutyun.am/api/zijrreypui", "category": "news"},
-    {"name": "Hetq", "url": "https://hetq.am/en/news", "rss": "https://hetq.am/en/rss", "category": "investigative"},
-    {"name": "Panorama.am", "url": "https://www.panorama.am/en/news/", "rss": "https://www.panorama.am/en/rss/news.xml", "category": "news"},
-    {"name": "EVN Report", "url": "https://evnreport.com", "rss": "https://evnreport.com/feed/", "category": "analysis"},
-    {"name": "OC Media", "url": "https://oc-media.org", "rss": "https://oc-media.org/feed/", "category": "news"},
-    {"name": "Civilnet", "url": "https://www.civilnet.am/en/", "rss": "https://www.civilnet.am/en/feed/", "category": "culture"},
-    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora"},
-    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora"},
-    {"name": "Agos", "url": "https://www.agos.com.tr/en", "rss": "https://www.agos.com.tr/en/rss", "category": "diaspora"},
+    {"name": "Armenpress", "url": "https://armenpress.am/eng/news/", "rss": "https://armenpress.am/eng/rss/news/", "category": "news", "language_code": "eng"},
+    {"name": "Armenian Weekly", "url": "https://armenianweekly.com", "rss": "https://armenianweekly.com/feed/", "category": "news", "language_code": "hyw"},
+    {"name": "Azatutyun", "url": "https://www.azatutyun.am", "rss": "https://www.azatutyun.am/api/zijrreypui", "category": "news", "language_code": "hye"},
+    {"name": "Hetq", "url": "https://hetq.am/en/news", "rss": "https://hetq.am/en/rss", "category": "investigative", "language_code": "eng"},
+    {"name": "Panorama.am", "url": "https://www.panorama.am", "rss": "https://www.panorama.am/rss/?lang=hy", "category": "news", "language_code": "hye"},
+    {"name": "EVN Report", "url": "https://evnreport.com", "rss": "https://evnreport.com/feed/", "category": "analysis", "language_code": "eng"},
+    {"name": "OC Media", "url": "https://oc-media.org", "rss": "https://oc-media.org/feed/", "category": "news", "language_code": "eng"},
+    {"name": "Civilnet", "url": "https://www.civilnet.am/en/", "rss": "https://www.civilnet.am/en/feed/", "category": "culture", "language_code": "eng"},
+    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Agos", "url": "https://www.agos.com.tr/en", "rss": "https://www.agos.com.tr/en/rss", "category": "diaspora", "language_code": "eng"},
 ]
 
 _INTERNATIONAL_SOURCES: list[dict] = [
     {"name": "Google News - Armenia", "url": "https://news.google.com",
      "rss": "https://news.google.com/rss/search?q=Armenia+OR+Armenian+OR+Artsakh+OR+Karabakh&hl=en-US&gl=US&ceid=US:en",
-     "category": "international", "keyword_filter": False, "google_news": True},
-    {"name": "Al Jazeera", "url": "https://www.aljazeera.com", "rss": "https://www.aljazeera.com/xml/rss/all.xml", "category": "international", "keyword_filter": True},
-    {"name": "Al-Monitor", "url": "https://www.al-monitor.com", "rss": "https://www.al-monitor.com/rss", "category": "international", "keyword_filter": True},
-    {"name": "BBC World", "url": "https://www.bbc.co.uk/news/world", "rss": "https://feeds.bbci.co.uk/news/world/rss.xml", "category": "international", "keyword_filter": True},
-    {"name": "France 24", "url": "https://www.france24.com/en/", "rss": "https://www.france24.com/en/rss", "category": "international", "keyword_filter": True},
-    {"name": "Deutsche Welle", "url": "https://www.dw.com/en/", "rss": "https://rss.dw.com/xml/rss-en-world", "category": "international", "keyword_filter": True},
-    {"name": "Euronews", "url": "https://www.euronews.com", "rss": "https://www.euronews.com/rss", "category": "international", "keyword_filter": True},
+     "category": "international", "keyword_filter": False, "google_news": True, "language_code": "eng"},
+    {"name": "Al Jazeera", "url": "https://www.aljazeera.com", "rss": "https://www.aljazeera.com/xml/rss/all.xml", "category": "international", "keyword_filter": True, "language_code": "eng"},
+    {"name": "Al-Monitor", "url": "https://www.al-monitor.com", "rss": "https://www.al-monitor.com/rss", "category": "international", "keyword_filter": True, "language_code": "eng"},
+    {"name": "BBC World", "url": "https://www.bbc.co.uk/news/world", "rss": "https://feeds.bbci.co.uk/news/world/rss.xml", "category": "international", "keyword_filter": True, "language_code": "eng"},
+    {"name": "France 24", "url": "https://www.france24.com/en/", "rss": "https://www.france24.com/en/rss", "category": "international", "keyword_filter": True, "language_code": "eng"},
+    {"name": "Deutsche Welle", "url": "https://www.dw.com/en/", "rss": "https://rss.dw.com/xml/rss-en-world", "category": "international", "keyword_filter": True, "language_code": "eng"},
+    {"name": "Euronews", "url": "https://www.euronews.com", "rss": "https://www.euronews.com/rss", "category": "international", "keyword_filter": True, "language_code": "eng"},
 ]
 
-ALL_RSS_SOURCES = _ARMENIAN_SOURCES + _INTERNATIONAL_SOURCES
+ALL_RSS_SOURCES = _DIASPORA_NEWSPAPER_RSS_SOURCES + _ARMENIAN_SOURCES + _INTERNATIONAL_SOURCES
 
 ARMENIAN_KEYWORDS: list[str] = [
     r"\barmenia\b", r"\barmenian[s]?\b", r"\bhay(?:astan)?\b",
@@ -1268,17 +1412,183 @@ def _append_articles(jsonl_path: Path, articles: list[dict]) -> int:
     return count
 
 
-def _run_rss_news(config: dict, client) -> None:
-    """Run RSS news scraping (ex rss_news.run)."""
-    from ingestion._shared.helpers import insert_or_skip
+def _populate_news_article_catalog(config: dict, client) -> int:
+    """Populate news_article_catalog from all RSS feeds. One catalog document per article URL.
 
+    When the same article appears in multiple feeds, we keep a single catalog entry and record
+    all sources in the `sources` and `feed_urls` arrays. Does not overwrite `document_id` if
+    already set (link to the representative document in the documents collection).
+    """
     rss_cfg = config.get("scraping", {}).get("rss_news", {})
-    request_delay = rss_cfg.get("request_delay", _REQUEST_DELAY)
+    if not rss_cfg.get("populate_catalog", True):
+        return 0
     enabled_sources = rss_cfg.get("sources")
-
+    request_delay = rss_cfg.get("request_delay", _REQUEST_DELAY)
     session = requests.Session()
     session.headers.update(_RSS_HEADERS)
+    catalog = getattr(client, "news_article_catalog", None)
+    if catalog is None:
+        logger.warning("news_article_catalog not available; skip populate")
+        return 0
+    total = 0
+    for source in ALL_RSS_SOURCES:
+        if enabled_sources and source["name"] not in enabled_sources:
+            continue
+        try:
+            entries = _rss_scrape_source(source, session)
+        except Exception:
+            logger.exception("[%s] Feed fetch failed", source["name"])
+            continue
+        feed_url = source.get("rss")
+        for entry in entries:
+            url = entry.get("url")
+            if not url:
+                continue
+            title = entry.get("title", "") or ""
+            summary = entry.get("summary", "") or ""
+            published_at = entry.get("published_at")
+            category = entry.get("category", "news")
+            tags = entry.get("tags", []) or []
+            # Tagging: language_code from source (ISO 639-3/BCP 47); source_language_codes recorded on insert
+            language_code = source.get("language_code") or "und"
+            content_type = "article"
+            writing_category = category  # news, analysis, diaspora, international, etc.
+            try:
+                # Do not $addToSet on source_language_codes to avoid type conflicts; it is set only on insert.
+                add_to_set = {"sources": source["name"]}
+                if feed_url:
+                    add_to_set["feed_urls"] = feed_url
+                result = catalog.update_one(
+                    {"url": url},
+                    {
+                        "$setOnInsert": {
+                            "url": url,
+                            "title": title,
+                            "summary": summary,
+                            "published_at": published_at,
+                            "category": category,
+                            "tags": tags,
+                            "language_code": language_code,
+                            "source_language_codes": [language_code],
+                            "content_type": content_type,
+                            "writing_category": writing_category,
+                            "document_id": None,
+                        },
+                        "$addToSet": add_to_set,
+                    },
+                    upsert=True,
+                )
+                if result.upserted_id:
+                    total += 1
+            except Exception:
+                logger.exception("Catalog update failed for %s", url)
+        time.sleep(request_delay)
+    logger.info("news_article_catalog: %d new/updated URLs from RSS", total)
+    return total
 
+
+def _run_scrape_from_news_catalog(config: dict, client) -> None:
+    """Scrape full article for each catalog entry that has no document_id yet; insert into documents and set catalog.document_id.
+
+    Runs standard enrichment (insert_or_skip → metrics, drift, etc.). One document per article URL;
+    catalog entries hold a meta link (document_id) to their representative document.
+    """
+    from ingestion._shared.helpers import insert_or_skip
+
+    catalog = getattr(client, "news_article_catalog", None)
+    if catalog is None:
+        logger.warning("news_article_catalog not available; skip scrape-from-catalog")
+        return
+    rss_cfg = config.get("scraping", {}).get("rss_news", {})
+    request_delay = rss_cfg.get("request_delay", _REQUEST_DELAY)
+    session = requests.Session()
+    session.headers.update(_RSS_HEADERS)
+    inserted = 0
+    for cat_doc in catalog.find({"$or": [{"document_id": None}, {"document_id": {"$exists": False}}]}):
+        url = cat_doc.get("url")
+        if not url:
+            continue
+        # If document already exists (e.g. from a previous run), link it and skip fetch
+        existing_doc = client.documents.find_one({"metadata.url": url}, {"_id": 1})
+        if existing_doc:
+            try:
+                from bson import ObjectId  # type: ignore[reportMissingImports]
+                doc_id = existing_doc["_id"]
+                catalog.update_one(
+                    {"url": url},
+                    {"$set": {"document_id": str(doc_id) if isinstance(doc_id, ObjectId) else doc_id}},
+                )
+            except Exception:
+                logger.debug("Could not set document_id for %s", url)
+            continue
+        full_text = fetch_full_article(url, session)
+        text = full_text or cat_doc.get("summary", "") or cat_doc.get("title", "")
+        if not text:
+            continue
+        sources = cat_doc.get("sources") or []
+        source_tag = f"rss_news:{sources[0]}" if sources else "rss_news:unknown"
+        # Detailed tagging for filtering and downstream pipelines (language_code, source_language_codes, content_type, writing_category)
+        meta = {
+            "source_type": "news",
+            "category": cat_doc.get("category", "news"),
+            "published_at": cat_doc.get("published_at"),
+            "tags": cat_doc.get("tags", []),
+            "rss_sources": sources,
+            "language_code": cat_doc.get("language_code") or "und",
+            "source_language_codes": cat_doc.get("source_language_codes") or cat_doc.get("language_codes") or [],
+            "content_type": cat_doc.get("content_type") or "article",
+            "writing_category": cat_doc.get("writing_category") or "news",
+        }
+        if insert_or_skip(
+            client,
+            source=source_tag,
+            title=cat_doc.get("title", ""),
+            text=text,
+            url=url,
+            metadata=meta,
+            config=config,
+        ):
+            inserted += 1
+        # Link catalog to document (whether we just inserted or it was a duplicate)
+        try:
+            doc = client.documents.find_one({"metadata.url": url}, {"_id": 1})
+            if doc:
+                from bson import ObjectId  # type: ignore[reportMissingImports]
+                doc_id = doc["_id"]
+                catalog.update_one(
+                    {"url": url},
+                    {"$set": {"document_id": str(doc_id) if isinstance(doc_id, ObjectId) else doc_id}},
+                )
+        except Exception:
+            logger.debug("Could not set document_id for %s", url)
+        time.sleep(request_delay)
+    logger.info("Scrape-from-catalog: %d new documents inserted; catalog document_id links updated", inserted)
+
+
+def _run_rss_news(config: dict, client) -> None:
+    """Run RSS news as one process: (1) update catalog from all feeds, (2) scrape each new article and link catalog to documents.
+
+    When populate_catalog is True (default): phase 1 upserts one catalog doc per URL with sources/feed_urls;
+    phase 2 fetches full text for any catalog entry without document_id, inserts into documents (with
+    standard enrichment), and sets catalog.document_id to the representative document. No duplicate
+    full articles; catalog can list multiple sources for the same URL.
+    When populate_catalog is False: legacy feed-based scrape only (no catalog).
+    """
+    rss_cfg = config.get("scraping", {}).get("rss_news", {})
+    populate = rss_cfg.get("populate_catalog", True)
+
+    if populate:
+        _populate_news_article_catalog(config, client)
+        _run_scrape_from_news_catalog(config, client)
+        return
+
+    # Legacy: fetch each feed and scrape full article per entry (no catalog)
+    from ingestion._shared.helpers import insert_or_skip
+
+    request_delay = rss_cfg.get("request_delay", _REQUEST_DELAY)
+    enabled_sources = rss_cfg.get("sources")
+    session = requests.Session()
+    session.headers.update(_RSS_HEADERS)
     total_new = 0
     mongo_inserted = 0
 

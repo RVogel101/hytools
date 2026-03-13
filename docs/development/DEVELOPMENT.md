@@ -36,7 +36,8 @@ python -m scraping.runner run --group postprocessing
 # Skip specific stages
 python -m scraping.runner run --skip hathitrust nayiri
 
-# Run specific stages only
+# Run specific stages only (e.g. news: RSS catalog + scrape)
+python -m ingestion.runner run --only news
 python -m scraping.runner run --only wikipedia_wa wikisource culturax
 
 # Run in background
@@ -46,8 +47,10 @@ python -m scraping.runner run --background
 python -m scraping.runner status
 
 # List all registered stages
-python -m scraping.runner list
+python -m ingestion.runner run --help   # or: python -m scraping.runner list (if using scraping runner)
 ```
+
+**News stage (RSS catalog + full-article scrape):** Run with `python -m ingestion.runner run --only news`. Config: `scraping.rss_news` in `config/settings.yaml`. Catalog and documents are tagged with `language_code`, `content_type`, `writing_category`. See [NEWS_AND_RSS_CATALOG.md](../concept_guides/NEWS_AND_RSS_CATALOG.md) for schema and run instructions.
 
 ## Project Structure
 

@@ -1,19 +1,11 @@
 {
-  "started_at": 1773300909.5255759,
-  "finished_at": 1773300910.0095758,
-  "duration_seconds": 0.484,
+  "started_at": 1773383688.2935023,
+  "finished_at": 1773387704.5285022,
+  "duration_seconds": 4016.235,
   "stages": [
     {
-      "stage": "wikipedia_wa",
-      "module": "scraping.wikipedia_wa",
-      "enabled": false,
-      "status": "skipped",
-      "duration_seconds": 0.0,
-      "error": ""
-    },
-    {
-      "stage": "wikipedia_ea",
-      "module": "scraping.wikipedia_ea",
+      "stage": "wikipedia",
+      "module": "ingestion.acquisition.wiki",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -21,7 +13,7 @@
     },
     {
       "stage": "wikisource",
-      "module": "scraping.wikisource",
+      "module": "ingestion.acquisition.wiki",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -29,7 +21,7 @@
     },
     {
       "stage": "archive_org",
-      "module": "scraping.archive_org",
+      "module": "ingestion.acquisition.archive_org",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -37,7 +29,7 @@
     },
     {
       "stage": "hathitrust",
-      "module": "scraping.hathitrust",
+      "module": "ingestion.acquisition.hathitrust",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -45,7 +37,7 @@
     },
     {
       "stage": "gallica",
-      "module": "scraping.gallica",
+      "module": "ingestion.acquisition.gallica",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -53,7 +45,7 @@
     },
     {
       "stage": "loc",
-      "module": "scraping.loc",
+      "module": "ingestion.acquisition.loc",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -61,39 +53,23 @@
     },
     {
       "stage": "dpla",
-      "module": "scraping.dpla",
+      "module": "ingestion.acquisition.dpla",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
       "error": ""
     },
     {
-      "stage": "newspaper",
-      "module": "scraping.newspaper",
-      "enabled": false,
-      "status": "skipped",
-      "duration_seconds": 0.0,
-      "error": ""
-    },
-    {
-      "stage": "ea_news",
-      "module": "scraping.ea_news",
-      "enabled": false,
-      "status": "skipped",
-      "duration_seconds": 0.0,
-      "error": ""
-    },
-    {
-      "stage": "rss_news",
-      "module": "scraping.rss_news",
-      "enabled": false,
-      "status": "skipped",
-      "duration_seconds": 0.0,
+      "stage": "news",
+      "module": "ingestion.acquisition.news",
+      "enabled": true,
+      "status": "ok",
+      "duration_seconds": 4016.235,
       "error": ""
     },
     {
       "stage": "culturax",
-      "module": "scraping.culturax",
+      "module": "ingestion.acquisition.culturax",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -101,7 +77,7 @@
     },
     {
       "stage": "english_sources",
-      "module": "scraping.english_sources",
+      "module": "ingestion.acquisition.english_sources",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -109,7 +85,7 @@
     },
     {
       "stage": "nayiri",
-      "module": "scraping.nayiri",
+      "module": "ingestion.acquisition.nayiri",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -117,7 +93,7 @@
     },
     {
       "stage": "gomidas",
-      "module": "scraping.gomidas",
+      "module": "ingestion.acquisition.gomidas",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -125,7 +101,7 @@
     },
     {
       "stage": "mechitarist",
-      "module": "scraping.mechitarist",
+      "module": "ingestion.acquisition.mechitarist",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -133,7 +109,7 @@
     },
     {
       "stage": "agbu",
-      "module": "scraping.agbu",
+      "module": "ingestion.acquisition.agbu",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -141,7 +117,7 @@
     },
     {
       "stage": "ocr_ingest",
-      "module": "scraping.ocr_ingest",
+      "module": "ingestion.acquisition.ocr_ingest",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -149,7 +125,7 @@
     },
     {
       "stage": "mss_nkr",
-      "module": "scraping.mss_nkr",
+      "module": "ingestion.acquisition.mss_nkr",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -157,7 +133,7 @@
     },
     {
       "stage": "worldcat_searcher",
-      "module": "scraping.worldcat_searcher",
+      "module": "ingestion.discovery.worldcat_searcher",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -173,23 +149,31 @@
     },
     {
       "stage": "metadata_tagger",
-      "module": "scraping.metadata_tagger",
-      "enabled": true,
-      "status": "ok",
-      "duration_seconds": 0.437,
+      "module": "ingestion.enrichment.metadata_tagger",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
       "error": ""
     },
     {
       "stage": "frequency_aggregator",
-      "module": "scraping.frequency_aggregator",
-      "enabled": true,
-      "status": "ok",
-      "duration_seconds": 0.047,
+      "module": "ingestion.aggregation.frequency_aggregator",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "word_frequency_facets",
+      "module": "ingestion.aggregation.word_frequency_facets",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
       "error": ""
     },
     {
       "stage": "export_corpus_overlap_fingerprints",
-      "module": "scraping.export_corpus_overlap_fingerprints",
+      "module": "ingestion.validation.export_corpus_overlap_fingerprints",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -197,7 +181,7 @@
     },
     {
       "stage": "import_anki_sqlite",
-      "module": "scraping.import_anki_sqlite",
+      "module": "ingestion.extraction.import_anki_sqlite",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -205,7 +189,7 @@
     },
     {
       "stage": "validate_contract_alignment",
-      "module": "scraping.validate_contract_alignment",
+      "module": "ingestion.validation.validate_contract_alignment",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -213,7 +197,7 @@
     },
     {
       "stage": "materialize_dialect_views",
-      "module": "scraping.materialize_dialect_views",
+      "module": "ingestion.enrichment.materialize_dialect_views",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -221,7 +205,7 @@
     },
     {
       "stage": "summarize_unified_documents",
-      "module": "scraping.summarize_unified_documents",
+      "module": "ingestion.aggregation.summarize_unified_documents",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,

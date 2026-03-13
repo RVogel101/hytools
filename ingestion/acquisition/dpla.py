@@ -56,13 +56,19 @@ _SOURCE_RESOURCE_TYPE_TEXT = "text"
 
 
 def _get_api_key(config: dict) -> str | None:
-    """Return DPLA API key from config or environment."""
+    """Return DPLA API key from config or environment.
+
+    If config has api_key set to the literal string \"DPLA_API_KEY\", the key is
+    read from the environment variable DPLA_API_KEY (so the secret stays out of the YAML).
+    """
     key = (config.get("scraping", {}) or {}).get("dpla", {}) or {}
     if isinstance(key, dict):
-        api_key = key.get("api_key") or os.environ.get("DPLA_API_KEY")
+        raw = key.get("api_key") or os.environ.get("DPLA_API_KEY")
     else:
-        api_key = key
-    return (api_key or "").strip() or None
+        raw = key
+    if (raw or "").strip() == "DPLA_API_KEY":
+        raw = os.environ.get("DPLA_API_KEY")
+    return (raw or "").strip() or None
 
 
 def _language_from_api(lang_list) -> str:
