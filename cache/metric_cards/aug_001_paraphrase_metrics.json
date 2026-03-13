@@ -1,0 +1,57 @@
+{
+  "text_id": "aug_001_paraphrase",
+  "source": "augmented",
+  "text_length": 82,
+  "lexical": {
+    "ttr": 0.9444,
+    "sttr": 0.9444,
+    "yule_k": 92.59,
+    "unique_words": 17,
+    "total_words": 18,
+    "vocabulary_breadth": 944.44
+  },
+  "syntactic": {
+    "avg_sentence_length": 9.0,
+    "clauses_per_sentence": 0.5,
+    "flesch_kincaid_grade": 11.52
+  },
+  "morphological": {
+    "suffix_em_count": 0,
+    "suffix_em_frequency": 0.0,
+    "suffix_im_count": 1,
+    "suffix_im_frequency": 0.055556,
+    "suffix_um_count": 0,
+    "suffix_um_frequency": 0.0,
+    "suffix_an_count": 0,
+    "suffix_an_frequency": 0.0,
+    "suffix_el_count": 0,
+    "suffix_el_frequency": 0.0
+  },
+  "orthographic": {
+    "classical_markers_count": 3,
+    "classical_markers_frequency": 0.036585,
+    "reformed_markers_count": 15,
+    "reformed_markers_frequency": 0.182927,
+    "classical_to_reformed_ratio": 0.2
+  },
+  "semantic": {
+    "entropy": 4.0588,
+    "pronoun_frequency": 0.111111,
+    "avg_word_frequency_in_corpus": 0.0
+  },
+  "contamination": {
+    "code_switching_index": 0.0,
+    "eastern_form_ratio": 0.0,
+    "variant_ratio_avg": 0.0
+  },
+  "comparison": {
+    "cosine_similarity_to_original": 0.7416,
+    "kl_divergence_from_wa_baseline": null,
+    "levenshtein_distance_to_original": 27
+  },
+  "quality_flags": {
+    "dialect_purity_score": 1.0,
+    "baseline_deviation": "within normal range",
+    "potential_issues": []
+  }
+}
