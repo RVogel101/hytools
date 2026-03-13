@@ -1,15 +1,14 @@
-"""Tests for armenian_corpus_core.extraction.mappers module."""
+"""Tests for ingestion._shared.mappers module."""
 
 import json
 
-from armenian_corpus_core.core_contracts import DialectTag, DocumentRecord, LexiconEntry
-from armenian_corpus_core.extraction.mappers import (
+from core_contracts import DialectTag, DocumentRecord, LexiconEntry
+from ingestion._shared.mappers import (
     _nullable_int,
     _nullable_text,
     _parse_json_field,
     anki_card_row_to_lexicon_entry,
     sentence_row_to_document_record,
-    wa_fingerprint_row_to_document_record,
 )
 
 
@@ -129,7 +128,7 @@ class TestSentenceRowToDocumentRecord:
         doc = sentence_row_to_document_record(row)
         assert isinstance(doc, DocumentRecord)
         assert doc.document_id == "sentence:42"
-        assert doc.source_family == "lousardzag_sentences"
+        assert doc.source_family == "anki_sentences"
         assert doc.text == "some text"
         assert doc.title == "present"
         assert doc.content_hash is not None
@@ -155,55 +154,3 @@ class TestSentenceRowToDocumentRecord:
         assert doc.metadata["grammar_type"] == "verb"
 
 
-class TestWaFingerprintRowToDocumentRecord:
-    def test_western_armenian_dialect(self):
-        for dialect_value in ["western_armenian", "wa", "hyw"]:
-            row = {"dialect_tag": dialect_value, "source": "wiki", "id/path": "doc-1"}
-            doc = wa_fingerprint_row_to_document_record(row)
-            assert doc.dialect_tag == DialectTag.WESTERN_ARMENIAN
-
-    def test_eastern_armenian_dialect(self):
-        for dialect_value in ["eastern_armenian", "ea", "hy"]:
-            row = {"dialect_tag": dialect_value, "source": "wiki", "id/path": "doc-1"}
-            doc = wa_fingerprint_row_to_document_record(row)
-            assert doc.dialect_tag == DialectTag.EASTERN_ARMENIAN
-
-    def test_mixed_dialect(self):
-        row = {"dialect_tag": "mixed", "source": "wiki", "id/path": "doc-1"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.dialect_tag == DialectTag.MIXED
-
-    def test_unknown_dialect(self):
-        row = {"dialect_tag": "something_else", "source": "wiki", "id/path": "doc-1"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.dialect_tag == DialectTag.UNKNOWN
-
-    def test_text_always_empty(self):
-        row = {"dialect_tag": "wa", "source": "wiki", "id/path": "doc-1"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.text == ""
-
-    def test_fingerprint_metadata(self):
-        row = {"dialect_tag": "wa", "source": "wiki", "id/path": "doc-1"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.metadata["fingerprint_only"] is True
-
-    def test_document_id_from_path(self):
-        row = {"id/path": "/some/path.txt", "source": "wiki"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.document_id == "/some/path.txt"
-
-    def test_document_id_fallback_to_hash(self):
-        row = {"sha256(text_normalized)": "abc123", "source": "wiki"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.document_id == "sha256:abc123"
-
-    def test_default_source(self):
-        row = {"id/path": "doc-1"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.source_family == "wa_export"
-
-    def test_char_count(self):
-        row = {"id/path": "doc-1", "char_count": "500", "source": "wiki"}
-        doc = wa_fingerprint_row_to_document_record(row)
-        assert doc.char_count == 500

@@ -9,7 +9,7 @@ description = "Central package for Armenian language corpus contracts, extractio
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-    {name = "Lousardzag Contributors", email = "lousardzag@example.com"},
+    {name = "Armenian Corpus Core Contributors"},
 ]
 keywords = ["armenian", "corpus", "linguistics", "nlp", "extraction"]
 classifiers = [
@@ -59,15 +59,22 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/lousardzag/armenian-corpus-core"
-Documentation = "https://github.com/lousardzag/armenian-corpus-core/wiki"
+Repository = "https://github.com/RVogel101/armenian-corpus-core"
+Documentation = "https://github.com/RVogel101/armenian-corpus-core/wiki"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["armenian_corpus_core*"]
-
-[tool.setuptools.package-data]
-armenian_corpus_core = ["py.typed"]
+include = [
+    "cleaning*",
+    "ingestion*",
+    "research*",
+    "augmentation*",
+    "core_contracts*",
+    "integrations*",
+    "linguistics*",
+    "ocr*",
+]
+exclude = ["tests*", "docs*", "scripts*", "notebooks*", "migration_exports*"]
 
 [tool.pyright]
 exclude = [

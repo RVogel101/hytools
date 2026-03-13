@@ -10,8 +10,8 @@ setup(
     python_requires=">=3.10",
     description="Central package for Armenian language corpus contracts, extraction, and normalization",
     long_description=open("README.md", encoding="utf-8").read() if __name__ == "__main__" else "",
-    author="Lousardzag Contributors",
-    url="https://github.com/lousardzag/armenian-corpus-core",
+    author="Armenian Corpus Core Contributors",
+    url="https://github.com/RVogel101/armenian-corpus-core",
     license="MIT",
     classifiers=[
         "Development Status :: 3 - Alpha",

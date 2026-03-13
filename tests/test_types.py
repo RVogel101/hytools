@@ -1,9 +1,9 @@
-"""Tests for armenian_corpus_core.core_contracts.types module."""
+"""Tests for core_contracts.types module."""
 
 import pytest
 from dataclasses import FrozenInstanceError
 
-from armenian_corpus_core.core_contracts.types import (
+from core_contracts.types import (
     DialectTag,
     DocumentRecord,
     LexiconEntry,
@@ -53,7 +53,7 @@ class TestDocumentRecord:
     def test_all_fields(self):
         doc = DocumentRecord(
             document_id="test-1",
-            source_family="lousardzag_sentences",
+            source_family="anki_sentences",
             text="sample text",
             title="Test Title",
             source_url="http://example.com",

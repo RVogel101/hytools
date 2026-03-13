@@ -1,0 +1,54 @@
+{
+  "_comment": "Vocabulary and example sentences for Western Armenian testing. Populate from Textbook of Modern Western Armenian when text is extracted. Current entries from TEST_VALIDATION_ARMENIAN.md and dialect_classifier.",
+  "source": "TEST_VALIDATION_ARMENIAN.md + dialect_classifier rules; to be extended from textbook PDF",
+  "vocabulary": [
+    "Ան",
+    "կը",
+    "խօսի",
+    "հայերէն",
+    "հոն",
+    "կ՚",
+    "ապրի",
+    "մէջ",
+    "իւրաքանչիւր",
+    "մանուկ",
+    "բան",
+    "մը",
+    "պետք",
+    "ժամ",
+    "ջուր",
+    "ոչ",
+    "իւր",
+    "յոյս",
+    "տուն",
+    "սիրել",
+    "հավկիթ",
+    "բայ",
+    "հայ",
+    "մեծ",
+    "գեղեցիկ",
+    "պիտի"
+  ],
+  "sentences_western": [
+    "Ան կը խօսի հայերէն, հոն կ՚ապրի մէջ իւրաքանչիւր մանուկ",
+    "մէջ իւրաքանչիւր բան մը",
+    "կը խօսի հայերէն",
+    "Ես կը սիրեմ հայերէն։",
+    "Տունը մեծ է։ Ան կը խօսի հայերէն։",
+    "Ես բերեմ ու գրեմ այն տուն։",
+    "Տունը մեծ է։ Այն գեղավոր է։ Մենք այստեղ ապրում ենք և շատ բազմում ենք այս տեղ։",
+    "Ինքզինքս կը սիրեմ։",
+    "Ես եւ ան կը խօսին միայն հայերէն։"
+  ],
+  "sentences_eastern": [
+    "Նա խոսում է հայերեն այնտեղ ապրում է",
+    "միյասին գնում ենք",
+    "մի խնձոր ունեմ",
+    "Ես բերում եմ ու գրում եմ այն տուն։"
+  ],
+  "expected_dialect": {
+    "vocabulary": "western",
+    "sentences_western": "western",
+    "sentences_eastern": "eastern"
+  }
+}

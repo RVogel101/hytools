@@ -30,29 +30,11 @@ jobs:
     needs: test
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout lousardzag
-        uses: actions/checkout@v4
-        with:
-          repository: RVogel101/lousardzag
-          path: lousardzag
-          token: ${{ secrets.REPO_ACCESS_TOKEN }}
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: |
-          pip install -e .
-          pip install -e lousardzag 2>/dev/null || true
+        run: pip install -e .
       - name: Run extraction pipeline
-        run: |
-          python -m armenian_corpus_core.extraction.run_extraction_pipeline \
-            --project lousardzag \
-            --output-json lousardzag/08-data/pipeline_report.json
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: extraction-results
-          path: |
-            lousardzag/08-data/*.jsonl
-            lousardzag/08-data/*.json
+        run: python -m scraping.runner run --group extraction

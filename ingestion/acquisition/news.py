@@ -1,0 +1,1360 @@
+"""Unified news scraper: diaspora newspapers, Eastern Armenian agencies, and RSS feeds.
+
+Combines:
+- Diaspora newspapers (Aztag, Horizon Weekly, Asbarez) — Selenium-based
+- Eastern Armenian news agencies (Armenpress, A1+, Armtimes, Aravot) — RSS/HTML
+- RSS news (Armenian + international keyword-filtered feeds)
+
+Entry point: run(config). Uses a single MongoDB client for all three sub-runners.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+import time
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from pathlib import Path
+from typing import Optional
+from urllib.parse import urldefrag, urljoin
+
+import requests
+from bs4 import BeautifulSoup, Tag
+
+logger = logging.getLogger(__name__)
+
+# Shared constants (used by newspaper and ea_news; rss_news may override delay via config)
+_MIN_ARMENIAN_CHARS = 30
+_REQUEST_DELAY = 2.0  # seconds between requests
+
+
+def _armenian_char_count(text: str) -> int:
+    """Count Armenian script characters (U+0530–U+058F). Shared by newspaper and ea_news."""
+    return sum(1 for c in text if "\u0530" <= c <= "\u058F")
+
+
+# --- Diaspora newspapers (ex newspaper.py) ---
+
+def _is_probable_article_url(url: str) -> bool:
+    lowered = url.lower()
+    banned_segments = [
+        "/category/",
+        "/tag/",
+        "/author/",
+        "/search/",
+        "/page/",
+        "/feed",
+        "/wp-json/",
+    ]
+    if any(seg in lowered for seg in banned_segments):
+        return False
+    return lowered.count("/") >= 4
+
+
+@dataclass
+class NewspaperSource:
+    """Configuration for a single newspaper source."""
+
+    name: str
+    base_url: str
+    listing_url_template: str  # must contain {page}
+    article_link_selectors: list[str]
+    content_selectors: list[str]
+    max_pages: int = 50
+    articles_per_page: int = 20
+    allowed_path_prefixes: list[str] = field(default_factory=list)
+
+
+AZTAG = NewspaperSource(
+    name="aztag",
+    base_url="https://aztagdaily.com",
+    listing_url_template="https://aztagdaily.com/archives/category/featured/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+        ".td-module-title a",
+        ".item-details h3 a",
+    ],
+    content_selectors=[
+        ".td-post-content p",
+        ".entry-content p",
+        ".post-content p",
+        "article .content p",
+        ".tdb-block-inner p",
+    ],
+    max_pages=100,
+)
+
+HORIZON = NewspaperSource(
+    name="horizon",
+    base_url="https://horizonweekly.ca",
+    listing_url_template="https://horizonweekly.ca/en/category/news/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+        ".td-module-title a",
+        ".jeg_post_title a",
+        ".post-item-title a",
+    ],
+    content_selectors=[
+        ".td-post-content p",
+        ".entry-content p",
+        ".post-content p",
+        ".content-inner p",
+        "article p",
+    ],
+    max_pages=100,
+)
+
+ASBAREZ = NewspaperSource(
+    name="asbarez",
+    base_url="https://asbarez.com",
+    listing_url_template="https://asbarez.com/category/armenia/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=40,
+)
+
+_NEWSPAPER_ALL_SOURCES = {"aztag": AZTAG, "horizon": HORIZON, "asbarez": ASBAREZ}
+
+
+def _extract_urls_from_html(
+    html: str,
+    source: NewspaperSource,
+    seen: set[str],
+) -> list[str]:
+    """Extract candidate article links from raw HTML as a resilient fallback."""
+    soup = BeautifulSoup(html, "html.parser")
+    extracted: list[str] = []
+    for a in soup.find_all("a", href=True):
+        href = a.get("href")
+        if not isinstance(href, str):
+            continue
+        href, _ = urldefrag(href)
+        if not href.startswith(source.base_url):
+            continue
+        if not _is_probable_article_url(href):
+            continue
+        if source.allowed_path_prefixes:
+            if not any(prefix in href for prefix in source.allowed_path_prefixes):
+                continue
+        if href in seen:
+            continue
+        seen.add(href)
+        extracted.append(href)
+    return extracted
+
+
+def _init_driver():
+    """Create a headless Chrome Selenium WebDriver with anti-detection."""
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.webdriver import WebDriver as Chrome
+
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    )
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+
+    driver = Chrome(options=options)
+    driver.execute_cdp_cmd(
+        "Page.addScriptToEvaluateOnNewDocument",
+        {"source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"},
+    )
+    return driver
+
+
+def _load_already_scraped_urls(client, source_name: str) -> set[str]:
+    """Load already-scraped URLs from MongoDB for resume."""
+    seen: set[str] = set()
+    if client is None:
+        return seen
+    cursor = client.documents.find(
+        {"source": f"newspaper:{source_name}"},
+        {"metadata.url": 1},
+    )
+    for doc in cursor:
+        url = doc.get("metadata", {}).get("url")
+        if url:
+            seen.add(url)
+    return seen
+
+
+def _collect_article_urls(driver, source: NewspaperSource) -> list[str]:
+    """Paginate through listing pages and collect unique article URLs."""
+    from selenium.webdriver.common.by import By
+
+    all_urls: list[str] = []
+    seen: set[str] = set()
+
+    for page_num in range(1, source.max_pages + 1):
+        url = source.listing_url_template.format(page=page_num)
+        logger.info("  Listing page %d: %s", page_num, url)
+        try:
+            driver.get(url)
+            time.sleep(_REQUEST_DELAY)
+        except Exception as exc:
+            logger.warning("  Failed to load listing page %d: %s", page_num, exc)
+            break
+
+        found_on_page = 0
+        for selector in source.article_link_selectors:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for el in elements:
+                    href = el.get_attribute("href")
+                    if not href:
+                        continue
+                    href, _ = urldefrag(href)
+                    if not href.startswith(source.base_url):
+                        continue
+                    if not _is_probable_article_url(href):
+                        continue
+                    if source.allowed_path_prefixes:
+                        if not any(prefix in href for prefix in source.allowed_path_prefixes):
+                            continue
+                    if href not in seen:
+                        seen.add(href)
+                        all_urls.append(href)
+                        found_on_page += 1
+            except Exception:
+                continue
+
+        if found_on_page == 0:
+            try:
+                fallback_urls = _extract_urls_from_html(driver.page_source, source, seen)
+                if fallback_urls:
+                    all_urls.extend(fallback_urls)
+                    found_on_page += len(fallback_urls)
+            except Exception:
+                pass
+
+        if found_on_page == 0:
+            try:
+                resp = requests.get(
+                    url,
+                    timeout=20,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                if resp.ok:
+                    fallback_urls = _extract_urls_from_html(resp.text, source, seen)
+                    if fallback_urls:
+                        all_urls.extend(fallback_urls)
+                        found_on_page += len(fallback_urls)
+            except Exception:
+                pass
+
+        logger.info("  Found %d new article URLs on page %d", found_on_page, page_num)
+        if found_on_page == 0:
+            logger.info("  No articles found on page %d — stopping pagination", page_num)
+            break
+
+    logger.info("  Total unique article URLs collected: %d", len(all_urls))
+    return all_urls
+
+
+def _extract_article_text(driver, url: str, source: NewspaperSource) -> str:
+    """Load an article URL and extract body text from <p> tags."""
+    from selenium.webdriver.common.by import By
+
+    driver.get(url)
+    time.sleep(_REQUEST_DELAY)
+
+    paragraphs: list[str] = []
+    for selector in source.content_selectors:
+        try:
+            elements = driver.find_elements(By.CSS_SELECTOR, selector)
+            if elements:
+                paragraphs = [el.text.strip() for el in elements if el.text.strip()]
+                if paragraphs:
+                    break
+        except Exception:
+            continue
+
+    return "\n\n".join(paragraphs)
+
+
+def _scrape_newspaper_source(
+    source: NewspaperSource,
+    client,
+    max_articles: int = 0,
+    min_armenian_chars: int = _MIN_ARMENIAN_CHARS,
+    validate_wa: bool = False,
+    config: dict | None = None,
+) -> int:
+    """Scrape articles from a single newspaper source and insert into MongoDB. Returns new count."""
+    from ingestion._shared.helpers import insert_or_skip
+
+    already_scraped = _load_already_scraped_urls(client, source.name)
+
+    is_western_armenian = None
+    if validate_wa:
+        try:
+            from ingestion._shared.helpers import is_western_armenian as _is_wa
+            is_western_armenian = _is_wa
+        except ImportError:
+            logger.warning("WA validator unavailable for %s", source.name)
+
+    logger.info(
+        "Scraping %s — %d articles already in MongoDB",
+        source.name,
+        len(already_scraped),
+    )
+
+    driver = _init_driver()
+    new_count = 0
+    try:
+        urls = _collect_article_urls(driver, source)
+
+        for url in urls:
+            if url in already_scraped:
+                continue
+            if max_articles and new_count >= max_articles:
+                break
+
+            try:
+                text = _extract_article_text(driver, url, source)
+            except Exception as exc:
+                logger.warning("Failed to extract %s: %s", url, exc)
+                continue
+
+            armenian_chars = _armenian_char_count(text)
+            if armenian_chars < min_armenian_chars:
+                logger.debug("Skipping (too few Armenian chars): %s", url)
+                continue
+
+            if is_western_armenian is not None:
+                try:
+                    if not is_western_armenian(text[:5000]):
+                        logger.debug("Skipping non-WA article: %s", url)
+                        continue
+                except Exception:
+                    continue
+
+            title = url.split("/")[-1] or url
+            if insert_or_skip(
+                client,
+                source=f"newspaper:{source.name}",
+                title=title,
+                text=text,
+                url=url,
+                metadata={
+                    "source_type": "newspaper",
+                    "armenian_chars": armenian_chars,
+                },
+            ):
+                new_count += 1
+                already_scraped.add(url)
+
+            if new_count % 50 == 0:
+                logger.info("  Inserted %d new articles from %s…", new_count, source.name)
+
+    finally:
+        driver.quit()
+
+    logger.info("Inserted %d new articles from %s", new_count, source.name)
+    return new_count
+
+
+def _run_newspapers(config: dict, client) -> None:
+    """Run diaspora newspaper scraping (ex newspaper.run)."""
+    news_cfg = config.get("scraping", {}).get("newspapers", {})
+    sources_to_scrape: list[str] = news_cfg.get("sources", ["aztag", "horizon"])
+    default_max_pages = int(news_cfg.get("max_pages", 100))
+    default_max_articles = int(news_cfg.get("max_articles_per_source", 0))
+    min_armenian_chars = int(news_cfg.get("min_armenian_chars", _MIN_ARMENIAN_CHARS))
+    validate_wa = bool(news_cfg.get("validate_wa", True))
+    source_overrides = news_cfg.get("source_overrides", {})
+
+    for source_name in sources_to_scrape:
+        source = _NEWSPAPER_ALL_SOURCES.get(source_name)
+        if not source:
+            logger.warning("Unknown newspaper source: %s", source_name)
+            continue
+
+        override_cfg = source_overrides.get(source_name, {}) if isinstance(source_overrides, dict) else {}
+        runtime_source = NewspaperSource(
+            name=source.name,
+            base_url=source.base_url,
+            listing_url_template=source.listing_url_template,
+            article_link_selectors=list(source.article_link_selectors),
+            content_selectors=list(source.content_selectors),
+            max_pages=int(override_cfg.get("max_pages", default_max_pages)),
+            articles_per_page=source.articles_per_page,
+            allowed_path_prefixes=list(override_cfg.get("allowed_path_prefixes", source.allowed_path_prefixes)),
+        )
+
+        inserted = _scrape_newspaper_source(
+            runtime_source,
+            client,
+            max_articles=int(override_cfg.get("max_articles", default_max_articles)),
+            min_armenian_chars=min_armenian_chars,
+            validate_wa=validate_wa,
+            config=config,
+        )
+        logger.info("[%s] MongoDB: %d new articles inserted", source_name, inserted)
+
+
+# --- Eastern Armenian news agencies (ex ea_news.py) ---
+
+from ingestion._shared.metadata import TextMetadata, Region
+
+_EA_DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "hy,en-US;q=0.8,en;q=0.6",
+}
+
+NEWS_AGENCIES = {
+    "armenpress": {
+        "source_name": "Armenpress",
+        "url": "https://armenpress.am/hy",
+        "rss_urls": [],
+        "fallback_seed_urls": [
+            "https://armenpress.am/hy",
+            "https://armenpress.am/hy/latest-news",
+        ],
+        "article_url_patterns": [
+            r"^https?://(?:www\.)?armenpress\.am/hy/article/\d+/?$",
+        ],
+        "region": Region.ARMENIA,
+    },
+    "a1plus": {
+        "source_name": "A1+",
+        "url": "https://www.a1plus.am",
+        "rss_urls": [
+            "https://www.a1plus.am/hy/feed",
+            "https://www.a1plus.am/feed",
+        ],
+        "region": Region.ARMENIA,
+    },
+    "armtimes": {
+        "source_name": "Armtimes",
+        "url": "https://armtimes.com",
+        "rss_urls": [],
+        "fallback_seed_urls": [
+            "https://armtimes.com",
+            "https://armtimes.com/hy/article/politics",
+            "https://armtimes.com/hy/article/economy",
+            "https://armtimes.com/hy/article/society",
+            "https://armtimes.com/hy/article/world",
+            "https://armtimes.com/hy/article/culture",
+            "https://armtimes.com/hy/article/sport",
+        ],
+        "article_url_patterns": [
+            r"^https?://(?:www\.)?armtimes\.com/hy/article/\d+/?$",
+        ],
+        "region": Region.ARMENIA,
+    },
+    "aravot": {
+        "source_name": "Aravot",
+        "url": "https://www.aravot.am",
+        "rss_urls": [
+            "https://www.aravot.am/feed/",
+        ],
+        "region": Region.ARMENIA,
+    },
+}
+
+
+def _ea_parse_datetime(value: Optional[str]) -> Optional[str]:
+    """Parse common RSS datetime formats and normalize to ISO string."""
+    if not value:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).isoformat()
+    except ValueError:
+        pass
+    try:
+        return parsedate_to_datetime(value).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def _ea_parse_rss_feed(feed_xml: str, base_url: str) -> list[dict[str, Optional[str]]]:
+    """Parse RSS/Atom XML and return normalized item dictionaries."""
+    items: list[dict[str, Optional[str]]] = []
+    try:
+        root = ET.fromstring(feed_xml)
+    except ET.ParseError as exc:
+        logger.warning("Invalid RSS/Atom XML: %s", exc)
+        return items
+
+    for node in root.findall(".//item"):
+        raw_link = (node.findtext("link") or "").strip()
+        if not raw_link:
+            continue
+        items.append({
+            "title": (node.findtext("title") or "").strip() or None,
+            "url": urljoin(base_url, raw_link),
+            "published": _ea_parse_datetime(node.findtext("pubDate")),
+            "category": (node.findtext("category") or "").strip() or None,
+        })
+
+    if items:
+        return items
+
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    for entry in root.findall(".//atom:entry", ns):
+        link_node = entry.find("atom:link", ns)
+        href = link_node.attrib.get("href") if link_node is not None else ""
+        href = (href or "").strip()
+        if not href:
+            continue
+        items.append({
+            "title": (entry.findtext("atom:title", default="", namespaces=ns) or "").strip() or None,
+            "url": urljoin(base_url, href),
+            "published": _ea_parse_datetime(
+                entry.findtext("atom:updated", default="", namespaces=ns)
+                or entry.findtext("atom:published", default="", namespaces=ns)
+            ),
+            "category": None,
+        })
+
+    return items
+
+
+def _ea_extract_readable_text(html: str) -> str:
+    """Extract readable article text from HTML document."""
+    soup = BeautifulSoup(html, "lxml")
+
+    for tag in soup(["script", "style", "noscript", "iframe", "svg"]):
+        tag.decompose()
+
+    containers = [
+        soup.find("article"),
+        soup.find("main"),
+        soup.select_one(".article-content"),
+        soup.select_one(".entry-content"),
+        soup.select_one(".post-content"),
+        soup.select_one(".content"),
+        soup.body,
+    ]
+
+    best = ""
+    for container in containers:
+        if container is None:
+            continue
+        paragraphs = [p.get_text(" ", strip=True) for p in container.find_all("p")]
+        paragraphs = [p for p in paragraphs if len(p) >= 30]
+        if paragraphs:
+            candidate = "\n".join(paragraphs)
+        else:
+            candidate = container.get_text("\n", strip=True)
+        candidate = re.sub(r"\n{3,}", "\n\n", candidate).strip()
+        if len(candidate) > len(best):
+            best = candidate
+
+    return best
+
+
+def _ea_fetch_feed_items(feed_url: str, timeout: int = 30) -> list[dict[str, Optional[str]]]:
+    """Fetch and parse one RSS/Atom feed."""
+    try:
+        response = requests.get(feed_url, timeout=timeout, headers=_EA_DEFAULT_HEADERS)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("Failed feed request %s: %s", feed_url, exc)
+        return []
+
+    content_type = (response.headers.get("content-type") or "").lower()
+    text = response.text or ""
+    sample = text.lstrip()[:200].lower()
+    looks_like_xml = any(token in content_type for token in ["xml", "rss", "atom"]) or sample.startswith("<?xml")
+    if not looks_like_xml:
+        return []
+
+    return _ea_parse_rss_feed(text, base_url=feed_url)
+
+
+def _ea_discover_feed_urls(base_url: str, timeout: int = 30) -> list[str]:
+    """Discover RSS/Atom feed URLs from a site's homepage."""
+    try:
+        response = requests.get(base_url, timeout=timeout, headers=_EA_DEFAULT_HEADERS)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("Failed homepage request for feed discovery %s: %s", base_url, exc)
+        return []
+
+    soup = BeautifulSoup(response.text, "lxml")
+    discovered: list[str] = []
+    seen: set[str] = set()
+
+    for link in soup.find_all("link"):
+        rel_val = link.get("rel")
+        rel_parts = rel_val if isinstance(rel_val, list) else [rel_val] if rel_val else []
+        rel = " ".join(str(p) for p in rel_parts)
+        href = str(link.get("href") or "").strip()
+        typ = str(link.get("type") or "").lower()
+        if not href:
+            continue
+        if "alternate" not in rel.lower() and "rss" not in href.lower() and "atom" not in href.lower():
+            continue
+        if "rss" not in typ and "atom" not in typ and "xml" not in typ and "rss" not in href.lower() and "atom" not in href.lower():
+            continue
+        absolute = urljoin(base_url, href)
+        if absolute not in seen:
+            seen.add(absolute)
+            discovered.append(absolute)
+
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "").strip()
+        if not href:
+            continue
+        lower_href = href.lower()
+        if "rss" in lower_href or "feed" in lower_href or "atom" in lower_href:
+            absolute = urljoin(base_url, href)
+            if absolute not in seen:
+                seen.add(absolute)
+                discovered.append(absolute)
+
+    return discovered
+
+
+def _ea_extract_candidate_article_urls(
+    html: str,
+    base_url: str,
+    article_url_patterns: list[str],
+) -> list[str]:
+    """Extract candidate article URLs from a listing/homepage document."""
+    soup = BeautifulSoup(html, "lxml")
+    regexes = [re.compile(pattern, re.IGNORECASE) for pattern in article_url_patterns]
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for anchor in soup.find_all("a", href=True):
+        href = str(anchor.get("href") or "").strip()
+        if not href:
+            continue
+        absolute = urljoin(base_url, href).split("#", 1)[0]
+        if "?" in absolute:
+            absolute = absolute.split("?", 1)[0]
+        if absolute in seen:
+            continue
+        if not absolute.lower().startswith("http"):
+            continue
+        if regexes and not any(regex.match(absolute) for regex in regexes):
+            continue
+        seen.add(absolute)
+        candidates.append(absolute)
+
+    return candidates
+
+
+def _ea_collect_fallback_article_urls(
+    agency_name: str,
+    agency_config: dict,
+    target_count: int,
+    timeout: int = 30,
+) -> list[str]:
+    """Collect article URLs by crawling listing pages when feeds are unavailable."""
+    seeds = agency_config.get("fallback_seed_urls") or [agency_config["url"]]
+    patterns = agency_config.get("article_url_patterns") or []
+
+    found: list[str] = []
+    seen: set[str] = set()
+
+    for seed in seeds:
+        if len(found) >= target_count:
+            break
+        try:
+            response = requests.get(seed, timeout=timeout, headers=_EA_DEFAULT_HEADERS)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            logger.warning("%s fallback seed request failed %s: %s", agency_name, seed, exc)
+            continue
+
+        urls = _ea_extract_candidate_article_urls(response.text, seed, patterns)
+        for url in urls:
+            if url in seen:
+                continue
+            seen.add(url)
+            found.append(url)
+            if len(found) >= target_count:
+                break
+
+    return found
+
+
+def _ea_extract_article_page_metadata(html: str) -> dict[str, Optional[str]]:
+    """Extract title/date/category hints from an article page HTML."""
+    soup = BeautifulSoup(html, "lxml")
+
+    title = None
+    og_title = soup.find("meta", property="og:title")
+    if isinstance(og_title, Tag) and og_title.get("content"):
+        raw = og_title.get("content", "")
+        title = (raw[0] if isinstance(raw, list) else raw or "").strip() or None
+    if not title and soup.title and soup.title.text:
+        title = soup.title.text.strip() or None
+    if not title:
+        h1 = soup.find("h1")
+        if h1:
+            title = h1.get_text(" ", strip=True) or None
+
+    published_raw = None
+    for selector in [
+        ("meta", {"property": "article:published_time"}, "content"),
+        ("meta", {"name": "pubdate"}, "content"),
+        ("meta", {"name": "publish-date"}, "content"),
+        ("time", {"datetime": True}, "datetime"),
+    ]:
+        tag_name, attrs, key = selector
+        node = soup.find(tag_name, attrs=attrs)
+        if isinstance(node, Tag) and node.get(key):
+            published_raw = node.get(key)
+            break
+    if isinstance(published_raw, list):
+        published_raw = published_raw[0] if published_raw else None
+
+    category = None
+    section_node = soup.find("meta", property="article:section")
+    if isinstance(section_node, Tag) and section_node.get("content"):
+        raw = section_node.get("content", "")
+        category = (raw[0] if isinstance(raw, list) else raw or "").strip() or None
+
+    return {
+        "title": title,
+        "published": _ea_parse_datetime(published_raw),
+        "category": category,
+    }
+
+
+def _ea_fetch_article_payload(url: str, timeout: int = 30) -> Optional[dict[str, Optional[str]]]:
+    """Fetch article URL and return extracted text + metadata payload."""
+    try:
+        response = requests.get(url, timeout=timeout, headers=_EA_DEFAULT_HEADERS)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("Failed article request %s: %s", url, exc)
+        return None
+
+    html = response.text
+    text = _ea_extract_readable_text(html)
+    if len(text) < 250:
+        return None
+    if _armenian_char_count(text) < _MIN_ARMENIAN_CHARS:
+        return None
+
+    meta = _ea_extract_article_page_metadata(html)
+    return {
+        "text": text,
+        "title": meta.get("title"),
+        "published": meta.get("published"),
+        "category": meta.get("category"),
+    }
+
+
+def _scrape_ea_news_agency(
+    agency_name: str,
+    client,
+    max_articles: int = 500,
+    config: dict | None = None,
+) -> tuple[int, int]:
+    """Scrape a single Eastern Armenian news agency. Returns (scraped, inserted)."""
+    from ingestion._shared.helpers import insert_or_skip
+
+    if agency_name not in NEWS_AGENCIES:
+        raise ValueError(f"Unknown news agency: {agency_name}")
+
+    agency_config = NEWS_AGENCIES[agency_name]
+    base_url = agency_config["url"]
+    source_name = agency_config["source_name"]
+    feed_urls = agency_config.get("rss_urls", [])
+    source_id = f"eastern_armenian_news:{agency_name}"
+    extraction_date = datetime.now().isoformat()
+
+    logger.info("Scraping %s news agency from %s...", agency_name, base_url)
+
+    scraped = 0
+    inserted = 0
+    seen_urls: set[str] = set()
+
+    all_feed_urls = list(feed_urls)
+    discovered_feeds = _ea_discover_feed_urls(base_url)
+    for discovered in discovered_feeds:
+        if discovered not in all_feed_urls:
+            all_feed_urls.append(discovered)
+
+    for feed_url in all_feed_urls:
+        items = _ea_fetch_feed_items(feed_url)
+        if not items:
+            continue
+
+        for item in items:
+            if inserted >= max_articles:
+                break
+
+            article_url = item.get("url")
+            if not article_url or article_url in seen_urls:
+                continue
+
+            seen_urls.add(article_url)
+            scraped += 1
+
+            payload = _ea_fetch_article_payload(article_url)
+            if not payload:
+                continue
+
+            article_text = payload["text"]
+            raw_title = item.get("title") or payload.get("title") or f"{agency_name}_{scraped}"
+
+            meta = TextMetadata.eastern_news_agency(
+                source_name=source_name,
+                publication_date=item.get("published") or payload.get("published"),
+                extraction_date=extraction_date,
+            )
+            meta.source_url = article_url
+            meta.category = item.get("category") or payload.get("category")
+            meta.extra = {
+                "agency_key": agency_name,
+                "article_title": raw_title,
+                "feed_url": feed_url,
+            }
+
+            if insert_or_skip(
+                client,
+                source=source_id,
+                title=raw_title,
+                text=article_text or "",
+                url=article_url,
+                metadata=meta.to_dict(),
+                config=config,
+            ):
+                inserted += 1
+
+            if inserted % 25 == 0:
+                logger.info("%s: inserted %d/%d articles", agency_name, inserted, max_articles)
+
+            time.sleep(_REQUEST_DELAY)
+
+        if inserted >= max_articles:
+            break
+
+    if inserted < max_articles:
+        remaining = max_articles - inserted
+        fallback_urls = _ea_collect_fallback_article_urls(agency_name, agency_config, target_count=remaining * 3)
+        if fallback_urls:
+            logger.info("%s: fallback discovered %d article URLs", agency_name, len(fallback_urls))
+
+        for article_url in fallback_urls:
+            if inserted >= max_articles:
+                break
+            if article_url in seen_urls:
+                continue
+
+            seen_urls.add(article_url)
+            scraped += 1
+
+            payload = _ea_fetch_article_payload(article_url)
+            if not payload:
+                continue
+
+            raw_title = payload.get("title") or f"{agency_name}_{scraped}"
+            article_text = payload["text"]
+
+            meta = TextMetadata.eastern_news_agency(
+                source_name=source_name,
+                publication_date=payload.get("published"),
+                extraction_date=extraction_date,
+            )
+            meta.source_url = article_url
+            meta.category = payload.get("category")
+            meta.extra = {
+                "agency_key": agency_name,
+                "article_title": raw_title,
+                "feed_url": None,
+                "ingest_method": "fallback_listing_crawl",
+            }
+
+            if insert_or_skip(
+                client,
+                source=source_id,
+                title=raw_title,
+                text=article_text or "",
+                url=article_url,
+                metadata=meta.to_dict(),
+            ):
+                inserted += 1
+
+            if inserted % 25 == 0:
+                logger.info("%s: inserted %d/%d articles", agency_name, inserted, max_articles)
+
+            time.sleep(_REQUEST_DELAY)
+
+    return scraped, inserted
+
+
+def _run_eastern_armenian(config: dict, client) -> None:
+    """Run Eastern Armenian news agency scraping (ex ea_news.run)."""
+    ea_cfg = config.get("scraping", {}).get("eastern_armenian", {})
+    max_articles = int(ea_cfg.get("max_articles_per_agency", 500))
+
+    logger.info("=== Scraping EA News Agencies ===")
+    results = {}
+    for agency_name in NEWS_AGENCIES:
+        try:
+            scraped, inserted = _scrape_ea_news_agency(
+                agency_name,
+                client,
+                max_articles=max_articles,
+                config=config,
+            )
+            results[agency_name] = (scraped, inserted)
+            time.sleep(_REQUEST_DELAY)
+        except Exception as exc:
+            logger.error("Error scraping %s: %s", agency_name, exc)
+            results[agency_name] = (0, 0)
+    for agency, (scraped, inserted) in results.items():
+        logger.info("%s: scraped=%d, inserted=%d", agency, scraped, inserted)
+
+
+# --- RSS news (ex rss_news.py) ---
+
+_RSS_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+_ARMENIAN_SOURCES: list[dict] = [
+    {"name": "Armenpress", "url": "https://armenpress.am/eng/news/", "rss": "https://armenpress.am/eng/rss/news/", "category": "news"},
+    {"name": "Armenian Weekly", "url": "https://armenianweekly.com", "rss": "https://armenianweekly.com/feed/", "category": "news"},
+    {"name": "Azatutyun", "url": "https://www.azatutyun.am", "rss": "https://www.azatutyun.am/api/zijrreypui", "category": "news"},
+    {"name": "Hetq", "url": "https://hetq.am/en/news", "rss": "https://hetq.am/en/rss", "category": "investigative"},
+    {"name": "Panorama.am", "url": "https://www.panorama.am/en/news/", "rss": "https://www.panorama.am/en/rss/news.xml", "category": "news"},
+    {"name": "EVN Report", "url": "https://evnreport.com", "rss": "https://evnreport.com/feed/", "category": "analysis"},
+    {"name": "OC Media", "url": "https://oc-media.org", "rss": "https://oc-media.org/feed/", "category": "news"},
+    {"name": "Civilnet", "url": "https://www.civilnet.am/en/", "rss": "https://www.civilnet.am/en/feed/", "category": "culture"},
+    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora"},
+    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora"},
+    {"name": "Agos", "url": "https://www.agos.com.tr/en", "rss": "https://www.agos.com.tr/en/rss", "category": "diaspora"},
+]
+
+_INTERNATIONAL_SOURCES: list[dict] = [
+    {"name": "Google News - Armenia", "url": "https://news.google.com",
+     "rss": "https://news.google.com/rss/search?q=Armenia+OR+Armenian+OR+Artsakh+OR+Karabakh&hl=en-US&gl=US&ceid=US:en",
+     "category": "international", "keyword_filter": False, "google_news": True},
+    {"name": "Al Jazeera", "url": "https://www.aljazeera.com", "rss": "https://www.aljazeera.com/xml/rss/all.xml", "category": "international", "keyword_filter": True},
+    {"name": "Al-Monitor", "url": "https://www.al-monitor.com", "rss": "https://www.al-monitor.com/rss", "category": "international", "keyword_filter": True},
+    {"name": "BBC World", "url": "https://www.bbc.co.uk/news/world", "rss": "https://feeds.bbci.co.uk/news/world/rss.xml", "category": "international", "keyword_filter": True},
+    {"name": "France 24", "url": "https://www.france24.com/en/", "rss": "https://www.france24.com/en/rss", "category": "international", "keyword_filter": True},
+    {"name": "Deutsche Welle", "url": "https://www.dw.com/en/", "rss": "https://rss.dw.com/xml/rss-en-world", "category": "international", "keyword_filter": True},
+    {"name": "Euronews", "url": "https://www.euronews.com", "rss": "https://www.euronews.com/rss", "category": "international", "keyword_filter": True},
+]
+
+ALL_RSS_SOURCES = _ARMENIAN_SOURCES + _INTERNATIONAL_SOURCES
+
+ARMENIAN_KEYWORDS: list[str] = [
+    r"\barmenia\b", r"\barmenian[s]?\b", r"\bhay(?:astan)?\b",
+    r"\byerevan\b", r"\bgyumri\b", r"\bvanadzor\b", r"\bsevan\b",
+    r"\bararat\b", r"\bechmiadzin\b", r"\betchmiadzin\b",
+    r"\bartsakh\b", r"\bkarabakh\b", r"\bnagorno[- ]?karabakh\b",
+    r"\bstepanakert\b", r"\bshushi\b", r"\bshusha\b",
+    r"\barmenian[- ]?genocide\b", r"\bmedz\s*yeghern\b", r"\baghet\b",
+    r"\bapril\s*24\b",
+    r"\bpash[iy]n[iy]an\b", r"\bkoch?ar[iy]an\b", r"\bsark?[iy]ss?[iy]an\b",
+    r"\bazerbaijan\b.*(?:armenia|ceasefire|border|peace|corridor)",
+    r"\bturkey\b.*(?:armenia|border|protocol|normali[sz])",
+    r"\bzangezur\s*corridor\b", r"\bminsk\s*group\b",
+    r"\b44[- ]?day\s*war\b",
+    r"\barmenian[- ]?diaspora\b", r"\barmenian[- ]?apostolic\b",
+    r"\bduduk\b", r"\blavash\b", r"\bkhachkar\b",
+    r"\baznavour\b", r"\btankian\b", r"\bsystem\s+of\s+a\s+down\b",
+    r"\bkomitas\b", r"\bparajanov\b",
+    r"\bsouth[- ]?caucasus\b", r"\bcaucasus\b.*armenian",
+]
+
+_RSS_KEYWORD_PATTERN: re.Pattern[str] = re.compile(
+    "|".join(ARMENIAN_KEYWORDS), re.IGNORECASE,
+)
+
+
+def _rss_matches_armenian_keywords(text: str) -> bool:
+    return bool(_RSS_KEYWORD_PATTERN.search(text))
+
+
+RSS_BLOCKED_SOURCES: set[str] = {
+    "rt", "russia today", "rt.com", "sputnik", "sputniknews",
+    "tass", "ria novosti", "ria news",
+    "azernews", "azertag", "apa.az", "report.az", "caliber.az",
+    "trend.az", "news.az", "day.az",
+    "trt", "trt world", "anadolu agency", "daily sabah",
+}
+
+RSS_DUPLICATE_SOURCES: set[str] = {
+    "armenpress", "asbarez", "the armenian weekly", "armenian weekly",
+    "azatutyun", "radio free europe", "rfe/rl",
+    "hetq", "hetq.am", "panorama.am",
+    "evn report", "oc media", "civilnet",
+    "massis post", "the armenian mirror-spectator",
+    "mirror-spectator", "mirrorspectator",
+    "horizon weekly", "agos",
+    "euronews", "france 24", "al jazeera", "al-monitor",
+    "bbc", "bbc world", "bbc news",
+    "deutsche welle", "dw",
+}
+
+_RSS_BLOCKED_RE = re.compile(
+    r"(?:" + "|".join(re.escape(s) for s in RSS_BLOCKED_SOURCES) + r")\s*$",
+    re.IGNORECASE,
+)
+
+_RSS_DUPLICATE_RE = re.compile(
+    r"(?:" + "|".join(re.escape(s) for s in RSS_DUPLICATE_SOURCES) + r")\s*$",
+    re.IGNORECASE,
+)
+
+
+def _rss_google_news_source_blocked(title: str) -> bool:
+    parts = title.rsplit(" - ", 1)
+    if len(parts) < 2:
+        return False
+    return bool(_RSS_BLOCKED_RE.search(parts[-1].strip()))
+
+
+def _rss_google_news_source_duplicate(title: str) -> bool:
+    parts = title.rsplit(" - ", 1)
+    if len(parts) < 2:
+        return False
+    return bool(_RSS_DUPLICATE_RE.search(parts[-1].strip()))
+
+
+def _rss_parse_date(date_str: str) -> Optional[datetime]:
+    if not date_str:
+        return None
+    try:
+        return parsedate_to_datetime(date_str)
+    except Exception:
+        return None
+
+
+def _rss_clean_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _rss_strip_html(html: str) -> str:
+    soup = BeautifulSoup(html, "lxml")
+    return soup.get_text(separator=" ")
+
+
+_RSS_ARTICLE_SELECTORS = [
+    "article",
+    '[itemprop="articleBody"]',
+    ".article-body",
+    ".entry-content",
+    ".post-content",
+    ".story-body",
+    ".field-name-body",
+    "#article-body",
+    ".article__body",
+    ".text-long",
+    "main .content",
+]
+
+
+def fetch_full_article(url: str, session: requests.Session, timeout: int = 15) -> str | None:
+    """Follow an article URL and extract the full body text."""
+    try:
+        resp = session.get(url, timeout=timeout, allow_redirects=True)
+        resp.raise_for_status()
+    except requests.RequestException:
+        return None
+
+    try:
+        soup = BeautifulSoup(resp.text, "lxml")
+    except Exception:
+        return None
+
+    for tag in soup.select("script, style, nav, header, footer, aside, .sidebar, .ad, .advertisement"):
+        tag.decompose()
+
+    for selector in _RSS_ARTICLE_SELECTORS:
+        container = soup.select_one(selector)
+        if container:
+            paragraphs = container.find_all("p")
+            text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+            if len(text) >= 100:
+                return _rss_clean_text(text)
+
+    paragraphs = soup.find_all("p")
+    text = "\n\n".join(p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True))
+    if len(text) >= 200:
+        return _rss_clean_text(text)
+
+    return None
+
+
+def _rss_fetch_feed(rss_url: str, session: requests.Session) -> list[dict]:
+    """Parse an RSS/Atom feed and return a list of entry dicts."""
+    try:
+        import feedparser  # type: ignore[reportMissingImports]
+        feed = feedparser.parse(rss_url)
+        entries = []
+        for e in feed.entries:
+            title = str(e.get("title", "")).strip()
+            url = str(e.get("link", "")).strip()
+            if not title or not url:
+                continue
+            raw_summary = str(e.get("summary", e.get("description", "")))
+            summary = _rss_clean_text(_rss_strip_html(raw_summary))[:1000]
+            published = _rss_parse_date(
+                str(e.get("published", e.get("updated", "")) or "")
+            )
+            raw_tags = e.get("tags") or []
+            tags = [str(t.get("term", "")) for t in raw_tags if t and t.get("term")]
+            entries.append({
+                "title": title,
+                "url": url,
+                "summary": summary,
+                "published_at": published.isoformat() if published else None,
+                "tags": tags,
+            })
+        return entries
+    except ImportError:
+        logger.warning("feedparser not installed; using basic XML parsing")
+        return _rss_fetch_feed_xml(rss_url, session)
+
+
+def _rss_fetch_feed_xml(rss_url: str, session: requests.Session) -> list[dict]:
+    """Minimal RSS/Atom parser using stdlib xml.etree."""
+    try:
+        resp = session.get(rss_url, timeout=20)
+        resp.raise_for_status()
+        time.sleep(_REQUEST_DELAY)
+    except requests.RequestException as exc:
+        logger.error("Failed to fetch feed %s: %s", rss_url, exc)
+        return []
+
+    entries = []
+    try:
+        root = ET.fromstring(resp.content)
+    except ET.ParseError as exc:
+        logger.error("XML parse error for %s: %s", rss_url, exc)
+        return []
+
+    for item in root.iter("item"):
+        title = (item.findtext("title") or "").strip()
+        url = (item.findtext("link") or "").strip()
+        if not title or not url:
+            continue
+        desc = _rss_clean_text(_rss_strip_html(item.findtext("description") or ""))[:1000]
+        pub = _rss_parse_date(item.findtext("pubDate") or "")
+        entries.append({
+            "title": title,
+            "url": url,
+            "summary": desc,
+            "published_at": pub.isoformat() if pub else None,
+            "tags": [],
+        })
+
+    ns = {"atom": "http://www.w3.org/2005/Atom"}
+    for entry_el in root.findall(".//atom:entry", ns):
+        title = (entry_el.findtext("atom:title", namespaces=ns) or "").strip()
+        link_el = entry_el.find("atom:link[@rel='alternate']", ns)
+        if link_el is None:
+            link_el = entry_el.find("atom:link", ns)
+        url = (link_el.get("href", "") if link_el is not None else "").strip()
+        if not title or not url:
+            continue
+        summary_el = entry_el.findtext("atom:summary", namespaces=ns) or ""
+        pub_str = entry_el.findtext("atom:updated", namespaces=ns) or ""
+        pub = _rss_parse_date(pub_str)
+        entries.append({
+            "title": title,
+            "url": url,
+            "summary": _rss_clean_text(_rss_strip_html(summary_el))[:1000],
+            "published_at": pub.isoformat() if pub else None,
+            "tags": [],
+        })
+
+    return entries
+
+
+def _rss_scrape_source(source: dict, session: requests.Session) -> list[dict]:
+    """Scrape a single RSS source, applying filtering as configured."""
+    name = source["name"]
+    rss_url = source["rss"]
+    logger.info("[%s] Fetching RSS feed: %s", name, rss_url)
+
+    entries = _rss_fetch_feed(rss_url, session)
+
+    if source.get("keyword_filter"):
+        before = len(entries)
+        entries = [
+            e for e in entries
+            if _rss_matches_armenian_keywords(e["title"])
+            or _rss_matches_armenian_keywords(e.get("summary", ""))
+        ]
+        logger.info(
+            "[%s] Keyword filter: %d/%d matched Armenian keywords",
+            name, len(entries), before,
+        )
+
+    if source.get("google_news"):
+        before = len(entries)
+        entries = [
+            e for e in entries
+            if not _rss_google_news_source_blocked(e["title"])
+            and not _rss_google_news_source_duplicate(e["title"])
+        ]
+        logger.info(
+            "[%s] Source filter: kept %d/%d (blocked/duplicate removed)",
+            name, len(entries), before,
+        )
+
+    for e in entries:
+        e["source_name"] = name
+        e["source_url"] = source["url"]
+        e["category"] = source.get("category", "news")
+
+    logger.info("[%s] Collected %d articles", name, len(entries))
+    return entries
+
+
+def _load_existing_urls(jsonl_path: Path) -> set[str]:
+    urls: set[str] = set()
+    if not jsonl_path.exists():
+        return urls
+    with open(jsonl_path, encoding="utf-8") as fh:
+        for line in fh:
+            try:
+                data = json.loads(line)
+                urls.add(data.get("url", ""))
+            except (json.JSONDecodeError, ValueError):
+                continue
+    return urls
+
+
+def _append_articles(jsonl_path: Path, articles: list[dict]) -> int:
+    jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with open(jsonl_path, "a", encoding="utf-8") as fh:
+        for a in articles:
+            fh.write(json.dumps(a, ensure_ascii=False) + "\n")
+            count += 1
+    return count
+
+
+def _run_rss_news(config: dict, client) -> None:
+    """Run RSS news scraping (ex rss_news.run)."""
+    from ingestion._shared.helpers import insert_or_skip
+
+    rss_cfg = config.get("scraping", {}).get("rss_news", {})
+    request_delay = rss_cfg.get("request_delay", _REQUEST_DELAY)
+    enabled_sources = rss_cfg.get("sources")
+
+    session = requests.Session()
+    session.headers.update(_RSS_HEADERS)
+
+    total_new = 0
+    mongo_inserted = 0
+
+    for source in ALL_RSS_SOURCES:
+        if enabled_sources and source["name"] not in enabled_sources:
+            continue
+
+        try:
+            entries = _rss_scrape_source(source, session)
+        except Exception:
+            logger.exception("[%s] Scrape failed", source["name"])
+            continue
+
+        source_tag = f"rss_news:{source['name']}"
+        new_entries = []
+        for entry in entries:
+            url = entry.get("url")
+            if url and client.documents.find_one({"metadata.url": url}):
+                continue
+            new_entries.append(entry)
+
+        for entry in new_entries:
+            article_url = entry.get("url", "")
+            full_text = fetch_full_article(article_url, session) if article_url else None
+            text = full_text or entry.get("summary", "") or entry.get("title", "")
+            if not text:
+                continue
+            if insert_or_skip(
+                client,
+                source=source_tag,
+                title=entry.get("title", ""),
+                text=text,
+                url=entry.get("url"),
+                metadata={
+                    "source_type": "news",
+                    "category": entry.get("category", "news"),
+                    "published_at": entry.get("published_at"),
+                    "tags": entry.get("tags", []),
+                },
+                config=config,
+            ):
+                mongo_inserted += 1
+
+        total_new += len(new_entries)
+        if new_entries:
+            logger.info("[%s] %d new articles inserted", source["name"], len(new_entries))
+
+        time.sleep(request_delay)
+
+    logger.info(
+        "RSS news scrape complete: %d new articles, %d inserted to MongoDB",
+        total_new, mongo_inserted,
+    )
+
+
+# --- Entry point ---
+
+def run(config: dict) -> None:
+    """Unified news scraper entry point.
+
+    Runs enabled sub-runners with a single MongoDB client:
+    - config.scraping.newspapers.enabled (default True) → diaspora newspapers
+    - config.scraping.eastern_armenian.enabled (default True) → EA news agencies
+    - config.scraping.rss_news.enabled (default True) → RSS news feeds
+    """
+    from ingestion._shared.helpers import open_mongodb_client
+
+    with open_mongodb_client(config) as client:
+        if client is None:
+            raise RuntimeError("MongoDB client is None")
+
+        if config.get("scraping", {}).get("newspapers", {}).get("enabled", True):
+            _run_newspapers(config, client)
+
+        if config.get("scraping", {}).get("eastern_armenian", {}).get("enabled", True):
+            _run_eastern_armenian(config, client)
+
+        if config.get("scraping", {}).get("rss_news", {}).get("enabled", True):
+            _run_rss_news(config, client)

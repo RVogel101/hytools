@@ -24,6 +24,16 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
     timeout-minutes: 360  # 6 hours max
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +57,16 @@ jobs:
           restore-keys: |
             scraping-data-${{ runner.os }}-
 
+      - name: Prepare directories
+        run: mkdir -p config data/raw data/logs data/frequencies
+
+      - name: Ingest cached JSONL into MongoDB
+        env:
+          MONGODB_URI: mongodb://localhost:27017/
+        run: |
+          python -m integrations.database.run_ingestion --raw-only \
+            --mongodb-uri "$MONGODB_URI" --skip-if-unavailable || true
+
       - name: Determine stages from schedule
         id: stages
         run: |
@@ -54,13 +74,13 @@ jobs:
             echo "only=${{ github.event.inputs.stages }}" >> "$GITHUB_OUTPUT"
             echo "skip=${{ github.event.inputs.skip_stages }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event.schedule }}" = "0 3 * * 1" ]; then
-            # Weekly: Wikipedia, Wikisource, Archive.org, HathiTrust, LOC
-            echo "only=wikipedia,wikisource,archive_org,hathitrust,loc" >> "$GITHUB_OUTPUT"
+            # Weekly: wikipedia_wa, wikipedia_ea, wikisource, archive_org, hathitrust, loc
+            echo "only=wikipedia_wa,wikipedia_ea,wikisource,archive_org,hathitrust,loc" >> "$GITHUB_OUTPUT"
             echo "skip=" >> "$GITHUB_OUTPUT"
           else
-            # Daily: Newspapers, News agencies, CulturaX, RSS news, English sources
-            echo "only=newspaper,nayiri,eastern_armenian,culturax,rss_news,english_sources" >> "$GITHUB_OUTPUT"
-            echo "skip=" >> "$GITHUB_OUTPUT"
+            # Daily: newspaper, ea_news, culturax, rss_news, english_sources (nayiri skipped)
+            echo "only=newspaper,ea_news,culturax,rss_news,english_sources" >> "$GITHUB_OUTPUT"
+            echo "skip=nayiri" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Create scraping config
@@ -71,6 +91,10 @@ jobs:
             raw_dir: data/raw
             data_root: data
             log_dir: data/logs
+          database:
+            use_mongodb: true
+            mongodb_uri: mongodb://localhost:27017/
+            mongodb_database: western_armenian_corpus
           scraping:
             wikipedia:
               enabled: true
@@ -117,8 +141,8 @@ jobs:
             english_sources:
               enabled: true
               wikipedia: true
-              hyestart: true
-              csu_fresno: true
+              hyestart: false
+              csu_fresno: false
               request_delay: 2.0
           EOF
 
@@ -132,7 +156,7 @@ jobs:
           if [ -n "${{ steps.stages.outputs.skip }}" ]; then
             SKIP_ARG="--skip $(echo '${{ steps.stages.outputs.skip }}' | tr ',' ' ')"
           fi
-          python -m armenian_corpus_core.scraping.runner run \
+          python -m scraping.runner run \
             --config config/settings.yaml \
             $ONLY_ARG $SKIP_ARG
 
@@ -141,8 +165,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: scrape-summary-${{ github.run_number }}
-          path: data/logs/scrape_summary.json
+          path: data/logs/pipeline_summary.json
           retention-days: 30
+          if-no-files-found: ignore
 
       - name: Upload frequency lists
         if: always()

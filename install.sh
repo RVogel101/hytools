@@ -50,16 +50,14 @@ echo ""
 
 # Verify installation
 echo "Verifying installation..."
-python3 -c "import armenian_corpus_core; print(f'✓ Version: {armenian_corpus_core.__version__}')"
-python3 -c "from armenian_corpus_core.extraction.registry import get_registry; r = get_registry(); print(f'✓ Registry: {len(r.list_tools())} tools available')"
+python3 -c 'import importlib.metadata; print("✓ Version:", importlib.metadata.version("armenian-corpus-core"))'
+python3 -c "from scraping.registry import get_registry; r = get_registry(); print(f'✓ Registry: {len(r.list_tools())} tools available')"
 
 echo ""
 echo "Next steps:"
-echo "1. Configure lousardzag to use the central package:"
-echo "     export LOUSARDZAG_USE_CENTRAL_PACKAGE=1"
-echo "2. Test the integration:"
-echo "     python -c 'from lousardzag.core_adapters import get_extraction_registry; print(get_extraction_registry())'  "
-echo "3. Run the extraction pipeline:"
-echo "     cd ../lousardzag"
-echo "     python -m armenian_corpus_core.extraction.run_extraction_pipeline --project lousardzag"
+echo "Run the pipeline:"
+echo "     python -m scraping.runner run              # full pipeline"
+echo "     python -m scraping.runner run --group scraping    # scraping only"
+echo "     python -m scraping.runner run --group extraction  # extraction only"
+echo "     python -m scraping.runner list                    # list all stages"
 echo ""

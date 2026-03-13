@@ -65,7 +65,7 @@ Write-Host ""
 
 # Verify installation
 Write-Host "Verifying installation..." -ForegroundColor Yellow
-$result = python -c "import armenian_corpus_core; print(f'Version: {armenian_corpus_core.__version__}')" 2>&1
+$result = python -c "import importlib.metadata; v = importlib.metadata.version('armenian-corpus-core'); print(f'Version: {v}')" 2>&1
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓ $result" -ForegroundColor Green
 } else {
@@ -73,7 +73,7 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-$result = python -c "from armenian_corpus_core.extraction.registry import get_registry; r = get_registry(); print(f'Registry: {len(r.list_tools())} tools')" 2>&1
+$result = python -c "from scraping.registry import get_registry; r = get_registry(); print(f'Registry: {len(r.list_tools())} tools')" 2>&1
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓ $result" -ForegroundColor Green
 } else {
@@ -83,13 +83,9 @@ if ($LASTEXITCODE -eq 0) {
 
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "1. Configure lousardzag to use the central package:" -ForegroundColor Cyan
-Write-Host "    `$env:LOUSARDZAG_USE_CENTRAL_PACKAGE='1'" -ForegroundColor Gray
-Write-Host ""
-Write-Host "2. Test the integration:" -ForegroundColor Cyan
-Write-Host "    python -c 'from lousardzag.core_adapters import get_extraction_registry; print(get_extraction_registry())'" -ForegroundColor Gray
-Write-Host ""
-Write-Host "3. Run the extraction pipeline:" -ForegroundColor Cyan
-Write-Host "    cd ../lousardzag" -ForegroundColor Gray
-Write-Host "    python -m armenian_corpus_core.extraction.run_extraction_pipeline --project lousardzag" -ForegroundColor Gray
+Write-Host "Run the pipeline:" -ForegroundColor Cyan
+Write-Host "    python -m scraping.runner run              # full pipeline" -ForegroundColor Gray
+Write-Host "    python -m scraping.runner run --group scraping    # scraping only" -ForegroundColor Gray
+Write-Host "    python -m scraping.runner run --group extraction  # extraction only" -ForegroundColor Gray
+Write-Host "    python -m scraping.runner list                    # list all stages" -ForegroundColor Gray
 Write-Host ""

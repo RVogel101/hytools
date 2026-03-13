@@ -1,9 +1,9 @@
-"""Tests for armenian_corpus_core.core_contracts.hashing module."""
+"""Tests for core_contracts.hashing module."""
 
 import hashlib
 import unicodedata
 
-from armenian_corpus_core.core_contracts.hashing import (
+from core_contracts.hashing import (
     normalize_text_for_hash,
     sha256_normalized,
 )

@@ -136,3 +136,6 @@ Thumbs.db
 # Local testing
 test_output/
 *.tmp
+
+# Corpus / data text files (often large or generated)
+*.txt

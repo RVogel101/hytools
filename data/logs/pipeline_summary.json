@@ -1,0 +1,231 @@
+{
+  "started_at": 1773300909.5255759,
+  "finished_at": 1773300910.0095758,
+  "duration_seconds": 0.484,
+  "stages": [
+    {
+      "stage": "wikipedia_wa",
+      "module": "scraping.wikipedia_wa",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "wikipedia_ea",
+      "module": "scraping.wikipedia_ea",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "wikisource",
+      "module": "scraping.wikisource",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "archive_org",
+      "module": "scraping.archive_org",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "hathitrust",
+      "module": "scraping.hathitrust",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "gallica",
+      "module": "scraping.gallica",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "loc",
+      "module": "scraping.loc",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "dpla",
+      "module": "scraping.dpla",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "newspaper",
+      "module": "scraping.newspaper",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "ea_news",
+      "module": "scraping.ea_news",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "rss_news",
+      "module": "scraping.rss_news",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "culturax",
+      "module": "scraping.culturax",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "english_sources",
+      "module": "scraping.english_sources",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "nayiri",
+      "module": "scraping.nayiri",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "gomidas",
+      "module": "scraping.gomidas",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "mechitarist",
+      "module": "scraping.mechitarist",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "agbu",
+      "module": "scraping.agbu",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "ocr_ingest",
+      "module": "scraping.ocr_ingest",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "mss_nkr",
+      "module": "scraping.mss_nkr",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "worldcat_searcher",
+      "module": "scraping.worldcat_searcher",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "cleaning",
+      "module": "cleaning.run_mongodb",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "metadata_tagger",
+      "module": "scraping.metadata_tagger",
+      "enabled": true,
+      "status": "ok",
+      "duration_seconds": 0.437,
+      "error": ""
+    },
+    {
+      "stage": "frequency_aggregator",
+      "module": "scraping.frequency_aggregator",
+      "enabled": true,
+      "status": "ok",
+      "duration_seconds": 0.047,
+      "error": ""
+    },
+    {
+      "stage": "export_corpus_overlap_fingerprints",
+      "module": "scraping.export_corpus_overlap_fingerprints",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "import_anki_sqlite",
+      "module": "scraping.import_anki_sqlite",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "validate_contract_alignment",
+      "module": "scraping.validate_contract_alignment",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "materialize_dialect_views",
+      "module": "scraping.materialize_dialect_views",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "summarize_unified_documents",
+      "module": "scraping.summarize_unified_documents",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    }
+  ]
+}
