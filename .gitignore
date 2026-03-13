@@ -139,3 +139,4 @@ test_output/
 
 # Corpus / data text files (often large or generated)
 *.txt
+data/raw/wikipedia_ea/
