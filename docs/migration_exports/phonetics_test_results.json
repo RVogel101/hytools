@@ -1,0 +1,128 @@
+{
+  "test_date": "2026-03-06",
+  "test_words": [
+    "պետք",
+    "ժամ",
+    "ջուր",
+    "ոչ",
+    "իւր"
+  ],
+  "results": [
+    {
+      "word": "պետք",
+      "graphemes": [
+        "պ",
+        "ե",
+        "տ",
+        "ք"
+      ],
+      "expected_wa_phones": [
+        "b",
+        "jɛ",
+        "d",
+        "[ք?]"
+      ],
+      "voicing_analysis": {
+        "պ": {
+          "grapheme": "պ",
+          "wa_phone": "b",
+          "wa_voicing": "voiced",
+          "eastern_phone": "p",
+          "eastern_voicing": "voiceless"
+        },
+        "տ": {
+          "grapheme": "տ",
+          "wa_phone": "d",
+          "wa_voicing": "voiced",
+          "eastern_phone": "t",
+          "eastern_voicing": "voiceless"
+        }
+      },
+      "eastern_leakage_detected": false,
+      "eastern_leakage_reason": "",
+      "rule_gaps": [
+        "Missing rule for grapheme: ք",
+        "ե medial/final → /ɛ/ (simple vowel)"
+      ],
+      "notes": "Transcription: /b jɛ d [ք?]/"
+    },
+    {
+      "word": "ժամ",
+      "graphemes": [
+        "ժ",
+        "ա",
+        "մ"
+      ],
+      "expected_wa_phones": [
+        "ʒ",
+        "ɑ",
+        "m"
+      ],
+      "voicing_analysis": {},
+      "eastern_leakage_detected": false,
+      "eastern_leakage_reason": "",
+      "rule_gaps": [],
+      "notes": "Transcription: /ʒ ɑ m/"
+    },
+    {
+      "word": "ջուր",
+      "graphemes": [
+        "ջ",
+        "ու",
+        "ր"
+      ],
+      "expected_wa_phones": [
+        "tʃʰ",
+        "u",
+        "ɾ"
+      ],
+      "voicing_analysis": {
+        "ջ": {
+          "grapheme": "ջ",
+          "wa_phone": "tʃʰ",
+          "wa_voicing": "aspirated_affricate",
+          "eastern_phone": "dʒ",
+          "eastern_voicing": "voiced"
+        }
+      },
+      "eastern_leakage_detected": false,
+      "eastern_leakage_reason": "",
+      "rule_gaps": [],
+      "notes": "Transcription: /tʃʰ u ɾ/"
+    },
+    {
+      "word": "ոչ",
+      "graphemes": [
+        "ո",
+        "չ"
+      ],
+      "expected_wa_phones": [
+        "ʋɔ",
+        "tʃʰ"
+      ],
+      "voicing_analysis": {},
+      "eastern_leakage_detected": false,
+      "eastern_leakage_reason": "",
+      "rule_gaps": [
+        "ո word-initial → /ʋɔ/ (diphthong)"
+      ],
+      "notes": "Transcription: /ʋɔ tʃʰ/"
+    },
+    {
+      "word": "իւր",
+      "graphemes": [
+        "իւ",
+        "ր"
+      ],
+      "expected_wa_phones": [
+        "ʏ",
+        "ɾ"
+      ],
+      "voicing_analysis": {},
+      "eastern_leakage_detected": false,
+      "eastern_leakage_reason": "",
+      "rule_gaps": [],
+      "notes": "Transcription: /ʏ ɾ/"
+    }
+  ]
+}

@@ -1,0 +1,1752 @@
+{
+  "generated_at": "2026-03-06T19:17:28.067225Z",
+  "sqlite_files_detected": [
+    "data/western_armenian.db",
+    "data/western_armenian_corpus.db",
+    "src/armenian_cards.db"
+  ],
+  "databases": [
+    {
+      "path": "data/western_armenian.db",
+      "tables": [
+        {
+          "name": "archive_org_texts",
+          "create_sql": "CREATE TABLE archive_org_texts (\n    text_id TEXT PRIMARY KEY,\n    archive_id TEXT NOT NULL,\n    title TEXT,\n    author TEXT,\n    publication_date TEXT,\n    full_text TEXT,\n    extracted_from_format TEXT,\n    source_url TEXT,\n    content_sha1 TEXT,\n    content_length_chars INTEGER,\n    language TEXT DEFAULT 'western_armenian',\n    scraped_timestamp DATETIME,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "text_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "archive_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "title",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "author",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "publication_date",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "full_text",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "extracted_from_format",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_url",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_length_chars",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "language",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_archive_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_archive_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_archive_id",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "archive_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_archive_org_texts_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "text_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "culturax_texts",
+          "create_sql": "CREATE TABLE culturax_texts (\n    text_id TEXT PRIMARY KEY,\n    source_url TEXT,\n    source_domain TEXT,\n    title TEXT,\n    content TEXT,\n    language TEXT DEFAULT 'western_armenian',\n    scraped_timestamp DATETIME,\n    content_sha1 TEXT,\n    content_length_chars INTEGER,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "text_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "source_url",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_domain",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "title",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "language",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_length_chars",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_culturax_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_culturax_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_culturax_domain",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "source_domain"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_culturax_texts_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "text_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "data_quality",
+          "create_sql": "CREATE TABLE data_quality (\n    quality_id TEXT PRIMARY KEY,\n    operation_id TEXT,\n    source_type TEXT NOT NULL,\n    table_name TEXT NOT NULL,\n    metric_name TEXT,\n    metric_value REAL,\n    check_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,\n    passed BOOLEAN,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "quality_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "table_name",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "metric_name",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "metric_value",
+              "type": "REAL",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "check_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "passed",
+              "type": "BOOLEAN",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_quality_table",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "table_name"
+              ]
+            },
+            {
+              "name": "idx_quality_operation",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "operation_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_data_quality_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "quality_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dedup_records",
+          "create_sql": "CREATE TABLE dedup_records (\n    dedup_id TEXT PRIMARY KEY,\n    source_type TEXT NOT NULL,\n    entry_id TEXT NOT NULL,\n    content_sha1 TEXT NOT NULL,\n    first_seen_timestamp DATETIME,\n    duplicate_count INTEGER DEFAULT 0,\n    original_source_name TEXT\n)",
+          "columns": [
+            {
+              "name": "dedup_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "entry_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "first_seen_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "duplicate_count",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "original_source_name",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_dedup_entry",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "entry_id"
+              ]
+            },
+            {
+              "name": "idx_dedup_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_dedup_records_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "dedup_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "hathitrust_texts",
+          "create_sql": "CREATE TABLE hathitrust_texts (\n    text_id TEXT PRIMARY KEY,\n    hathi_id TEXT NOT NULL,\n    title TEXT,\n    author TEXT,\n    publication_date TEXT,\n    language TEXT DEFAULT 'western_armenian',\n    full_text TEXT,\n    source_url TEXT,\n    content_sha1 TEXT,\n    content_length_chars INTEGER,\n    scraped_timestamp DATETIME,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "text_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "hathi_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "title",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "author",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "publication_date",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "language",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "full_text",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_url",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_length_chars",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_hathitrust_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_hathitrust_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_hathitrust_id",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "hathi_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_hathitrust_texts_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "text_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ingestion_operations",
+          "create_sql": "CREATE TABLE ingestion_operations (\n    operation_id TEXT PRIMARY KEY,\n    source_type TEXT NOT NULL,\n    source_name TEXT NOT NULL,\n    operation_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,\n    status TEXT NOT NULL,\n    description TEXT,\n    config_snapshot TEXT,\n    error_message TEXT\n)",
+          "columns": [
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "source_name",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "operation_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "status",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "description",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "config_snapshot",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "error_message",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "sqlite_autoindex_ingestion_operations_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "operation_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "loc_texts",
+          "create_sql": "CREATE TABLE loc_texts (\n    text_id TEXT PRIMARY KEY,\n    loc_id TEXT NOT NULL,\n    title TEXT,\n    author TEXT,\n    publication_date TEXT,\n    language TEXT DEFAULT 'western_armenian',\n    full_text TEXT,\n    source_url TEXT,\n    content_sha1 TEXT,\n    content_length_chars INTEGER,\n    scraped_timestamp DATETIME,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "text_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "loc_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "title",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "author",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "publication_date",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "language",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "full_text",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_url",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_length_chars",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_loc_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_loc_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_loc_id",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "loc_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_loc_texts_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "text_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "migration_log",
+          "create_sql": "CREATE TABLE migration_log (\n    migration_id TEXT PRIMARY KEY,\n    source_file TEXT NOT NULL,\n    source_type TEXT NOT NULL,\n    target_table TEXT NOT NULL,\n    record_count INTEGER,\n    migration_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,\n    status TEXT NOT NULL,\n    error_message TEXT,\n    file_deleted BOOLEAN DEFAULT FALSE,\n    file_delete_timestamp DATETIME\n)",
+          "columns": [
+            {
+              "name": "migration_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "source_file",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "target_table",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "record_count",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "migration_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "status",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "error_message",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "file_deleted",
+              "type": "BOOLEAN",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "file_delete_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_migration_status",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "status"
+              ]
+            },
+            {
+              "name": "idx_migration_source",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "source_file"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_migration_log_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "migration_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "nayiri_entries",
+          "create_sql": "CREATE TABLE nayiri_entries (\n    entry_id TEXT PRIMARY KEY,\n    headword TEXT NOT NULL,\n    headword_transliterated TEXT,\n    pronunciation TEXT,\n    part_of_speech TEXT,\n    definition TEXT,\n    examples TEXT,\n    etymology TEXT,\n    content_sha1 TEXT,\n    scraped_timestamp DATETIME,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "entry_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "headword",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "headword_transliterated",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "pronunciation",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "part_of_speech",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "definition",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "examples",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "etymology",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_nayiri_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_nayiri_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_nayiri_headword",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "headword"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_nayiri_entries_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "entry_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "newspaper_articles",
+          "create_sql": "CREATE TABLE newspaper_articles (\n    article_id TEXT PRIMARY KEY,\n    source_name TEXT NOT NULL,\n    url TEXT NOT NULL UNIQUE,\n    title TEXT,\n    content TEXT,\n    scraped_timestamp DATETIME,\n    published_date_raw TEXT,\n    author TEXT,\n    source_language TEXT DEFAULT 'western_armenian',\n    content_sha1 TEXT,\n    content_length_chars INTEGER,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "article_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "source_name",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "url",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "title",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "published_date_raw",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "author",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_language",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_length_chars",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_newspaper_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_newspaper_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_newspaper_source",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "source_name"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_newspaper_articles_2",
+              "unique": true,
+              "origin": "u",
+              "partial": false,
+              "columns": [
+                "url"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_newspaper_articles_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "article_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "process_issues",
+          "create_sql": "CREATE TABLE process_issues (\n    issue_id TEXT PRIMARY KEY,\n    operation_id TEXT,\n    source_type TEXT NOT NULL,\n    source_name TEXT NOT NULL,\n    issue_category TEXT,\n    issue_severity TEXT,\n    issue_description TEXT,\n    affected_records INTEGER,\n    affected_items TEXT,\n    resolution_attempted TEXT,\n    resolution_success BOOLEAN,\n    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "issue_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "source_name",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "issue_category",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "issue_severity",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "issue_description",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "affected_records",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "affected_items",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "resolution_attempted",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "resolution_success",
+              "type": "BOOLEAN",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_issues_severity",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "issue_severity"
+              ]
+            },
+            {
+              "name": "idx_issues_category",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "issue_category"
+              ]
+            },
+            {
+              "name": "idx_issues_source",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "source_type",
+                "source_name"
+              ]
+            },
+            {
+              "name": "idx_issues_operation",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "operation_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_process_issues_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "issue_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "process_metrics",
+          "create_sql": "CREATE TABLE process_metrics (\n    metrics_id TEXT PRIMARY KEY,\n    operation_id TEXT UNIQUE,\n    source_type TEXT NOT NULL,\n    source_name TEXT NOT NULL,\n    total_records_attempted INTEGER,\n    total_records_imported INTEGER,\n    total_records_skipped INTEGER,\n    total_records_failed INTEGER,\n    total_duration_seconds REAL,\n    avg_record_time_ms REAL,\n    content_deduped INTEGER,\n    unique_content_hashes INTEGER,\n    earliest_timestamp DATETIME,\n    latest_timestamp DATETIME,\n    data_size_mb REAL,\n    compression_ratio_percent REAL,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "metrics_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "source_name",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "total_records_attempted",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "total_records_imported",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "total_records_skipped",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "total_records_failed",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "total_duration_seconds",
+              "type": "REAL",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "avg_record_time_ms",
+              "type": "REAL",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_deduped",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "unique_content_hashes",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "earliest_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "latest_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "data_size_mb",
+              "type": "REAL",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "compression_ratio_percent",
+              "type": "REAL",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_metrics_source",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "source_type"
+              ]
+            },
+            {
+              "name": "idx_metrics_operation",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "operation_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_process_metrics_2",
+              "unique": true,
+              "origin": "u",
+              "partial": false,
+              "columns": [
+                "operation_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_process_metrics_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "metrics_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "process_telemetry",
+          "create_sql": "CREATE TABLE process_telemetry (\n    telemetry_id TEXT PRIMARY KEY,\n    operation_id TEXT,\n    source_type TEXT NOT NULL,\n    source_name TEXT NOT NULL,\n    process_phase TEXT,\n    event_type TEXT,\n    event_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,\n    event_description TEXT,\n    metric_name TEXT,\n    metric_value REAL,\n    metric_unit TEXT,\n    duration_seconds REAL,\n    success BOOLEAN,\n    error_message TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "telemetry_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "source_name",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "process_phase",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "event_type",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "event_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "event_description",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "metric_name",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "metric_value",
+              "type": "REAL",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "metric_unit",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "duration_seconds",
+              "type": "REAL",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "success",
+              "type": "BOOLEAN",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "error_message",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_telemetry_type",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "event_type"
+              ]
+            },
+            {
+              "name": "idx_telemetry_phase",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "process_phase"
+              ]
+            },
+            {
+              "name": "idx_telemetry_source",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "source_type",
+                "source_name"
+              ]
+            },
+            {
+              "name": "idx_telemetry_operation",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "operation_id"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_process_telemetry_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "telemetry_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "training_allocations",
+          "create_sql": "CREATE TABLE training_allocations (\n    allocation_id TEXT PRIMARY KEY,\n    source_type TEXT NOT NULL,\n    table_name TEXT NOT NULL,\n    record_id TEXT NOT NULL,\n    dataset_split TEXT,\n    allocated_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,\n    allocated_for_model TEXT\n)",
+          "columns": [
+            {
+              "name": "allocation_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "source_type",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "table_name",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "record_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "dataset_split",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "allocated_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "allocated_for_model",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_allocation_model",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "allocated_for_model"
+              ]
+            },
+            {
+              "name": "idx_allocation_split",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "dataset_split"
+              ]
+            },
+            {
+              "name": "idx_allocation_source",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "source_type"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_training_allocations_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "allocation_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "wikipedia_articles",
+          "create_sql": "CREATE TABLE wikipedia_articles (\n    article_id TEXT PRIMARY KEY,\n    title TEXT NOT NULL,\n    url TEXT NOT NULL UNIQUE,\n    content TEXT,\n    revision_id INTEGER,\n    scraped_timestamp DATETIME,\n    content_sha1 TEXT,\n    content_length_chars INTEGER,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "article_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "title",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "url",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "content",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "revision_id",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_length_chars",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_wiki_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_wiki_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_wiki_title",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "title"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_wikipedia_articles_2",
+              "unique": true,
+              "origin": "u",
+              "partial": false,
+              "columns": [
+                "url"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_wikipedia_articles_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "article_id"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "wikisource_texts",
+          "create_sql": "CREATE TABLE wikisource_texts (\n    text_id TEXT PRIMARY KEY,\n    title TEXT NOT NULL,\n    url TEXT NOT NULL UNIQUE,\n    author TEXT,\n    publication_date TEXT,\n    content TEXT,\n    revision_id INTEGER,\n    scraped_timestamp DATETIME,\n    content_sha1 TEXT,\n    content_length_chars INTEGER,\n    operation_id TEXT,\n    FOREIGN KEY (operation_id) REFERENCES ingestion_operations(operation_id)\n)",
+          "columns": [
+            {
+              "name": "text_id",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 1
+            },
+            {
+              "name": "title",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "url",
+              "type": "TEXT",
+              "nullable": false,
+              "pk": 0
+            },
+            {
+              "name": "author",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "publication_date",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "revision_id",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "scraped_timestamp",
+              "type": "DATETIME",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_sha1",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "content_length_chars",
+              "type": "INTEGER",
+              "nullable": true,
+              "pk": 0
+            },
+            {
+              "name": "operation_id",
+              "type": "TEXT",
+              "nullable": true,
+              "pk": 0
+            }
+          ],
+          "indexes": [
+            {
+              "name": "idx_wikisource_sha1",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "content_sha1"
+              ]
+            },
+            {
+              "name": "idx_wikisource_timestamp",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "scraped_timestamp"
+              ]
+            },
+            {
+              "name": "idx_wikisource_title",
+              "unique": false,
+              "origin": "c",
+              "partial": false,
+              "columns": [
+                "title"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_wikisource_texts_2",
+              "unique": true,
+              "origin": "u",
+              "partial": false,
+              "columns": [
+                "url"
+              ]
+            },
+            {
+              "name": "sqlite_autoindex_wikisource_texts_1",
+              "unique": true,
+              "origin": "pk",
+              "partial": false,
+              "columns": [
+                "text_id"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "data/western_armenian_corpus.db",
+      "tables": []
+    },
+    {
+      "path": "src/armenian_cards.db",
+      "tables": []
+    }
+  ]
+}

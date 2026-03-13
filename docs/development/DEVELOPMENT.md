@@ -1,334 +1,131 @@
-# Local Development Installation Guide
+# Development Guide
 
-This guide explains how to install `armenian-corpus-core` locally for development and integration testing.
-
-## Quick Start (5 minutes)
-
-### Option 1: Editable Install (Recommended for Development)
+## Quick Start
 
 ```bash
-# Navigate to the central package directory
-cd C:\Users\litni\OneDrive\Documents\anki\armenian-corpus-core
+cd C:\Users\litni\armenian_projects\armenian-corpus-core
 
-# Install in editable mode with development dependencies
+# Install in editable mode with dev dependencies
 pip install -e ".[dev]"
 
 # Verify installation
-python -c "from armenian_corpus_core.extraction.registry import get_registry; print('✓ Successfully imported')"
+python -m scraping.runner list
 ```
 
-### Option 2: Manual Path Addition (For Testing Without Install)
-
-If you prefer not to install globally, add the central package to your Python path:
-
-```python
-# In any script that needs the central package
-import sys
-from pathlib import Path
-
-# Add central package to path
-central_pkg = Path.home() / "OneDrive" / "Documents" / "anki" / "armenian-corpus-core"
-if str(central_pkg) not in sys.path:
-    sys.path.insert(0, str(central_pkg))
-
-# Now imports work
-from armenian_corpus_core.extraction.registry import get_registry
-```
-
----
-
-## Detailed Installation
-
-### Prerequisites
+## Prerequisites
 
 - Python 3.10+
-- pip (package installer)
-- setuptools (usually included)
+- MongoDB running locally on `mongodb://localhost:27017/`
+- pip / setuptools
 
-**Check your versions:**
-```bash
-python --version  # Should be 3.10 or higher
-pip --version
-```
-
-### Step 1: Editable Install
-
-An "editable install" (also called development install) allows you to modify the package code and see changes immediately without reinstalling.
+## Running the Pipeline
 
 ```bash
-cd C:\Users\litni\OneDrive\Documents\anki\armenian-corpus-core
-pip install -e .
+# Run the full pipeline (scraping + extraction + post-processing)
+python -m scraping.runner run
+
+# Run only scraping stages
+python -m scraping.runner run --group scraping
+
+# Run only extraction stages
+python -m scraping.runner run --group extraction
+
+# Run only post-processing stages
+python -m scraping.runner run --group postprocessing
+
+# Skip specific stages
+python -m scraping.runner run --skip hathitrust nayiri
+
+# Run specific stages only
+python -m scraping.runner run --only wikipedia_wa wikisource culturax
+
+# Run in background
+python -m scraping.runner run --background
+
+# Check status
+python -m scraping.runner status
+
+# List all registered stages
+python -m scraping.runner list
 ```
 
-**What this does:**
-- Creates a link from your Python site-packages to the local `armenian-corpus-core` directory
-- Allows importing `armenian_corpus_core` from anywhere
-- Changes to source files are picked up immediately
-
-**Editable install with dev dependencies:**
-```bash
-pip install -e ".[dev]"
-```
-
-This also installs testing and code quality tools (pytest, black, isort, mypy).
-
-### Step 2: Verify Installation
-
-```bash
-# Test basic import
-python -c "import armenian_corpus_core; print(f'Version: {armenian_corpus_core.__version__}')"
-
-# Test registry import
-python -c "from armenian_corpus_core.extraction.registry import get_registry; registry = get_registry(); print(f'Tools: {len(registry.list_tools())}')"
-
-# Test adapter import
-python -c "from lousardzag.core_adapters import get_extraction_registry; print('✓ Adapter imports work')"
-```
-
----
-
-## Using the Installed Package
-
-### From Lousardzag
-
-After installation, lousardzag can transparently use the central package:
-
-```python
-# In lousardzag code
-from lousardzag.core_adapters import get_extraction_registry
-
-registry = get_extraction_registry()
-if registry:
-    print("Using central package registry")
-    tools = registry.list_available_tools()
-else:
-    print("Central package not available, using local fallback")
-```
-
-**Environment Control:**
-```bash
-# Enable central package usage
-set LOUSARDZAG_USE_CENTRAL_PACKAGE=1
-python script.py
-
-# Or disable (default safe mode)
-set LOUSARDZAG_USE_CENTRAL_PACKAGE=0
-python script.py
-```
-
-### Running the Orchestration CLI
-
-After installation, the pipeline runner is available:
-
-```bash
-cd C:\Users\litni\OneDrive\Documents\anki\lousardzag
-
-# Central package install provides the runner
-python -m armenian_corpus_core.extraction.run_extraction_pipeline --project lousardzag
-
-# Or run directly
-python ../../armenian-corpus-core/armenian_corpus_core/extraction/run_extraction_pipeline.py --project lousardzag
-```
-
----
-
-## Project Structure After Installation
+## Project Structure
 
 ```
-C:\Users\litni\OneDrive\Documents\anki\
-├── lousardzag/
-│   ├── 02-src/lousardzag/
-│   │   ├── core_adapters.py          # Adapter for central package
-│   │   └── (other lousardzag modules)
-│   ├── 07-tools/extraction/          # Local extraction tools
-│   │   ├── export_core_contracts_jsonl.py
-│   │   ├── merge_document_records.py
-│   │   └── (other tools)
-│   └── (rest of lousardzag)
-│
-└── armenian-corpus-core/             # NEWLY INSTALLED
-    ├── armenian_corpus_core/
-    │   ├── __init__.py
-    │   ├── extraction/
-    │   │   ├── registry.py
-    │   │   └── run_extraction_pipeline.py
-    │   └── (other modules)
-    ├── setup.py
-    ├── pyproject.toml
-    └── README.md
+armenian-corpus-core/
+├── scraping/                  # All data collection and extraction
+│   ├── runner.py              # Unified pipeline orchestrator
+│   ├── registry.py            # Stage metadata catalog
+│   ├── wikipedia_wa.py        # Western Armenian Wikipedia scraper
+│   ├── wikipedia_ea.py        # Eastern Armenian Wikipedia scraper
+│   ├── wikisource.py          # Wikisource scraper (dialect-classified)
+│   ├── archive_org.py         # Internet Archive scraper
+│   ├── hathitrust.py          # HathiTrust Digital Library scraper
+│   ├── loc.py                 # Library of Congress scraper
+│   ├── newspaper.py           # Diaspora newspaper scraper (Selenium)
+│   ├── ea_news.py             # Eastern Armenian news agencies
+│   ├── rss_news.py            # RSS/Atom feed scraper (full-text)
+│   ├── culturax.py            # CulturaX HuggingFace dataset
+│   ├── english_sources.py     # English-language academic sources
+│   ├── nayiri.py              # Nayiri dictionary scraper (Selenium)
+│   ├── mss_nkr.py             # Matenadaran NKR archive
+│   ├── import_anki_sqlite.py   # Anki SQLite -> MongoDB
+│   ├── _wa_filter.py          # Western Armenian dialect classifier
+│   ├── _mongodb_helper.py     # Shared MongoDB utilities
+│   └── (other extraction/post-processing modules)
+├── core_contracts/            # Canonical data types
+│   ├── types.py               # DocumentRecord, LexiconEntry, etc.
+│   └── hashing.py             # Content normalization and hashing
+├── integrations/              # External system adapters
+│   ├── anki/                  # AnkiConnect client
+│   └── database/              # MongoDB client, SQLite adapters
+├── linguistics/               # Language analysis tools
+│   ├── dialect_classifier.py  # WA/EA dialect detection
+│   └── phonetics.py           # Armenian phonetics/IPA
+├── cleaning/                  # Text normalization and filtering
+├── tests/                     # Test suite
+├── pyproject.toml
+└── README.md
 ```
 
-**Python Site-Packages Link** (created by `pip install -e .`):
-```
-C:\Python312\Lib\site-packages\armenian-corpus-core.egg-link
-    → C:\Users\litni\OneDrive\Documents\anki\armenian-corpus-core
-```
-
-This link allows `import armenian_corpus_core` from anywhere.
-
----
-
-## Development Workflow
-
-### Making Changes
-
-1. **Modify files** in `armenian-corpus-core/armenian_corpus_core/`
-2. **No reinstall needed**—editable install detects changes automatically
-3. **Test immediately**:
-   ```bash
-   python -c "from armenian_corpus_core.extraction.registry import get_registry; ..."
-   ```
-
-### Running Tests
+## Running Tests
 
 ```bash
-cd C:\Users\litni\OneDrive\Documents\anki\armenian-corpus-core
-
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_registry.py
-
-# Run with coverage
-pytest --cov=armenian_corpus_core
+pytest tests/
+pytest tests/test_mappers.py -v
+pytest --cov=scraping
 ```
 
-### Code Quality
+## Code Quality
 
 ```bash
-# Format code
-black armenian_corpus_core/
-
-# Sort imports
-isort armenian_corpus_core/
-
-# Type check
-mypy armenian_corpus_core/
-
-# Lint
-flake8 armenian_corpus_core/
-```
-
----
-
-## Uninstalling / Reinstalling
-
-### Uninstall
-```bash
-pip uninstall armenian-corpus-core
-```
-
-This removes the egg-link but doesn't delete the source files.
-
-### Reinstall
-```bash
-cd C:\Users\litni\OneDrive\Documents\anki\armenian-corpus-core
-pip install -e .
+black scraping/ core_contracts/ integrations/ linguistics/
+isort scraping/ core_contracts/ integrations/ linguistics/
+mypy scraping/
 ```
 
 ---
 
 ## Troubleshooting
 
-### Import Error: No module named 'armenian_corpus_core'
+### Import Error: No module named ...
 
-**Solution 1**: Verify installation
+Verify installation:
 ```bash
 pip show armenian-corpus-core
-# Should show Location: ... with egg-link info
 ```
 
-**Solution 2**: Check Python path
-```python
-import sys
-print(sys.path)
-# Should include central package directory
-```
-
-**Solution 3**: Reinstall
+Reinstall:
 ```bash
-pip uninstall armenian-corpus-core
-pip install -e C:\Users\litni\OneDrive\Documents\anki\armenian-corpus-core
-```
-
-### ImportError in lousardzag despite installation
-
-Check the adapter fallback:
-```python
-from lousardzag.core_adapters import get_extraction_registry
-
-registry = get_extraction_registry()
-print(registry)  # Should not be None if LOUSARDZAG_USE_CENTRAL_PACKAGE=1
-```
-
-If None, either:
-1. Environment variable not set: `set LOUSARDZAG_USE_CENTRAL_PACKAGE=1`
-2. Central package not installed: `pip install -e path/to/armenian-corpus-core`
-
-### Module Conflicts
-
-If you have local clones of the central package in multiple places:
-```bash
-# Find all installations
-pip show armenian-corpus-core -v
-# Check the egg-link points to the right directory
-```
-
----
-
-## For WesternArmenianLLM Project
-
-Follow the same installation steps. After `pip install -e .`, the project can import:
-
-```python
-# In WesternArmenianLLM code
-from armenian_corpus_core.extraction.registry import get_tool_spec
-
-tool = get_tool_spec("ingest_wa_fingerprints_to_contracts")
-print(f"Tool: {tool.description}")
-print(f"Inputs: {tool.inputs}")
-print(f"Outputs: {tool.outputs}")
-```
-
----
-
-## Integration with Git Workflow
-
-### Local Installation (Development)
-
-```bash
-# Clone both repos
-git clone <lousardzag-repo>
-git clone <wa-llm-repo>
-cd <central-package-dir>
-
-# Install in editable mode
 pip install -e .
-
-# Now both projects can import from it
-cd ../lousardzag
-python -c "from armenian_corpus_core.extraction.registry import get_registry; print('✓')"
 ```
 
-### CI/CD Behavior
+### MongoDB Connection Error
 
-GitHub Actions will:
-1. Check out the lousardzag repo
-2. See the extraction tools in `armenian_corpus_core/extraction/`
-3. Run them with the orchestration CLI
-4. Pass environment variable `LOUSARDZAG_USE_CENTRAL_PACKAGE=1` if installed
-5. Fall back to local tools if central package not available
-
----
-
-## Next Steps
-
-1. ✅ **Install**: `pip install -e C:\Users\litni\OneDrive\Documents\anki\armenian-corpus-core`
-2. ✅ **Verify**: `python -c "from armenian_corpus_core.extraction.registry import get_registry; print(get_registry().list_tools())"`
-3. ✅ **Configure Lousardzag**: Set `LOUSARDZAG_USE_CENTRAL_PACKAGE=1` environment variable
-4. ✅ **Test Integration**: Run the orchestration CLI locally
-5. ✅ **Document**: This guide and the README.md provide complete documentation
+Ensure MongoDB is running:
+```bash
+mongosh --eval "db.adminCommand('ping')"
+```
 
 ---
 
@@ -336,4 +133,4 @@ GitHub Actions will:
 
 - **Python Packaging**: https://packaging.python.org/
 - **Editable Installs**: https://pip.pypa.io/en/latest/topics/local-project-installs/
-- **setuptools**: https://setuptools.pypa.io/
+- **MongoDB Python Driver**: https://pymongo.readthedocs.io/

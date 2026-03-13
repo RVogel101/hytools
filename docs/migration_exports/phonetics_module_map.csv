@@ -1,0 +1,6 @@
+file,function,purpose,has_phonetics,notes
+"src/augmentation/vocabulary_filter.py","WesternArmenianVocabularyFilter.__init__","Voicing reference dict (not transcription)","No","Contains _voicing_reference dict for documentation only"
+"src/augmentation/vocabulary_filter.py","check_voicing_patterns","Placeholder for phonetic validation","No","Empty stub; returns True always"
+"src/cleaning/language_filter.py","compute_wa_score","Dialect scoring (orthographic markers)","No","Checks classical orthography markers (իւ, եա) but no phonetics"
+"src/cleaning/armenian_tokenizer.py","decompose_ligatures","Ligature normalization","No","Decomposes presentation forms (ﬓ → մն) but no phonetics"
+"src/augmentation/text_metrics.py","OrthographicMetrics","Orthographic pattern counting","No","Counts markers but no G2P transcription"
