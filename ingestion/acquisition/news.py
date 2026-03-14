@@ -56,6 +56,8 @@ class ArticleRecord:
     language_code: str = "und"
     content_type: str = "article"
     writing_category: Optional[str] = None
+    # Extra metadata merged into the MongoDB document (e.g. wa_score, dialect)
+    metadata: dict = field(default_factory=dict)
 
 
 def _upsert_article_from_record(
@@ -114,6 +116,9 @@ def _upsert_article_from_record(
         "content_type": record.content_type,
         "writing_category": writing_category,
     }
+    # Merge any extra metadata the crawler attached (e.g. wa_score, dialect)
+    if record.metadata:
+        meta.update(record.metadata)
 
     inserted = insert_or_skip(
         client,
@@ -247,7 +252,106 @@ ASBAREZ = NewspaperSource(
     max_pages=40,
 )
 
-_NEWSPAPER_ALL_SOURCES = {"aztag": AZTAG, "horizon": HORIZON, "asbarez": ASBAREZ}
+HAIRENIK = NewspaperSource(
+    name="hairenik",
+    base_url="https://hairenik.com",
+    listing_url_template="https://hairenik.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+        ".td-module-title a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".td-post-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=200,
+)
+
+ARMENIAN_WEEKLY = NewspaperSource(
+    name="armenian_weekly",
+    base_url="https://armenianweekly.com",
+    listing_url_template="https://armenianweekly.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=200,
+)
+
+KEGHART = NewspaperSource(
+    name="keghart",
+    base_url="https://keghart.com",
+    listing_url_template="https://keghart.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        "article a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=100,
+)
+
+NOR_OR = NewspaperSource(
+    name="nor_or",
+    base_url="https://noror.com",
+    listing_url_template="https://noror.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        "article a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=100,
+)
+
+MARMARA = NewspaperSource(
+    name="marmara",
+    base_url="https://marmaragazetesi.com",
+    listing_url_template="https://marmaragazetesi.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        "article a",
+        ".post-title a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=100,
+)
+
+_NEWSPAPER_ALL_SOURCES = {
+    "aztag": AZTAG,
+    "horizon": HORIZON,
+    "asbarez": ASBAREZ,
+    "hairenik": HAIRENIK,
+    "armenian_weekly": ARMENIAN_WEEKLY,
+    "keghart": KEGHART,
+    "nor_or": NOR_OR,
+    "marmara": MARMARA,
+}
 
 
 def _extract_urls_from_html(
@@ -427,13 +531,15 @@ def _scrape_newspaper_source(
 
     already_scraped = _load_already_scraped_urls(client, source.name)
 
-    is_western_armenian = None
+    _compute_wa_score = None
+    _wa_threshold = 5.0
     if validate_wa:
         try:
-            from ingestion._shared.helpers import is_western_armenian as _is_wa
-            is_western_armenian = _is_wa
+            from ingestion._shared.helpers import compute_wa_score as _cws, WA_SCORE_THRESHOLD as _thresh
+            _compute_wa_score = _cws
+            _wa_threshold = _thresh
         except ImportError:
-            logger.warning("WA validator unavailable for %s", source.name)
+            logger.warning("WA scorer unavailable for %s — language_code will default to 'hyw'", source.name)
 
     logger.info(
         "Scraping %s — %d articles already in MongoDB",
@@ -468,13 +574,16 @@ def _scrape_newspaper_source(
                 )
                 continue
 
-            if is_western_armenian is not None:
+            # Classify dialect from actual text — do NOT trust the source's WA label.
+            # EA content is kept and tagged, never silently discarded.
+            detected_lc = "hyw"
+            wa_score = 0.0
+            if _compute_wa_score is not None:
                 try:
-                    if not is_western_armenian(text[:5000]):
-                        logger.debug("Skipping non-WA article: %s", url)
-                        continue
+                    wa_score = _compute_wa_score(text[:5000])
+                    detected_lc = "hyw" if wa_score >= _wa_threshold else "hye"
                 except Exception:
-                    continue
+                    pass
 
             title = url.split("/")[-1] or url
             record = ArticleRecord(
@@ -484,9 +593,13 @@ def _scrape_newspaper_source(
                 text=text,
                 publication_date=None,
                 category="diaspora",
-                language_code="hyw",
+                language_code=detected_lc,
                 content_type="article",
                 writing_category="diaspora",
+                metadata={
+                    "wa_score": round(wa_score, 2),
+                    "dialect": "western_armenian" if detected_lc == "hyw" else "eastern_armenian",
+                },
             )
             new_records.append(record)
 
@@ -1089,6 +1202,10 @@ _DIASPORA_NEWSPAPER_RSS_SOURCES: list[dict] = [
     {"name": "Aztag", "url": "https://aztagdaily.com", "rss": "https://aztagdaily.com/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Horizon Weekly", "url": "https://horizonweekly.ca", "rss": "https://horizonweekly.ca/en/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Asbarez", "url": "https://asbarez.com", "rss": "https://asbarez.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Hairenik", "url": "https://hairenik.com", "rss": "https://hairenik.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Keghart", "url": "https://keghart.com", "rss": "https://keghart.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Nor Or", "url": "https://noror.com", "rss": "https://noror.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Marmara", "url": "https://marmaragazetesi.com", "rss": "https://marmaragazetesi.com/feed/", "category": "diaspora", "language_code": "hyw"},
 ]
 
 # Republic of Armenia sources: prefer Armenian feeds when the site offers them; mark Armenian content as hye (Eastern).
@@ -1166,6 +1283,10 @@ RSS_DUPLICATE_SOURCES: set[str] = {
     "massis post", "the armenian mirror-spectator",
     "mirror-spectator", "mirrorspectator",
     "horizon weekly", "agos",
+    "hairenik", "hairenik weekly",
+    "keghart", "keghart.com",
+    "nor or", "noror",
+    "marmara", "marmara gazetesi",
     "euronews", "france 24", "al jazeera", "al-monitor",
     "bbc", "bbc world", "bbc news",
     "deutsche welle", "dw",

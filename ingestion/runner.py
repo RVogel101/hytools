@@ -86,6 +86,8 @@ def _build_stages(cfg: dict) -> list[Stage]:
 
         # ── Acquisition: Datasets ────────────────────────────────────────
         Stage("culturax",        "ingestion.acquisition.culturax",        enabled=_on("culturax"),          supports_mongodb=True),
+        Stage("opus",            "ingestion.acquisition.opus",            enabled=_on("opus"),              supports_mongodb=True),
+        Stage("jw",              "ingestion.acquisition.jw",              enabled=_on("jw"),                supports_mongodb=True),
         Stage("english_sources", "ingestion.acquisition.english_sources",  enabled=_on("english_sources"),  supports_mongodb=True),
 
         # ── Acquisition: Reference ───────────────────────────────────────

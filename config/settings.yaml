@@ -75,6 +75,15 @@ scraping:
     dataset_name: "uonlp/CulturaX"
     language: "hy"
     streaming: true
+  opus:
+    enabled: true
+    # corpora: null means all corpora (CCAligned_hyw, CCAligned_hy, NLLB_hyw).
+    # Set to a list to restrict: e.g. ["CCAligned_hyw", "NLLB_hyw"]
+    corpora: null
+  jw:
+    enabled: true
+    # include_eastern: also scrape https://www.jw.org/hy/ (Eastern Armenian) and tag as hye
+    include_eastern: true
   hathitrust:
     enabled: true
   loc:
@@ -84,7 +93,9 @@ scraping:
     api_key: "DPLA_API_KEY"   # set env DPLA_API_KEY to your key; this placeholder means "read from env"
   newspapers:
     enabled: true
-    # Historical crawler (diaspora newspapers: Aztag, Horizon, Asbarez).
+    # Historical crawler sources. Omit to run all registered sources.
+    # sources: ["aztag", "horizon", "asbarez", "hairenik", "armenian_weekly", "keghart", "nor_or", "marmara"]
+    # Historical crawler (diaspora newspapers: Aztag, Horizon, Asbarez, Hairenik, Armenian Weekly, Keghart, Nor Or, Marmara).
     # max_pages: 0    # 0 = no explicit cap; crawler stops when listing pages are empty (uses a high internal ceiling)
     # max_articles_per_source: 0  # 0 = no per-source cap; rely on site pagination to stop
   nayiri:
