@@ -219,7 +219,6 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
             metadata={
                 "source_type": "library",
                 "ark": ark,
-                "dialect": dialect,
                 "language_code": lang_code,
                 "confidence_dialect": round(min(compute_wa_score(text) / WA_SCORE_THRESHOLD, 2.0), 2),
                 "gallica_date": item.get("date", ""),

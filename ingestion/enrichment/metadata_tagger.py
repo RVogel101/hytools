@@ -1,14 +1,14 @@
-"""Dialect-aware metadata enrichment for MongoDB corpus documents.
+"""Metadata enrichment for MongoDB corpus documents.
 
 Provides source-to-metadata mapping so each document in MongoDB gets
-structured metadata (dialect, region, source_type, confidence scores, etc.)
+structured metadata (region, source_type, confidence scores, etc.)
 applied at query time or as a batch enrichment pass.
 
 How metadata_tagger knows source, url, author:
   These are stored at insert time by scrapers and ``insert_document``.
   The document has top-level ``source`` and ``metadata.url``, ``metadata.author``.
   metadata_tagger reads the document and uses ``source`` to look up enrichment;
-  it only adds/backfills dialect, region, source_name, confidence, and placeholders.
+  it only adds/backfills region, source_name, confidence, and placeholders.
   It does not overwrite url or author.
 
 Two usage patterns:
@@ -29,8 +29,6 @@ from typing import Optional
 
 from ingestion._shared.metadata import (
     TextMetadata,
-    Dialect,
-    DialectSubcategory,
     Region,
     SourceType,
     ContentType,
@@ -42,8 +40,6 @@ logger = logging.getLogger(__name__)
 
 SOURCE_METADATA: dict[str, dict] = {
     "wikipedia": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "language_code": "hyw",
         "source_type": SourceType.ENCYCLOPEDIA,
         "source_name": "Wikipedia (hyw)",
@@ -53,8 +49,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 1.0,
     },
     "wikipedia_ea": {
-        "dialect": Dialect.EASTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.EASTERN_HAYASTAN,
         "language_code": "hye",
         "source_type": SourceType.ENCYCLOPEDIA,
         "source_name": "Wikipedia (hye)",
@@ -73,8 +67,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.70,
     },
     "archive_org": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.ARCHIVE,
         "source_name": "Internet Archive",
         "region": Region.WESTERN_OTHER,
@@ -84,7 +76,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.70,
     },
     "hathitrust": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
         "source_type": SourceType.LIBRARY,
         "source_name": "HathiTrust Digital Library",
         "content_type": ContentType.HISTORICAL,
@@ -93,7 +84,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.60,
     },
     "gallica": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
         "source_type": SourceType.LIBRARY,
         "source_name": "Gallica (BnF)",
         "content_type": ContentType.HISTORICAL,
@@ -118,8 +108,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.50,
     },
     "newspaper:aztagdaily": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.NEWSPAPER,
         "source_name": "Aztag Daily",
         "region": Region.LEBANON,
@@ -129,8 +117,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.95,
     },
     "newspaper:horizonweekly": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.NEWSPAPER,
         "source_name": "Horizon Weekly",
         "region": Region.CANADA,
@@ -140,8 +126,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.95,
     },
     "newspaper:asbarez": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.NEWSPAPER,
         "source_name": "Asbarez",
         "region": Region.CALIFORNIA,
@@ -152,8 +136,6 @@ SOURCE_METADATA: dict[str, dict] = {
     },
     # Aliases for newspaper scraper source keys (aztag/horizon match aztagdaily/horizonweekly)
     "newspaper:aztag": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.NEWSPAPER,
         "source_name": "Aztag Daily",
         "region": Region.LEBANON,
@@ -163,8 +145,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.95,
     },
     "newspaper:horizon": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.NEWSPAPER,
         "source_name": "Horizon Weekly",
         "region": Region.CANADA,
@@ -174,8 +154,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.95,
     },
     "eastern_armenian_news:armenpress": {
-        "dialect": Dialect.EASTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.EASTERN_HAYASTAN,
         "language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Armenpress",
@@ -186,8 +164,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.99,
     },
     "eastern_armenian_news:a1plus": {
-        "dialect": Dialect.EASTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.EASTERN_HAYASTAN,
         "language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "A1+",
@@ -198,8 +174,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.99,
     },
     "eastern_armenian_news:armtimes": {
-        "dialect": Dialect.EASTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.EASTERN_HAYASTAN,
         "language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Armtimes",
@@ -210,8 +184,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.99,
     },
     "eastern_armenian_news:aravot": {
-        "dialect": Dialect.EASTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.EASTERN_HAYASTAN,
         "language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Aravot",
@@ -257,8 +229,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.0,
     },
     "nayiri": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.ENCYCLOPEDIA,
         "source_name": "Nayiri Dictionary",
         "content_type": ContentType.ARTICLE,
@@ -275,7 +245,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.50,
     },
     "anki_lexicon": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
         "source_type": SourceType.ENCYCLOPEDIA,
         "source_name": "Anki Flashcards (Lexicon)",
         "content_type": ContentType.ARTICLE,
@@ -284,7 +253,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.50,
     },
     "anki_sentences": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
         "source_type": SourceType.ENCYCLOPEDIA,
         "source_name": "Anki Flashcards (Sentences)",
         "content_type": ContentType.ARTICLE,
@@ -293,8 +261,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.50,
     },
     "gomidas": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.ARCHIVE,
         "source_name": "Gomidas Institute",
         "content_type": ContentType.HISTORICAL,
@@ -303,8 +269,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "confidence_region": 0.70,
     },
     "ocr_ingest": {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.ARCHIVE,
         "source_name": "OCR ingest",
         "content_type": ContentType.HISTORICAL,
@@ -335,8 +299,6 @@ class CorpusMetadataTagger:
     CORPUS_CONFIGS["newspapers/horizon"] = SOURCE_METADATA["newspaper:horizonweekly"]
     CORPUS_CONFIGS["news_ea/aravot"] = SOURCE_METADATA["eastern_armenian_news:aravot"]
     CORPUS_CONFIGS["news_ea/russian_influence"] = {
-        "dialect": Dialect.EASTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.EASTERN_RUSSIAN_INFLUENCE,
         "language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Eastern Armenian (Russian influence)",
@@ -347,8 +309,6 @@ class CorpusMetadataTagger:
         "confidence_region": 0.80,
     }
     CORPUS_CONFIGS["news_ea/iran"] = {
-        "dialect": Dialect.EASTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.EASTERN_IRAN,
         "language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Eastern Armenian (Iran)",
@@ -359,8 +319,6 @@ class CorpusMetadataTagger:
         "confidence_region": 0.85,
     }
     CORPUS_CONFIGS["armeno_turkish"] = {
-        "dialect": Dialect.WESTERN_ARMENIAN,
-        "dialect_subcategory": DialectSubcategory.ARMENO_TURKISH,
         "source_type": SourceType.LITERATURE,
         "source_name": "Armeno-Turkish",
         "content_type": ContentType.LITERATURE,

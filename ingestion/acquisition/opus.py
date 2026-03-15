@@ -1,12 +1,23 @@
 """OPUS Armenian corpus downloader.
 
-Downloads Western and Eastern Armenian text from the OPUS parallel corpus
-repository (object.pouta.csc.fi) and inserts into MongoDB.
+Downloads Armenian text from the OPUS parallel corpus repository
+(object.pouta.csc.fi) and inserts into MongoDB.  Both Western and Eastern
+Armenian are ingested and labelled by the WA classifier.
 
 Corpora downloaded:
-  - CCAligned hyw (en-hyw pair): Western Armenian side extracted
-  - CCAligned hy  (en-hy pair):  Armenian side (mixed WA/EA), extracted
-  - NLLB hyw      (eng-hyw pair): Western Armenian side extracted
+  - CCAligned    (en-hy):  Web-crawled parallel data, mixed WA/EA
+  - NLLB         (en-hy):  Meta NLLB translation data, large
+  - MultiCCAligned (en-hy): Extended CCAligned, mixed WA/EA
+  - TED2020      (en-hy):  TED talk transcripts (high quality)
+  - OpenSubtitles (en-hy): Movie/TV subtitles
+  - QED          (en-hy):  Educational video subtitles
+  - Tatoeba      (en-hy):  Community sentence pairs
+  - bible-uedin  (en-hy):  Bible translations
+  - wikimedia    (en-hy):  Wikipedia/Wikimedia translations
+  - wikimedia    (en-hyw): Wikipedia Western Armenian
+  - GNOME        (en-hy):  Software localization strings
+  - KDE4         (en-hy):  Software localization strings
+  - Ubuntu       (en-hy):  Software localization strings
 
 Every chunk is classified by compute_wa_score regardless of the OPUS language
 tag — metadata.language_code is derived from the actual text content.
@@ -34,7 +45,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 _REQUEST_DELAY = 1.0       # seconds between download retries / post-chunk sleeps
-_MIN_LINE_CHARS = 50       # discard lines shorter than this
+_MIN_LINE_CHARS = 30       # discard lines shorter than this (lowered from 50 to keep more parallel sentences)
 _CHUNK_LINES = 20          # number of lines grouped into one MongoDB document
 _PROGRESS_EVERY = 50_000   # log progress every N lines
 
@@ -57,31 +68,116 @@ class _OpusCorpus:
     description: str = ""
 
 
-# All corpora to fetch — extend here to add more OPUS datasets
+# All corpora to fetch — ordered largest-first within priority tiers.
+# There are NO hyw-specific pairs for CCAligned or NLLB on OPUS;
+# only en-hy exists — text is classified WA/EA by compute_wa_score.
 _CORPORA: list[_OpusCorpus] = [
-    _OpusCorpus(
-        name="CCAligned_hyw",
-        download_url="https://object.pouta.csc.fi/OPUS-CCAligned/v1/moses/en-hyw.txt.zip",
-        armenian_lang="hyw",
-        armenian_file="CCAligned.en-hyw.hyw",
-        source_tag="opus_ccaligned_hyw",
-        description="CCAligned Western Armenian–English parallel corpus (WA side only)",
-    ),
+    # --- Tier 1: large corpora (>10 MB) ---
     _OpusCorpus(
         name="CCAligned_hy",
         download_url="https://object.pouta.csc.fi/OPUS-CCAligned/v1/moses/en-hy.txt.zip",
         armenian_lang="hy",
         armenian_file="CCAligned.en-hy.hy",
         source_tag="opus_ccaligned_hy",
-        description="CCAligned Armenian–English parallel corpus (hy side, mixed WA/EA)",
+        description="CCAligned Armenian–English parallel corpus (105 MB, mixed WA/EA)",
     ),
     _OpusCorpus(
-        name="NLLB_hyw",
-        download_url="https://object.pouta.csc.fi/OPUS-NLLB/v1/moses/eng-hyw.txt.zip",
+        name="NLLB_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-NLLB/v1/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="NLLB.en-hy.hy",
+        source_tag="opus_nllb_hy",
+        description="NLLB Armenian translation data (952 MB, mixed WA/EA)",
+    ),
+    _OpusCorpus(
+        name="MultiCCAligned_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-MultiCCAligned/v1/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="MultiCCAligned.en-hy.hy",
+        source_tag="opus_multiccaligned_hy",
+        description="MultiCCAligned extended CCAligned (108 MB, mixed WA/EA)",
+    ),
+    # --- Tier 2: medium corpora (1-10 MB) ---
+    _OpusCorpus(
+        name="TED2020_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-TED2020/v1/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="TED2020.en-hy.hy",
+        source_tag="opus_ted2020_hy",
+        description="TED talk transcripts (2.8 MB, high-quality spoken Armenian)",
+    ),
+    _OpusCorpus(
+        name="QED_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-QED/v2.0a/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="QED.en-hy.hy",
+        source_tag="opus_qed_hy",
+        description="QED educational video subtitles (2.7 MB)",
+    ),
+    _OpusCorpus(
+        name="wikimedia_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-wikimedia/v20230407/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="wikimedia.en-hy.hy",
+        source_tag="opus_wikimedia_hy",
+        description="Wikipedia/Wikimedia translations (5.3 MB)",
+    ),
+    _OpusCorpus(
+        name="bible_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-bible-uedin/v1/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="bible-uedin.en-hy.hy",
+        source_tag="opus_bible_hy",
+        description="Bible translations (1.2 MB, classical/formal Armenian)",
+    ),
+    # --- Tier 3: small corpora (<1 MB) ---
+    _OpusCorpus(
+        name="OpenSubtitles_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-OpenSubtitles/v2024/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="OpenSubtitles.en-hy.hy",
+        source_tag="opus_opensubtitles_hy",
+        description="Movie/TV subtitles (0.3 MB, colloquial Armenian)",
+    ),
+    _OpusCorpus(
+        name="wikimedia_hyw",
+        download_url="https://object.pouta.csc.fi/OPUS-wikimedia/v20230407/moses/en-hyw.txt.zip",
         armenian_lang="hyw",
-        armenian_file="NLLB.eng-hyw.hyw",
-        source_tag="opus_nllb_hyw",
-        description="NLLB Western Armenian translation data (WA side only)",
+        armenian_file="wikimedia.en-hyw.hyw",
+        source_tag="opus_wikimedia_hyw",
+        description="Wikipedia Western Armenian (0.1 MB, explicitly hyw-tagged)",
+    ),
+    _OpusCorpus(
+        name="Tatoeba_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-Tatoeba/v2023-04-12/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="Tatoeba.en-hy.hy",
+        source_tag="opus_tatoeba_hy",
+        description="Tatoeba community sentences (0.1 MB)",
+    ),
+    _OpusCorpus(
+        name="GNOME_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-GNOME/v1/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="GNOME.en-hy.hy",
+        source_tag="opus_gnome_hy",
+        description="GNOME UI localization strings (6 KB)",
+    ),
+    _OpusCorpus(
+        name="KDE4_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-KDE4/v2/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="KDE4.en-hy.hy",
+        source_tag="opus_kde4_hy",
+        description="KDE4 UI localization strings (24 KB)",
+    ),
+    _OpusCorpus(
+        name="Ubuntu_hy",
+        download_url="https://object.pouta.csc.fi/OPUS-Ubuntu/v14.10/moses/en-hy.txt.zip",
+        armenian_lang="hy",
+        armenian_file="Ubuntu.en-hy.hy",
+        source_tag="opus_ubuntu_hy",
+        description="Ubuntu UI localization strings (22 KB)",
     ),
 ]
 
@@ -173,7 +269,6 @@ def _ingest_corpus(corpus: _OpusCorpus, zip_path: Path, client, config: dict) ->
 
         text = "\n".join(chunk_lines)
         detected_lc, wa_score = _classify(text)
-        dialect = "western_armenian" if detected_lc == "hyw" else "eastern_armenian"
 
         if detected_lc == "hyw":
             stats["wa"] += 1
@@ -183,7 +278,6 @@ def _ingest_corpus(corpus: _OpusCorpus, zip_path: Path, client, config: dict) ->
         meta = {
             "source_type": "dataset",
             "language_code": detected_lc,
-            "dialect": dialect,
             "source_language_codes": [detected_lc],
             "wa_score": round(wa_score, 2),
             "opus_corpus": corpus.name,

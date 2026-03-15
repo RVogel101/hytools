@@ -19,11 +19,15 @@ Items tracked for data collection, scraping, corpus research, and related pipeli
 | Gallica SRU access reliability                  | Future tweak      | Low/Medium    | Confirm UA and rate limits in `scraping/gallica.py`; add explicit 403 diagnostics and doc link to BnF support. |
 | LOC web content (blogs / hub pages)             | Planned           | Medium        | Define seed URL list; implement `loc_web_articles` scraper with robots/TOS checks; add new `source` type in Mongo. |
 | Grammar / dialect metrics                       | Planned           | Medium        | Specify metric set (e.g. GrammarDistanceIndex features); implement on a sample corpus; feed into dialect clustering. |
+| **Decomission metadata.dialect field**          | **Implemented**   | High          | All 7 scrapers stop writing `metadata.dialect`; 5 readers updated to derive from `metadata.language_code`; `metadata_tagger.py` cleaned; EDA notebook updated. Existing MongoDB docs still have the field — run `$unset` migration. |
+| **Missing URL backfill (wiki, culturax)**       | **Implemented**   | High          | wiki.py now constructs Wikipedia URLs from language_code + title; culturax.py passes `doc["url"]` through to MongoDB. Re-scraping needed to backfill existing docs. |
+| **EDA short-text & missing-URL breakdowns**     | **Implemented**   | Medium        | Added notebook cells 18a (missing URL by source) and 18b (short text <100 chars by source) to `mongodb_eda.ipynb`. |
 | Grammar logic scripts                           | Planned           | Medium        | Extend `linguistics/morphology` rules for gaps; add tests; update `phonetics_rule_gaps.md` with any new edge cases. |
 | Book/manuscript catalog integration             | Planned           | Medium        | Connect catalog + `book_inventory` to drive archive_org/LOC/Hathi queries and dedup; implement a small pilot job. |
 | New source – Gallica (BNF)                      | Implemented       | Medium        | Keep SRU config in sync with API docs; monitor errors; periodically refresh catalog and validate WA coverage. |
-| New source – DPLA                               | Implemented       | Medium        | Ensure API key is configured; run regular scrapes; review English/Armenia-related items and WA signal.       |
+| New source – DPLA                               | Implemented       | Medium        | WA scoring added to pipeline (dialect classification on insert); API key required; review English/Armenia-related items. |
 | New source – Gomidas Institute                  | Implemented       | Medium        | Run PDF→OCR pipeline periodically; validate OCR quality; update metrics on WA newspaper coverage.            |
+| New source – Hamazkayin / Pakine                | **Implemented**   | High          | Scraper in `ingestion/acquisition/hamazkayin.py`; WP REST API + HTML fallback; pakine.net (literary) + hamazkayin.com (news). |
 | New source – Mechitarist (Venice)               | Planned / external| Medium/Long   | Use MECHITARIST_PERMISSION_REQUEST.md to request access; if granted, implement/enable scraper.               |
 | New source – AGBU Nubar (Paris)                 | Planned / external| Medium/Long   | Use AGBU_NUBARIAN_LIBRARY_PARTNERSHIP.md email; on approval, implement/enable scraper and catalog loader.    |
 | New source – UK Centre for Western Armenian Studies (CFWAS) | Planned / external| Medium/Long | Follow DATA_SOURCES_EXPANSION.md; contact CFWAS (Memory Documentation Project) for transcript/text access; design ingest once terms are clear. |
@@ -36,12 +40,15 @@ Items tracked for data collection, scraping, corpus research, and related pipeli
 | **Newspaper article splitting helper**         | Planned           | Medium        | Design and implement a reusable helper for long Armenian newspapers (e.g. ՊԻՈՆԵՐ, Արեւելք) that splits IA issues into article-sized documents using header/date patterns and size limits; integrate with `scraping.archive_org` and other newspaper scrapers. Use **news_article_catalog** (RSS-derived titles/URLs) to better inform split boundaries and article titles when splitting full-issue OCR. |
 | **Defunct newspapers → Wayback Machine**       | Planned           | Low/Medium    | If a newspaper is no longer operational, explore scraping archived versions via the Wayback Machine (e.g. archive.org/web) so we can still ingest historical issues. |
 | English ↔ Western Armenian translation pipeline | High priority     | High          | Choose initial model(s); assemble WA–EN parallel data; implement back-translation + instruction-tuning pipeline and evaluation. |
+| **New source – WA Pedagogical Curriculum**      | Planned / research| High          | Full WA curriculum: grammar lessons, reading texts, exercises, stories designed for diaspora WA learners → clean pedagogical WA prose with no parallel in existing pipeline. Scrape text + PDFs (OCR), catalogue audio/video assets. Identify source(s): AGBU AVC, Zarmanazan, Saturday-school textbooks, INALCO materials. Check licensing/permissions before scraping. |
 | **B-1** Package __init__.py exports              | Done (cleaning, ocr) | Medium     | `cleaning/__init__.py` and `ocr/__init__.py` now export the requested symbols. Optionally add `__all__` to `scraping/__init__.py`. |
 | **B-3** Tests for core scrapers                  | Not started       | Medium        | Mock HTTP for archive_org (pagination, download), loc (catalog, retry), wikisource (category pagination); unit tests for culturax streaming, wikipedia dump resolution. |
 | **B-5** Top-level pipeline script                | Not started       | High          | Add a run_pipeline CLI (e.g. `ingestion/tools/run_pipeline.py` or repo root) with `--stage` (scrape, ocr, clean) and `--all`; delegate to `ingestion.runner`, `ocr`, `cleaning.runner`; support `--dry-run`. Training stage lives in WesternArmenianLLM. |
 | **B-6** Western Armenian markers (language/WA classifier) | Partially done | High          | Expand WA/EA markers in `scraping/_helpers.py` to 25+; add EA-only negative markers; make threshold tunable in `config/settings.yaml`. `compute_wa_score` already returns float. |
 | **B-7** Research pipeline validation             | In progress       | High          | Harden `ingestion/discovery/author_extraction.py` regex handling; add optional `--exclude-dirs` CLI to `ingestion/research_runner.py` (config already has `research.exclude_dirs`). Verify full pipeline run and outputs. |
 | Wikipedia / data source mining                   | Planned           | Medium        | Parse document metadata for citations; build source catalog and provenance graph; output `data/source_catalog.json`, `data/source_provenance.jsonl`. |
+| New source – Agos (agos.com.tr/am)               | **Implemented**   | High          | Standalone `requests` crawler in `ingestion/acquisition/agos.py`; crawls 10 category pages with `?p=N` pagination; registered in runner (`--only agos`). |
+| WA pedagogical curriculum (diaspora schools)      | Research / planned| High          | Scrape full WA curriculum materials (grammar, reading, exercises, stories) from diaspora educational programs; PDFs through OCR; video/audio for future TTS/ASR; unique pedagogical WA prose not in any existing source. |
 
 ---
 
@@ -357,6 +364,16 @@ Implement **Armenian (script) → ISO 9985 Latin** for dictionary keys and searc
 
 ---
 
+## WA dialect classifier audit (backtest)
+
+- The `compute_wa_score` heuristic in `ingestion/_shared/helpers.py` has never been evaluated against labeled ground-truth data.
+- **Task:** Assemble a small labeled test set — ~100 documents confirmed WA and ~100 confirmed EA (e.g. from known WA newspapers vs. Azatutyun / Armenian Wikipedia). Run `compute_wa_score` on each and compute precision/recall/F1 and optimal threshold.
+- This will reveal whether threshold=5.0 is well-calibrated, which marker families drive false positives/negatives, and whether the cap-at-10 per marker is appropriate.
+- **Output:** A notebook or script in `notebooks/` + summary in `docs/development/`.
+- **Priority:** Medium — affects audit reliability for the entire training pipeline.
+
+---
+
 ## Grammar / dialect
 
 - Quantitative grammar-distance metrics (inflectional profiles, analytic/synthetic load, paradigm consistency, Composite GrammarDistanceIndex).
@@ -375,7 +392,13 @@ Implement **Armenian (script) → ISO 9985 Latin** for dictionary keys and searc
 
 - **Book/manuscript catalog integration:** Use catalogs + ook_inventory (see docs/MONGODB_CORPUS_SCHEMA.md and integrations/database/corpus_schema.py) to seed and refine queries for rchive_org, loc, hathitrust; e.g. use inventory titles/authors/years to build targeted search terms, avoid duplicate pulls, and prioritize high-value WA/rare items.
 - **Gallica, DPLA, Gomidas:** Implemented. See `docs/DATA_SOURCES_API_REFERENCE.md`.
+- **Hamazkayin / Pakine:** ✅ Implemented. `ingestion/acquisition/hamazkayin.py` scrapes pakine.net (literary magazine — prose, poetry, criticism, translations) and hamazkayin.com (cultural news). WordPress REST API preferred, HTML fallback. Registered in runner.py; config under `scraping.hamazkayin`.
 - **Mechitarist (Venice), AGBU Nubar (Paris):** Stub scrapers in `scraping/mechitarist.py` and `scraping/agbu.py`; no public API—partnership or bulk export required. Permission templates: `docs/MECHITARIST_PERMISSION_REQUEST.md`, `docs/AGBU_NUBARIAN_LIBRARY_PARTNERSHIP.md`. When access is granted, set `catalog_path` or `api_base` + `api_key` and implement catalog loader in the stub.
+- **Haigazian University (Beirut):** WA academic institution; library holds periodicals, dissertations, WA-language publications. Contact for digital access or research partnership.
+- **Zoryan Institute:** Oral history transcripts, genocide testimonies, scholarly publications with significant WA content. Contact for research data partnership.
+- **NAASR (Belmont, MA):** National Association for Armenian Studies & Research; publishes Journal of Armenian Studies, maintains archives. Survey publications and contact for bulk access.
+- **Armenian Film Foundation:** Documentary subtitle/transcript archives, narrations in WA. Contact for text access to subtitle files and transcripts.
+- **ARS / Hamazkayin cultural archives:** Organizational archives — internal publications, meeting minutes, cultural event programs. Contact chapters for digitized materials.
 
 ### Data sources expansion — tracking table
 
@@ -401,7 +424,11 @@ Planned data-expansion projects for the Western Armenian corpus. Full detail: **
 | **Columbia Armenian Studies** | ⏳ Planned | Rare books, some digitized; survey for data access |
 | **Harvard Widener** | ⏳ Planned | Armenian holdings; HathiTrust overlap—add dedup when integrating |
 | **University of Michigan Armenian Studies** | ⏳ Planned | Program + possible digitized holdings; survey |
-| **NAASR** | ⏳ Planned | Publications, some online; survey |
+| **NAASR (Belmont, MA)** | ⏳ Planned | National Association for Armenian Studies & Research; publications, periodical archives, some digitized; survey and contact for bulk or research partnership |
+| **Haigazian University (Beirut)** | ⏳ Planned | Library & archives; WA academic publications, periodicals, student theses; contact for digital access or partnership |
+| **Zoryan Institute** | ⏳ Planned | Oral history transcripts, genocide testimonies, scholarly publications; significant WA content; contact for research partnership |
+| **Armenian Film Foundation** | ⏳ Planned | Subtitle/transcript archives; documentary narrations in WA; contact for text access to subtitle files |
+| **ARS / Hamazkayin cultural archives** | ⏳ Planned | Armenian Relief Society + Hamazkayin organizational archives; internal publications, meeting minutes, cultural event programs; contact for digital access |
 | **Armenian studies programs worldwide** | ⏳ Survey | Sorbonne, Oxford, etc.; survey for data sources |
 | **Europeana** | ⏳ Planned | EU aggregator, Armenian filter, mixed formats; API available |
 | **DPLA** | ✅ Implemented | US aggregator, api.dp.la/v2/items; API key in config; `scraping/dpla.py` |
@@ -448,6 +475,55 @@ Planned data-expansion projects for the Western Armenian corpus. Full detail: **
 - **Short term:** Use hy↔en (e.g. opus-mt-hy-en) for WA→en; add en→hy for first-pass en→WA; back-translate with provenance and filtering.
 - **Medium term:** Obtain or reproduce SIGUL 2024 WA–English data/model; fine-tune NMT for WA↔en; use for back-translation and instruction-template translation.
 - **Instruction tuning:** Include WA instructions (translated templates or LLM-generated) and WA responses.
+
+### Parallel data from bilingual news sources
+
+Several news sites (Horizon Weekly, Agos, Civilnet, Hetq, Armenpress) publish both Armenian and English versions of articles. The news scraper currently targets Armenian-language URLs. Once the Armenian corpus is populated, re-scrape the English versions of these sites and align articles by URL slug or publication date to build WA–EN / EA–EN parallel corpora. This is a low-cost source of aligned translation pairs for the translation development project.
+
+---
+
+## Western Armenian pedagogical curriculum (new source — high priority)
+
+**Rationale:** WA diaspora school curricula contain grammar lessons, reading texts, graded exercises, short stories, and exam materials written specifically for WA learners. This is **clean, pedagogical Western Armenian prose** — structured, graded by level, and covers core grammar explicitly. No existing pipeline source provides this; it fills a unique gap between literary/news text and conversational data.
+
+### Content types to acquire
+
+| Type | Format | Ingestion approach |
+|------|--------|--------------------|
+| Grammar lessons / textbooks | PDF, scanned images | OCR pipeline (`ocr/`) → MongoDB |
+| Reading texts / stories | PDF, HTML | Scrape or OCR; text extraction |
+| Exercises / worksheets | PDF | OCR; structure detection (Q&A pairs) |
+| Audio recordings (readings, pronunciation) | MP3, WAV | Download + metadata; future ASR/TTS |
+| Video lessons | MP4, YouTube | Download metadata + subtitles; transcript extraction |
+| Exam materials | PDF | OCR; extract Q&A format for instruction tuning |
+
+### Candidate sources (to investigate)
+
+- **ARS (Armenian Relief Society)** — WA curriculum used in Armenian day schools across the diaspora
+- **AGBU (Armenian General Benevolent Union)** — Virtual Academy online WA courses, learning apps
+- **Hamazkayin educational wing** — School textbooks and cultural education materials
+- **Zartonk Media / Zulal** — Modern WA learning materials
+- **UCLA / Columbia / INALCO** — University-level WA course materials (textbooks, readings)
+- **Calouste Gulbenkian Foundation** — Published WA textbooks and grammar books
+- **Haigazian University (Beirut)** — WA educational publications
+- **Armenian Virtual College (AVC)** — Online WA courses with structured curricula
+
+### Implementation plan
+
+1. **Inventory**: Catalog all known WA curricula and educational publishers; record URLs, access method, licensing
+2. **Web scrape**: For sites with online content (AVC, AGBU virtual, etc.) — build dedicated scrapers
+3. **PDF download + OCR**: For textbooks/worksheets — download PDFs, run through `ocr/` pipeline
+4. **Audio/video**: Download media files + transcripts/subtitles; store metadata for future ASR/TTS work
+5. **Structure extraction**: Parse exercises into Q&A pairs for instruction-tuning data
+6. **Metadata**: Tag each document with level (beginner/intermediate/advanced), content type, source curriculum
+
+### Why this matters for the LLM
+
+- **Grammar grounding**: Explicit grammar rules in training data help the model learn WA structure
+- **Graded complexity**: Beginner→advanced progression provides natural curriculum for the model
+- **Exercise format**: Q&A pairs from exercises are directly usable for instruction tuning
+- **Pedagogical register**: Clean, formal WA prose complements news/literary/web text
+- **Audio/video**: Future multimodal or TTS/ASR training data
 
 ---
 

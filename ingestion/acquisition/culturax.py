@@ -101,15 +101,16 @@ def run(config: dict) -> None:
                 dialect_counts[dialect] = dialect_counts.get(dialect, 0) + 1
 
                 title = (doc.get("url", "") or f"culturax_{processed}") if isinstance(doc, dict) else f"culturax_{processed}"
+                doc_url = (doc.get("url", "") if isinstance(doc, dict) else "") or None
                 if insert_or_skip(
                     mongodb_client,
                     source="culturax",
                     title=str(title),
                     text=text,
+                    url=doc_url,
                     metadata={
                         "source_type": "web_crawl",
                         "language_code": "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy",
-                        "dialect": dialect,
                     },
                     config=config,
                 ):

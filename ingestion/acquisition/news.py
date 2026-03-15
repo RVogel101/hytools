@@ -210,10 +210,10 @@ AZTAG = NewspaperSource(
 
 HORIZON = NewspaperSource(
     name="horizon",
-    base_url="https://horizonweekly.ca",
-    # Prefer Armenian content when available: use root/category paths instead of /en/.
-    # Horizon has language filters (including Հայերէն) on the news listing pages.
-    listing_url_template="https://horizonweekly.ca/category/news/page/{page}",
+    # Use the /am/ (Armenian) version of the site so listings are Armenian-first.
+    # The /en/ version mixes English and Armenian articles on the same pages.
+    base_url="https://horizonweekly.ca/am",
+    listing_url_template="https://horizonweekly.ca/am/page/{page}",
     article_link_selectors=[
         "h2 a",
         ".entry-title a",
@@ -224,6 +224,7 @@ HORIZON = NewspaperSource(
         ".post-item-title a",
     ],
     content_selectors=[
+        ".single-article p",
         ".td-post-content p",
         ".entry-content p",
         ".post-content p",
@@ -342,6 +343,62 @@ MARMARA = NewspaperSource(
     max_pages=100,
 )
 
+JAMANAG = NewspaperSource(
+    name="jamanag",
+    base_url="https://jamanakatert.com",
+    listing_url_template="https://jamanakatert.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+        ".td-module-title a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".td-post-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=200,
+)
+
+MASSIS_POST = NewspaperSource(
+    name="massis_post",
+    base_url="https://massispost.com",
+    listing_url_template="https://massispost.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=200,
+)
+
+MIRROR_SPECTATOR = NewspaperSource(
+    name="mirror_spectator",
+    base_url="https://mirrorspectator.com",
+    listing_url_template="https://mirrorspectator.com/page/{page}",
+    article_link_selectors=[
+        "h2 a",
+        ".entry-title a",
+        ".post-title a",
+        "article a",
+    ],
+    content_selectors=[
+        ".entry-content p",
+        ".post-content p",
+        "article p",
+    ],
+    max_pages=200,
+)
+
 _NEWSPAPER_ALL_SOURCES = {
     "aztag": AZTAG,
     "horizon": HORIZON,
@@ -351,6 +408,9 @@ _NEWSPAPER_ALL_SOURCES = {
     "keghart": KEGHART,
     "nor_or": NOR_OR,
     "marmara": MARMARA,
+    "jamanag": JAMANAG,
+    "massis_post": MASSIS_POST,
+    "mirror_spectator": MIRROR_SPECTATOR,
 }
 
 
@@ -598,7 +658,6 @@ def _scrape_newspaper_source(
                 writing_category="diaspora",
                 metadata={
                     "wa_score": round(wa_score, 2),
-                    "dialect": "western_armenian" if detected_lc == "hyw" else "eastern_armenian",
                 },
             )
             new_records.append(record)
@@ -1200,28 +1259,31 @@ _RSS_HEADERS = {
 # Diaspora newspapers (same as Selenium newspaper sources): include in RSS process so catalog gets their articles too. Mark hyw (Western Armenian).
 _DIASPORA_NEWSPAPER_RSS_SOURCES: list[dict] = [
     {"name": "Aztag", "url": "https://aztagdaily.com", "rss": "https://aztagdaily.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Horizon Weekly", "url": "https://horizonweekly.ca", "rss": "https://horizonweekly.ca/en/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Horizon Weekly", "url": "https://horizonweekly.ca", "rss": "https://horizonweekly.ca/am/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Asbarez", "url": "https://asbarez.com", "rss": "https://asbarez.com/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Hairenik", "url": "https://hairenik.com", "rss": "https://hairenik.com/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Keghart", "url": "https://keghart.com", "rss": "https://keghart.com/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Nor Or", "url": "https://noror.com", "rss": "https://noror.com/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Marmara", "url": "https://marmaragazetesi.com", "rss": "https://marmaragazetesi.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Jamanag", "url": "https://jamanakatert.com", "rss": "https://jamanakatert.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora", "language_code": "hyw"},
 ]
 
 # Republic of Armenia sources: prefer Armenian feeds when the site offers them; mark Armenian content as hye (Eastern).
 # language_code: ISO 639-3 (hyw=Western, hye=Eastern, eng=English, hy=undetermined).
 _ARMENIAN_SOURCES: list[dict] = [
-    {"name": "Armenpress", "url": "https://armenpress.am/eng/news/", "rss": "https://armenpress.am/eng/rss/news/", "category": "news", "language_code": "eng"},
+    {"name": "Armenpress", "url": "https://armenpress.am/hy/news/", "rss": "https://armenpress.am/hy/rss/news/", "category": "news", "language_code": "hye"},
     {"name": "Armenian Weekly", "url": "https://armenianweekly.com", "rss": "https://armenianweekly.com/feed/", "category": "news", "language_code": "hyw"},
     {"name": "Azatutyun", "url": "https://www.azatutyun.am", "rss": "https://www.azatutyun.am/api/zijrreypui", "category": "news", "language_code": "hye"},
-    {"name": "Hetq", "url": "https://hetq.am/en/news", "rss": "https://hetq.am/en/rss", "category": "investigative", "language_code": "eng"},
+    {"name": "Hetq", "url": "https://hetq.am/hy/news", "rss": "https://hetq.am/hy/rss", "category": "investigative", "language_code": "hye"},
     {"name": "Panorama.am", "url": "https://www.panorama.am", "rss": "https://www.panorama.am/rss/?lang=hy", "category": "news", "language_code": "hye"},
     {"name": "EVN Report", "url": "https://evnreport.com", "rss": "https://evnreport.com/feed/", "category": "analysis", "language_code": "eng"},
     {"name": "OC Media", "url": "https://oc-media.org", "rss": "https://oc-media.org/feed/", "category": "news", "language_code": "eng"},
-    {"name": "Civilnet", "url": "https://www.civilnet.am/en/", "rss": "https://www.civilnet.am/en/feed/", "category": "culture", "language_code": "eng"},
+    {"name": "Civilnet", "url": "https://www.civilnet.am", "rss": "https://www.civilnet.am/feed/", "category": "culture", "language_code": "hye"},
     {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora", "language_code": "hyw"},
     {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Agos", "url": "https://www.agos.com.tr/en", "rss": "https://www.agos.com.tr/en/rss", "category": "diaspora", "language_code": "eng"},
+    {"name": "Agos", "url": "https://www.agos.com.tr/am", "rss": "https://www.agos.com.tr/am/rss", "category": "diaspora", "language_code": "hyw"},
 ]
 
 _INTERNATIONAL_SOURCES: list[dict] = [
@@ -1337,6 +1399,7 @@ def _rss_strip_html(html: str) -> str:
 
 _RSS_ARTICLE_SELECTORS = [
     "article",
+    ".single-article",
     '[itemprop="articleBody"]',
     ".article-body",
     ".entry-content",

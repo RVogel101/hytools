@@ -6,11 +6,19 @@ books with strong coverage of 19th-20th century academic and religious texts.
 
 A catalog file (``hathitrust_catalog.json``) tracks discovered items and their
 download status for resume capability.
+
+PDF fallback:
+  When page-by-page plaintext download fails (403 / empty), the scraper can
+  download the full-view PDF and run it through the OCR pipeline
+  (pdf2image → Tesseract). Enable with ``hathitrust.ocr_fallback: true`` in
+  config. Requires ``pytesseract``, ``pdf2image``, and Poppler on PATH.
 """
 
 from __future__ import annotations
 
 import logging
+import shutil
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -70,6 +78,16 @@ DEFAULT_QUERIES: list[str] = [
     "language:arm",
     "armenian language",
     "\u0570\u0561\u0575\u0565\u0580\u0565\u0576",  # հայերեն
+    "western armenian",
+    "armenian literature",
+    "armenian poetry",
+    "armenian history",
+    "armenian genocide",
+    "armenian church",
+    "armenian diaspora",
+    "armenian grammar",
+    "armenian dictionary",
+
 ]
 
 
@@ -324,13 +342,69 @@ def _download_volume_text(htid: str, max_pages: int = 1000) -> tuple[str | None,
     return combined, len(parts)
 
 
+def _download_pdf_and_ocr(htid: str) -> str | None:
+    """Download the full-view PDF for *htid* and extract text via OCR.
+
+    Uses pdf2image → Tesseract (rasterize-then-OCR), which is safe against
+    malicious embedded content since no PDF JavaScript/macros are executed.
+
+    Returns combined OCR text or None on failure.  All temp files are cleaned up.
+    """
+    pdf_url = f"{_DATA_API}?id={htid}&view=pdf"
+    tmp_dir = None
+    try:
+        resp = requests.get(pdf_url, timeout=300, stream=True, headers={
+            "User-Agent": "ArmenianCorpusCore/1.0 (Education/Research)",
+        })
+        if resp.status_code in (401, 403):
+            log_item(logger, "debug", _STAGE, htid, "pdf_download", status="access_restricted")
+            return None
+        resp.raise_for_status()
+
+        # Verify content looks like a PDF (starts with %PDF)
+        first_bytes = resp.content[:5]
+        if not first_bytes.startswith(b"%PDF"):
+            log_item(logger, "debug", _STAGE, htid, "pdf_download", status="not_pdf")
+            return None
+
+        tmp_dir = Path(tempfile.mkdtemp(prefix="ht_ocr_"))
+        pdf_path = tmp_dir / f"{htid.replace('/', '_')}.pdf"
+        pdf_path.write_bytes(resp.content)
+
+        out_dir = tmp_dir / "ocr_output"
+        try:
+            from ocr.pipeline import ocr_pdf
+        except ImportError:
+            logger.warning("OCR pipeline unavailable (missing pytesseract/pdf2image). Skipping PDF OCR for %s", htid)
+            return None
+
+        ocr_pdf(pdf_path, out_dir, adaptive_dpi=True, per_page_lang="auto")
+
+        # Combine per-page text files
+        pages = sorted(out_dir.glob("page_*.txt"))
+        if not pages:
+            return None
+        parts = [p.read_text(encoding="utf-8") for p in pages]
+        return "\n\n".join(parts)
+    except Exception as exc:
+        log_item(logger, "warning", _STAGE, htid, "pdf_ocr", status="error", error=str(exc))
+        return None
+    finally:
+        if tmp_dir and tmp_dir.exists():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 def _download_and_ingest(client, catalog: dict[str, dict], apply_wa_filter: bool, config: dict | None = None) -> dict:
     """Download volumes and insert directly to MongoDB. No file writes.
 
     When full text is unavailable (403, no pages, or too short), stores catalog metadata
     via Bibliographic API fallback (get_volume_metadata) so we have a record for discovery.
+
+    If ``ocr_fallback`` is enabled in config (``scraping.hathitrust.ocr_fallback: true``),
+    attempts PDF download + OCR when page-by-page text is too short.
     """
-    stats = {"inserted": 0, "duplicates": 0, "skipped_wa": 0, "skipped_short": 0, "metadata_only": 0}
+    stats = {"inserted": 0, "duplicates": 0, "skipped_wa": 0, "skipped_short": 0, "metadata_only": 0, "ocr_inserted": 0}
+    ocr_fallback = (config or {}).get("scraping", {}).get("hathitrust", {}).get("ocr_fallback", False)
 
     for i, (htid, item) in enumerate(catalog.items(), 1):
         if item.get("downloaded") and item.get("ingested") is not None:
@@ -339,6 +413,15 @@ def _download_and_ingest(client, catalog: dict[str, dict], apply_wa_filter: bool
         text, pages = _download_volume_text(htid)
         item["downloaded"] = True
         item["pages_downloaded"] = pages
+
+        if not text or len(text) < 50:
+            # Try PDF + OCR fallback before giving up
+            if ocr_fallback:
+                ocr_text = _download_pdf_and_ocr(htid)
+                if ocr_text and len(ocr_text) >= 50:
+                    text = ocr_text
+                    item["ocr_fallback"] = True
+                    log_item(logger, "info", _STAGE, htid, "ocr_fallback", status="ok", chars=len(text))
 
         if not text or len(text) < 50:
             item["ingested"] = False
@@ -375,6 +458,8 @@ def _download_and_ingest(client, catalog: dict[str, dict], apply_wa_filter: bool
         item["ingested"] = ok
         if ok:
             stats["inserted"] += 1
+            if item.get("ocr_fallback"):
+                stats["ocr_inserted"] += 1
         else:
             stats["duplicates"] += 1
 

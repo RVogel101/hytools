@@ -31,10 +31,12 @@ from urllib.parse import quote_plus, urlencode
 import requests
 
 from ingestion._shared.helpers import (
+    compute_wa_score,
     insert_or_skip,
     log_item,
     log_stage,
     open_mongodb_client,
+    WA_SCORE_THRESHOLD,
 )
 from ingestion.enrichment.metadata_tagger import get_source_metadata
 
@@ -239,6 +241,26 @@ def _run_query(
             meta["writing_category"] = norm["writing_category"]
             meta["dpla_id"] = norm.get("dpla_id")
             meta["data_provider"] = norm.get("data_provider")
+            # Run WA scoring on Armenian-language items for dialect classification.
+            text = norm["text"]
+            if norm["language_code"] not in ("eng",) and text:
+                try:
+                    wa_score = compute_wa_score(text[:5000])
+                    meta["wa_score"] = round(wa_score, 2)
+                    if wa_score >= WA_SCORE_THRESHOLD:
+                        meta["language_code"] = "hyw"
+                    elif norm["language_code"] in ("hy", "und"):
+                        meta["language_code"] = "hye"
+                except Exception:
+                    pass
+            elif norm["language_code"] == "hy":
+                # No text but DPLA tagged as Armenian — default to Eastern Armenian
+                meta["language_code"] = "hye"
+            elif norm["language_code"] == "und":
+                # No text and no DPLA language info — check title for Armenian chars
+                arm_in_title = sum(1 for c in norm["title"] if "\u0530" <= c <= "\u058f")
+                if arm_in_title >= 3:
+                    meta["language_code"] = "hye"
             ok = insert_or_skip(
                 client,
                 source="dpla",

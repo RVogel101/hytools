@@ -2,7 +2,7 @@
 """Materialize dialect-specific views from MongoDB corpus.
 
 Tags each document with a canonical ``dialect_view`` field based on the
-dialect metadata, enabling fast filtered queries for WA-only training
+``language_code`` metadata, enabling fast filtered queries for WA-only training
 datasets, EA reference data, etc.
 
 Also stores dialect distribution stats in the ``metadata`` collection.
@@ -15,10 +15,12 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-DIALECT_MAP = {
-    "western_armenian": "wa",
-    "eastern_armenian": "ea",
-    "mixed": "mixed",
+# language_code → dialect_view tag
+_LANG_TO_VIEW = {
+    "hyw": "wa",
+    "hye": "ea",
+    "hy": "ea",     # legacy undetermined Armenian → treat as EA for safety
+    "hyc": "ea",    # Classical Armenian
 }
 
 
@@ -35,26 +37,15 @@ def run(config: dict) -> None:
         total = docs.count_documents({})
         stats: dict[str, int] = {"wa": 0, "ea": 0, "mixed": 0, "unknown": 0}
 
-        for canonical, view_tag in DIALECT_MAP.items():
+        # Primary: classify by language_code
+        for lang_code, view_tag in _LANG_TO_VIEW.items():
             count = docs.update_many(
-                {"metadata.dialect": canonical},
+                {"metadata.language_code": lang_code},
                 {"$set": {"dialect_view": view_tag}},
             ).modified_count
-            stats[view_tag] = count
+            stats[view_tag] += count
 
-        count = docs.update_many(
-            {"metadata.language_code": "hyw", "dialect_view": {"$exists": False}},
-            {"$set": {"dialect_view": "wa"}},
-        ).modified_count
-        stats["wa"] += count
-
-        # hye = Eastern; hy = legacy Eastern or undetermined (backward compat)
-        count = docs.update_many(
-            {"metadata.language_code": {"$in": ["hye", "hy"]}, "dialect_view": {"$exists": False}},
-            {"$set": {"dialect_view": "ea"}},
-        ).modified_count
-        stats["ea"] += count
-
+        # Fallback: anything still untagged → unknown
         remaining = docs.update_many(
             {"dialect_view": {"$exists": False}},
             {"$set": {"dialect_view": "unknown"}},

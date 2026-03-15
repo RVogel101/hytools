@@ -118,7 +118,7 @@ DEFAULT_QUERIES: list[str] = [
 
     # ── 6. Periodicals and press ───────────────────────────────────────
     "(armenian AND (periodical OR journal OR newspaper OR gazette)) AND mediatype:texts AND language:arm",
-    '("Zartonk" OR "Aztag" OR "Nor Gyank" OR "Baikar" OR "Aknark") AND mediatype:texts',
+    '("Zartonk" OR "Aztag" OR "Nor Gyank" OR "Baikar" OR "Aknark" OR "Arev") AND mediatype:texts',
     '("Hairenik" OR "Hayrenik" OR "Armenian Weekly") AND mediatype:texts',
     '("Arevelk" OR "Arevelk" OR "Mshak" OR "Horizon" OR "Nor Or") AND mediatype:texts',
 
@@ -400,6 +400,22 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
             stats["skipped"] += 1
             continue
 
+        # Skip documents with too few Armenian characters (e.g. English catalog pages).
+        arm_chars = sum(1 for c in text if "\u0530" <= c <= "\u058F")
+        if arm_chars < 30:
+            logger.debug("Skipping %s: too few Armenian chars (%d)", ident, arm_chars)
+            item["ingested"] = False
+            stats["skipped"] += 1
+            continue
+
+        # Skip documents with significant CJK content (misclassified items).
+        cjk_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff" or "\u3400" <= c <= "\u4dbf")
+        if cjk_chars > arm_chars:
+            logger.debug("Skipping %s: CJK chars (%d) exceed Armenian (%d)", ident, cjk_chars, arm_chars)
+            item["ingested"] = False
+            stats["skipped"] += 1
+            continue
+
         dialect = _classify_dialect(text)
         lang_code = "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy"
 
@@ -412,7 +428,6 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
             metadata={
                 "source_type": "book",
                 "identifier": ident,
-                "dialect": dialect,
                 "language_code": lang_code,
                 "confidence_dialect": round(
                     min(compute_wa_score(text) / WA_SCORE_THRESHOLD, 2.0), 2

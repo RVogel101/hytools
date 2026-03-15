@@ -1,7 +1,7 @@
 {
-  "started_at": 1773383688.2935023,
-  "finished_at": 1773387704.5285022,
-  "duration_seconds": 4016.235,
+  "started_at": 1773502284.8767195,
+  "finished_at": 1773502439.7677195,
+  "duration_seconds": 154.891,
   "stages": [
     {
       "stage": "wikipedia",
@@ -62,14 +62,30 @@
     {
       "stage": "news",
       "module": "ingestion.acquisition.news",
-      "enabled": true,
-      "status": "ok",
-      "duration_seconds": 4016.235,
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
       "error": ""
     },
     {
       "stage": "culturax",
       "module": "ingestion.acquisition.culturax",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "opus",
+      "module": "ingestion.acquisition.opus",
+      "enabled": true,
+      "status": "ok",
+      "duration_seconds": 154.891,
+      "error": ""
+    },
+    {
+      "stage": "jw",
+      "module": "ingestion.acquisition.jw",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,
@@ -110,6 +126,22 @@
     {
       "stage": "agbu",
       "module": "ingestion.acquisition.agbu",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "hamazkayin",
+      "module": "ingestion.acquisition.hamazkayin",
+      "enabled": false,
+      "status": "skipped",
+      "duration_seconds": 0.0,
+      "error": ""
+    },
+    {
+      "stage": "agos",
+      "module": "ingestion.acquisition.agos",
       "enabled": false,
       "status": "skipped",
       "duration_seconds": 0.0,

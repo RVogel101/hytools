@@ -56,16 +56,14 @@ def _validate(client) -> dict[str, Any]:
             "required_fields_present", False, "no documents to check",
         ))
 
-    allowed_dialects = {"western_armenian", "eastern_armenian", "mixed", "unknown"}
-    dialect_values = docs.distinct("metadata.dialect")
+    allowed_language_codes = {"hyw", "hye", "hy", "hyc", "eng", "und"}
     lang_values = docs.distinct("metadata.language_code")
-    bad = sorted(set(str(d) for d in dialect_values if d) - allowed_dialects - {None})
+    bad_lc = sorted(set(str(lc) for lc in lang_values if lc) - allowed_language_codes - {None})
     results.append(ValidationResult(
-        "dialect_tag_values",
-        not bad,
-        "ok" if not bad else f"unexpected dialect values: {bad}",
+        "language_code_values",
+        not bad_lc,
+        "ok" if not bad_lc else f"unexpected language_code values: {bad_lc}",
     ))
-    extra["dialect_values"] = [str(d) for d in dialect_values]
     extra["language_codes"] = [str(lc) for lc in lang_values]
 
     pipeline = [

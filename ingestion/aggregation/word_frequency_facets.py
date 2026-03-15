@@ -42,10 +42,12 @@ def _get_facet_value(doc: dict, facet: str) -> str | None:
         return str(v).strip()[:500]
 
     if facet == "dialect":
-        v = meta.get("dialect")
-        if not v or not str(v).strip():
-            return None
-        return str(v).strip().lower()
+        lc = meta.get("language_code", "")
+        if lc == "hyw":
+            return "western_armenian"
+        if lc in ("hye", "hy"):
+            return "eastern_armenian"
+        return None
 
     if facet == "year":
         for key in ("gallica_date", "date_scraped", "date", "publication_year"):
@@ -104,7 +106,7 @@ def run_aggregation(config: dict) -> dict:
         projection = {
             "source": 1,
             "metadata.author": 1,
-            "metadata.dialect": 1,
+            "metadata.language_code": 1,
             "metadata.gallica_date": 1,
             "metadata.date_scraped": 1,
             "metadata.date": 1,

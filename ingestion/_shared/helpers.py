@@ -135,9 +135,9 @@ def _check_drift_on_ingest(metrics: dict, metadata: dict, config: dict) -> dict 
 
         from augmentation.baseline_statistics import CorpusBaselineComputer
 
-        dialect = (metadata or {}).get("dialect") or "western_armenian"
+        dialect = (metadata or {}).get("language_code") or "hyw"
         baseline_path = ("cache/wa_metric_baseline_stats.json"
-                        if "western" in str(dialect).lower() else "cache/ea_metric_baseline_stats.json")
+                        if dialect == "hyw" else "cache/ea_metric_baseline_stats.json")
         computer = CorpusBaselineComputer()
         baseline = computer.load_statistics(baseline_path)
         if baseline is None:

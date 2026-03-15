@@ -91,11 +91,13 @@ def extract_wikipedia_to_mongodb(
                     stats["skipped"] += 1
                     continue
 
+                wiki_url = f"https://{language_code}.wikipedia.org/wiki/{title.replace(' ', '_')}"
                 ok = insert_or_skip(
                     mongodb_client,
                     source=source,
                     title=title,
                     text=cleaned,
+                    url=wiki_url,
                     metadata={
                         "source_type": "encyclopedia",
                         "language_code": language_code,

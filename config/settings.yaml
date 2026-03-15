@@ -93,11 +93,13 @@ scraping:
     api_key: "DPLA_API_KEY"   # set env DPLA_API_KEY to your key; this placeholder means "read from env"
   newspapers:
     enabled: true
-    # Historical crawler sources. Omit to run all registered sources.
-    # sources: ["aztag", "horizon", "asbarez", "hairenik", "armenian_weekly", "keghart", "nor_or", "marmara"]
-    # Historical crawler (diaspora newspapers: Aztag, Horizon, Asbarez, Hairenik, Armenian Weekly, Keghart, Nor Or, Marmara).
-    # max_pages: 0    # 0 = no explicit cap; crawler stops when listing pages are empty (uses a high internal ceiling)
-    # max_articles_per_source: 0  # 0 = no per-source cap; rely on site pagination to stop
+    # Historical crawler (diaspora newspapers: Aztag, Horizon, Asbarez, Hairenik, Armenian Weekly, Keghart, Nor Or, Marmara, Jamanag, Massis Post, Mirror-Spectator).
+    sources: ["hairenik", "armenian_weekly", "horizon", "marmara", "jamanag", "massis_post", "mirror_spectator"]
+    max_pages: 0    # 0 = no explicit cap; crawler stops when listing pages are empty
+    max_articles_per_source: 0  # 0 = no per-source cap; rely on site pagination to stop
+  hamazkayin:
+    enabled: true
+    # sites: null  # null = scrape all (pakine, hamazkayin). Example: ["pakine"]
   nayiri:
     enabled: true
   eastern_armenian:
