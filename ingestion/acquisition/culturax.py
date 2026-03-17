@@ -110,7 +110,7 @@ def run(config: dict) -> None:
                     url=doc_url,
                     metadata={
                         "source_type": "web_crawl",
-                        "language_code": "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy",
+                        "source_language_code": "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy",
                     },
                     config=config,
                 ):

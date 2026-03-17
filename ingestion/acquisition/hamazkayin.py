@@ -187,7 +187,7 @@ def _scrape_via_wp_api(
 
                 meta = {
                     "source_type": "literary" if site["name"] == "pakine" else "cultural",
-                    "language_code": detected_lc,
+                    "source_language_code": detected_lc,
                     "source_language_codes": [detected_lc],
                     "wa_score": round(wa_score, 2),
                     "content_type": site["content_type"],
@@ -311,7 +311,7 @@ def _scrape_via_html_fallback(
 
             meta = {
                 "source_type": "literary" if site["name"] == "pakine" else "cultural",
-                "language_code": detected_lc,
+                "source_language_code": detected_lc,
                 "source_language_codes": [detected_lc],
                 "wa_score": round(wa_score, 2),
                 "content_type": site["content_type"],

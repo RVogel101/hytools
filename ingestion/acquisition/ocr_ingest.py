@@ -165,7 +165,7 @@ def ingest_directory(
                 metadata={
                     "source_type": "ocr",
                     "file_path": str(file_path),
-                    "language_code": dialect,
+                    "source_language_code": dialect,
                     "ocr_dpi": dpi,
                 },
                 config=config,
@@ -267,7 +267,7 @@ def ingest_from_gridfs(
                 metadata={
                     "source_type": "ocr",
                     "gridfs_file_id": str(file_id),
-                    "language_code": dialect,
+                    "source_language_code": dialect,
                     "ocr_dpi": dpi,
                 },
                 config=config,

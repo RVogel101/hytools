@@ -123,7 +123,7 @@ def _check_drift_on_ingest(metrics: dict, metadata: dict, config: dict) -> dict 
     """Optionally run drift check on document metrics and return a summary for metadata.drift_check.
 
     When database.drift_check_on_ingest or scraping.drift_check_on_ingest is True,
-    loads baseline (WA or EA from metadata.dialect), computes z-scores for key metrics,
+    loads baseline (WA or EA from metadata.source_language_code), computes z-scores for key metrics,
     and returns a dict with anomalous flag and alerts when any metric exceeds threshold.
     Returns None if disabled, no baseline, or no anomaly.
     """
@@ -135,7 +135,7 @@ def _check_drift_on_ingest(metrics: dict, metadata: dict, config: dict) -> dict 
 
         from augmentation.baseline_statistics import CorpusBaselineComputer
 
-        dialect = (metadata or {}).get("language_code") or "hyw"
+        dialect = (metadata or {}).get("source_language_code") or "hyw"
         baseline_path = ("cache/wa_metric_baseline_stats.json"
                         if dialect == "hyw" else "cache/ea_metric_baseline_stats.json")
         computer = CorpusBaselineComputer()
@@ -233,21 +233,16 @@ _CLASSICAL_ORTHO_MARKERS: list[tuple[str, float]] = [
 ]
 
 _LEXICAL_MARKERS: list[tuple[str, float]] = [
-    ("\u056F\u0568", 2.0),           # կը gu (WA present tense)
+    # NOTE: Short markers (al, gu, hon, hos, il) moved to _WA_STANDALONE_RE /
+    # _WA_SUFFIX_RE below for word-boundary safety.
     ("\u056F\u055A", 2.0),           # կ՚ g' (elided before vowel)
     ("\u056F\u0578\u0580", 2.0),     # կոր gor (WA present progressive)
     ("\u057A\u056B\u057F\u056B", 2.0),   # պիտի bidi (WA future marker)
-    ("\u0570\u0578\u0576", 3.0),     # հոն hon (WA "there")
-    ("\u0570\u0578\u057D", 3.0),     # հոս hos (WA "here")
-    ("\u0561\u056C", 1.0),           # ալ al (WA "also/too")
     ("\u0570\u056B\u0574\u0561", 2.0),   # հիմա hima (WA "now")
-    #("\u0561\u0575\u057D\u057A\u0567\u057D", 2.5),  # այսպէս aysbes (WA "like this")
-    #("\u0561\u0575\u0576\u057A\u0567\u057D", 2.5),  # այնպէս aynbes (WA "like that")
     ("\u0578\u0579\u056B\u0576\u0579", 2.5),    # ոչինչ vochinch (WA "nothing")
     ("\u0562\u0561\u0576 \u0574\u0568", 2.0),   # բան մը pan mu (WA "something")
     ("\u0579\u0565\u0574", 2.0),     # չեմ chem (WA negative particle)
     ("\u0574\u0565\u0576\u0584", 2.0),   # մենք menk (WA "we")
-    ("\u056B\u056C", 2.0),           # իլ il (passive suffix; e.g. խօսիլ khosil)
     ("\u0563\u0565\u0572\u0565\u0581\u056B\u056F", 1.5),  # գեղեցիկ keghetsig (WA "beautiful")
 ]
 
@@ -288,38 +283,106 @@ _EASTERN_VOCABULARY: list[tuple[str, float]] = [
     ("\u0571\u0578\u0582", 2.5),  # ձու tsoo (EA "egg"; WA ձ=ts; WA uses հաւկիթ havgit)
 ]
 
+# == Word-boundary-aware WA markers ============================================
+# Short markers (2-3 Armenian chars) cause false positives with substring
+# matching (e.g. 'ալ' matching inside longer Eastern Armenian words).
+# These use regex with Armenian word boundaries for accurate counting.
+#
+# Armenian word boundary = not preceded/followed by Armenian letter (U+0531-U+0586).
+# Range ends at ֆ (U+0586), excluding և (U+0587) which is only the conjunction "and".
+_ARM_WB_L = r'(?<![Ա-ֆ])'   # left word boundary (standalone start)
+_ARM_WB_R = r'(?![Ա-ֆ])'    # right word boundary (standalone end)
+_ARM_PRECEDED = r'(?<=[Ա-ֆ])'  # must follow an Armenian letter (suffix)
+
+# Standalone WA words (boundary on BOTH sides)
+_WA_STANDALONE_RE: list[tuple[re.Pattern, float]] = [
+    # ալ (al) = "also/too".  2 chars — collides inside EA words.
+    (re.compile(_ARM_WB_L + r'\u0561\u056C' + _ARM_WB_R), 1.0),
+    # կը (gu) = present-tense prefix.  2 chars.
+    (re.compile(_ARM_WB_L + r'\u056F\u0568' + _ARM_WB_R), 2.0),
+    # հոն (hon) = "there".  3 chars.
+    (re.compile(_ARM_WB_L + r'\u0570\u0578\u0576' + _ARM_WB_R), 3.0),
+    # հոս (hos) = "here".  3 chars.
+    (re.compile(_ARM_WB_L + r'\u0570\u0578\u057D' + _ARM_WB_R), 3.0),
+]
+
+# WA suffixes (boundary on RIGHT side only — preceded by Armenian letter)
+_WA_SUFFIX_RE: list[tuple[re.Pattern, float]] = [
+    # -իլ (-il) = infinitive suffix.  2 chars — collides as substring.
+    (re.compile(_ARM_PRECEDED + r'\u056B\u056C' + _ARM_WB_R), 1.5),
+]
+
+# == EA regex-based markers (suffix/prefix patterns with word boundaries) ======
+# These detect EA-specific morphological patterns that need proper boundaries.
+_EA_REGEX_MARKERS: list[tuple[re.Pattern, float]] = [
+    # -ում (-um) = EA present-tense / imperfective suffix.  THE #1 EA signal.
+    # EA: "verb-oom yem" (I verb).  WA never uses this construction.
+    (re.compile(_ARM_PRECEDED + r'\u0578\u0582\u0574' + _ARM_WB_R), 2.5),
+    # և (U+0587) INSIDE a word = EA reformed spelling.  In WA, և is ONLY the
+    # standalone conjunction "and" (yev); it never appears inside words.
+    # EA reform merged classical digraph եdelays into the ligature և within words.
+    (re.compile(r'[\u0531-\u0586]\u0587[\u0531-\u0586]'), 3.0),
+]
+
 # Known WA authors (diaspora literary figures) — boost WA score
 _WA_AUTHORS: list[tuple[str, float]] = [
-    ("\u0544\u0565\u056D\u056B\u0569\u0561\u0580", 5.0),       # Մեխիտար Mekhitar
-    ("\u0544\u056D\u056B\u0569\u0561\u0580\u0565\u0561\u0576", 5.0),  # Մխիտարեան Mekhitarian (WA -եան = -ian)
-    ("\u054F\u0561\u0576\u056B\u0567\u056C", 4.0),             # Տանիէլ Daniel (WA Տ=d)
+    # Classical / foundational
+    ("\u0544\u0565\u056D\u056B\u0569\u0561\u0580", 5.0),       # Մեխիթար Mekhitar (Mekhitarists)
+    ("\u0544\u056D\u056B\u0569\u0561\u0580\u0565\u0561\u0576", 5.0),  # Մխիթարեան Mekhitarean
+
+    # 19th-20th century WA literary figures
+    ("\u054F\u0561\u0576\u056B\u0567\u056C", 4.0),             # Տանիէլ Taniel (Varoujan)
     ("\u054E\u0561\u0580\u0578\u0582\u056A\u0561\u0576", 5.0), # Վարուժան Varoujan
-    ("\u054D\u056B\u0561\u0574\u0561\u0576\u0569\u0578", 5.0), # Սիամանթօ Siamanto
+    ("\u054D\u056B\u0561\u0574\u0561\u0576\u0569\u0578", 5.0), # Սիամանթո Siamanto
     ("\u0536\u0561\u0580\u056B\u0586\u0565\u0561\u0576", 4.0), # Զարիֆեան Zarifean
-    ("\u054F\u0565\u0584\u0567\u0565\u0561\u0576", 5.0),       # Տէքէեան Tekeyan
+    ("\u054F\u0565\u0584\u0567\u0565\u0561\u0576", 5.0),       # Տեքէեան Tekeyan
+    ("\u0546\u056B\u056F\u0578\u0572\u0578\u057D", 4.0),       # Նիկողոս Nikoghos (Sarafian etc.)
     ("\u054D\u0561\u0580\u0561\u0586\u0565\u0561\u0576", 5.0), # Սարաֆեան Sarafian
+    ("\u0547\u0561\u0570\u0561\u0576", 3.0),                   # Շահան Shahan (Shahnour etc.)
     ("\u0547\u0561\u0570\u0576\u0578\u0582\u0580", 5.0),       # Շահնուր Shahnour
+    ("\u0546\u056B\u056F\u0578\u0572\u0561\u0575\u0578\u057D", 4.0),  # Նիկողայոս Nikoghayos
+    ("\u0531\u0563\u0578\u0576\u0581", 3.0),                   # Ագոնց Agonts
     ("\u0536\u0561\u0580\u0564\u0561\u0580\u0565\u0561\u0576", 5.0),  # Զարդարեան Zardarian
-    ("\u0536\u0561\u057A\u0567\u056C", 4.0),                   # Զապէլ Zabel
+    ("\u0555\u0577\u0561\u056F\u0561\u0576", 5.0),             # Օշական Oshakan
+    ("\u0536\u0561\u057A\u0567\u056C", 4.0),                   # Զապէլ Zabel (Yesayan)
     ("\u0535\u057D\u0561\u0575\u0565\u0561\u0576", 5.0),       # Եսայեան Yesayan
     ("\u0540\u0561\u0574\u0561\u057D\u057F\u0565\u0572", 4.0), # Համաստեղ Hamastegh
+    ("\u0546\u0578\u0580\u0561\u0575\u0580", 4.0),             # Նորայր Norayr
+    ("\u054A\u0565\u0577\u056B\u056F\u0569\u0561\u0577\u056C\u0565\u0561\u0576", 5.0),  # Պեշիկթաշլեան Beshiktashlean
+    ("\u054A\u0565\u0577\u056B\u056F\u0569\u0561\u0577\u056C\u056B\u0561\u0576", 5.0),  # Պեշիկթաշլիան Beshiktashlian (alternate)
+    ("\u054E\u0561\u0580\u0564\u0561\u0576\u0565\u0561\u0576", 4.0),  # Վարդանեան Vardanean
+    ("\u0531\u056C\u056B\u0577\u0561\u0576", 4.0),              # Ալիշան Alishan
+    ("\u0539\u0578\u0583\u0579\u0565\u0561\u0576", 4.0),        # Թոփչեան Topchean
     ("\u0536\u0578\u0570\u0580\u0561\u057A", 5.0),              # Զոհրապ Zohrap
+    ("\u0544\u056B\u057D\u0561\u0584\u0565\u0561\u0576", 4.0),  # Միսաքեան Misakean
+    ("\u054A\u0561\u0580\u0578\u0576\u0565\u0561\u0576", 4.0),  # Պարոնեան Baronean
 ]
 
 # Known WA publication cities (diaspora centres)
 _WA_PUBLICATION_CITIES: list[tuple[str, float]] = [
-    ("\u054A\u0567\u0575\u0580\u0578\u0582\u0569", 4.0),       # Պէյրութ Beyrout (Beirut; WA Պ=b, թ=t)
-    ("\u054A\u0578\u056C\u056B\u057D", 3.0),                   # Պոլիս Bolis (Istanbul; WA պ=b)
-    ("\u0553\u0561\u0580\u056B\u0566", 3.5),                   # Փարիզ Pariz (Paris; WA Փ=p')
-    ("\u0533\u0561\u0570\u056B\u0580\u0567", 3.5),             # Գահիրէ Kahire (Cairo; WA գ=k)
-    ("\u054A\u0578\u057D\u0569\u0578\u0576", 3.0),             # Պոստոն Bosdon (Boston; WA պ=b only)
-    ("\u0546\u056B\u0582 \u0535\u0578\u0580\u0584", 3.5),      # Նիւ Եորք Nyu Yeork (New York; WA ք=k')
-    ("\u0540\u0561\u056C\u0567\u057A", 4.0),                   # Հալէպ Haleb (Aleppo; WA պ=b)
-    ("\u0544\u0578\u0576\u0569\u0580\u0567\u0561\u056C", 3.0), # Մոնթրէալ Montureal (WA unwritten ը between consonants)
+    ("\u054A\u0567\u0575\u0580\u0578\u0582\u0569", 4.0),       # Պէյրութ Peyrouth (Beirut)
+    ("\u054A\u0578\u056C\u056B\u057D", 3.0),                   # Պոլիս Bolis (Istanbul in WA)
+    ("\u0553\u0561\u0580\u056B\u0566", 3.5),                   # Փարիզ Bariz (Paris)
+    ("\u0543\u0561\u0570\u056B\u0580\u0567", 3.5),             # Ճահիրէ Gahireh (Cairo)
+    ("\u054A\u0578\u057D\u0569\u0578\u0576", 3.0),             # Պոսթոն Posdon (Boston)
+    ("\u0546\u056B\u0582 \u0535\u0578\u0580\u0584", 3.5),      # Նիւ Եորք Niw York (New York)
+    ("\u053E\u0578\u0582\u0580\u056B\u056D", 3.0),             # Ծուրիխ Tsurikh (Zurich)
+    ("\u053E\u0565\u0576\u0567\u0582", 3.0),                   # Ծենէւ Tsenev (Geneva)
+    ("\u054E\u056B\u0567\u0576\u0576\u0561", 3.0),             # Վիէննա Vienna
+    ("\u054D\u0561\u0576 \u053C\u0561\u0566\u0561\u0580\u0578", 3.0),  # Սան Լազարո San Lazaro
+    ("\u054E\u0565\u0576\u0565\u057F\u056B\u056F", 3.5),       # Վենետիկ Venedig (Venice)
+    ("\u0540\u0561\u056C\u0567\u057A", 4.0),                   # Հալէպ Halep (Aleppo)
+    ("\u0531\u0576\u0569\u056B\u056C\u056B\u0561\u057D", 3.0), # Անթիլիաս Antilias
+    ("\u053F\u056B\u056C\u056B\u056F\u056B\u0561", 3.0),       # Կիլիկիա Cilicia
+    ("\u0544\u0561\u0580\u057D\u0567\u0575", 3.0),             # Մարսէյ Marseille
+    ("\u0544\u0578\u0576\u0569\u0580\u0567\u0561\u056C", 3.0), # Մոնթրէալ Montreal
+    ("\u053F\u0561\u0570\u056B\u0580\u0567", 3.5),             # Կահիրէ Gahireh (Cairo alt spelling)
+    ("\u0532\u0578\u0582\u0565\u0576\u0578\u057D \u0531\u0575\u0580\u0567\u057D", 3.5),  # Բուենոս Այրէս Buenos Aires
+    ("\u054D\u0561\u0576 \u054A\u0561\u0578\u0582\u056C\u0578", 3.0),  # Սան Պաուլո San Paulo
 ]
 
 # Armenian letter է (e long) between two Armenian letters — classical WA
-_WORD_INTERNAL_E_LONG_RE = re.compile(r"[\u0531-\u0587]\u0567[\u0531-\u0587]")
+_WORD_INTERNAL_E_LONG_RE = re.compile(r"[\u0531-\u0586]\u0567[\u0531-\u0586]")
 # Word-ending այ (ay) — classical diphthong; very indicative of traditional spelling
 _WORD_ENDING_AY_RE = re.compile(r"\u0561\u0575(?=[\s\u0589\u055D\u055E,.;:!?]|\Z)")
 # Word-ending ոյ (oy) — classical diphthong; very indicative of traditional spelling
@@ -338,72 +401,167 @@ def _has_armenian_script(text: str, threshold: float = 0.2) -> bool:
     return armenian / len(text) >= threshold
 
 
-def compute_wa_score(text: str) -> float:
-    """Compute a weighted Western Armenian score for *text*.
+def _any_armenian_script(text: str) -> bool:
+    """Return True if *text* contains at least one Armenian script character (U+0530–U+058F).
 
-    Higher score = stronger WA signal.  Combines positive (WA) and
-    negative (EA reform) signals.
+    Use this instead of ``_has_armenian_script`` when you want to apply a
+    computation to *any* document that touches Armenian script, regardless of
+    what fraction of the text is Armenian.
+    """
+    return any("\u0530" <= c <= "\u058F" for c in text)
+
+
+def compute_script_purity_score(text: str) -> float:
+    """Return the fraction of characters that are Armenian script (U+0530–U+058F).
+
+    1.0 = fully Armenian, 0.0 = no Armenian.  Values below ~0.5 on a document
+    that should be Armenian typically indicate OCR contamination (Latin or other
+    characters mixed in).  Cheap to compute; useful for post-OCR quality gating.
     """
     if not text:
         return 0.0
+    armenian = sum(1 for c in text if "\u0530" <= c <= "\u058F")
+    return armenian / len(text)
 
-    score = 0.0
 
+def compute_wa_score_detailed(text: str) -> dict:
+    """Compute a detailed Western Armenian score breakdown for *text*.
+
+    Returns a dict with per-component scores and the total.  Positive
+    components represent WA evidence; ``ea_penalty`` is the negative
+    EA-signal subtraction stored as a negative float.
+
+    Keys
+    ----
+    total             Final weighted sum. Same value as compute_wa_score().
+    classical_ortho   Classical orthographic markers: եա/իւ digraphs,
+                      word-internal long-ē (է), final diphthongs -այ/-ոյ/-յ.
+    lexical_grammar   Grammatical particles and fixed WA words (կը, պիտի,
+                      մը, ալ, հոն, հոս, -իլ suffix, etc.) with
+                      word-boundary-safe regex matching.
+    vocabulary        WA-specific vocabulary (ճերմակ, ջուր, շапիկ, etc.)
+    ea_penalty        Eastern Armenian signals: reform markers, մի article,
+                      ձու vocab, -ում suffix, և-inside-word. Stored as a
+                      negative float (amount subtracted from total).
+    provenance_bonus  Known WA author names or diaspora publication cities
+                      found in the text.
+    """
+    if not text:
+        return {
+            "total": 0.0,
+            "classical_ortho": 0.0,
+            "lexical_grammar": 0.0,
+            "vocabulary": 0.0,
+            "ea_penalty": 0.0,
+            "provenance_bonus": 0.0,
+        }
+
+    classical_ortho = 0.0
+    lexical_grammar = 0.0
+    vocabulary = 0.0
+    ea_penalty = 0.0
+    provenance_bonus = 0.0
+
+    # 1. Classical orthographic markers (POSITIVE: WA signal)
     for marker, weight in _CLASSICAL_ORTHO_MARKERS:
         count = text.count(marker)
         if count:
-            score += weight * min(count, 10)
+            classical_ortho += weight * min(count, 10)
 
+    # 2. Lexical / grammatical markers (POSITIVE: WA signal)
     for marker, weight in _LEXICAL_MARKERS:
         count = text.count(marker)
         if count:
-            score += weight * min(count, 10)
+            lexical_grammar += weight * min(count, 10)
 
+    # 2a-i. WA standalone words via regex (word-boundary-safe)
+    for pattern, weight in _WA_STANDALONE_RE:
+        hits = len(pattern.findall(text))
+        if hits:
+            lexical_grammar += weight * min(hits, 10)
+
+    # 2a-ii. WA suffixes via regex (word-boundary-safe)
+    for pattern, weight in _WA_SUFFIX_RE:
+        hits = len(pattern.findall(text))
+        if hits:
+            lexical_grammar += weight * min(hits, 10)
+
+    # 2b. WA-specific vocabulary (POSITIVE: WA signal)
     for marker, weight in _WA_VOCABULARY:
         count = text.count(marker)
         if count:
-            score += weight * min(count, 10)
+            vocabulary += weight * min(count, 10)
 
+    # 2c. Eastern Armenian reform markers (NEGATIVE: EA signal)
     for marker, weight in _EASTERN_ARMENIAN_REFORM_MARKERS:
         count = text.count(marker)
         if count:
-            score -= weight * min(count, 10)
+            ea_penalty -= weight * min(count, 10)
 
+    # 2d. Eastern Armenian indefinite article (NEGATIVE: EA signal)
     for marker, weight in _EASTERN_INDEFINITE_ARTICLE:
         count = text.count(marker)
         if count:
-            score -= weight * min(count, 10)
+            ea_penalty -= weight * min(count, 10)
 
+    # 2e. Eastern Armenian vocabulary (NEGATIVE: EA signal)
     for marker, weight in _EASTERN_VOCABULARY:
         count = text.count(marker)
         if count:
-            score -= weight * min(count, 10)
+            ea_penalty -= weight * min(count, 10)
 
+    # 2f. EA regex-based markers (NEGATIVE: EA signal)
+    for pattern, weight in _EA_REGEX_MARKERS:
+        hits = len(pattern.findall(text))
+        if hits:
+            ea_penalty -= weight * min(hits, 10)
+
+    # 3. Word-internal long-e (POSITIVE: classical orthography = WA signal)
     internal_hits = len(_WORD_INTERNAL_E_LONG_RE.findall(text))
     if internal_hits:
-        score += 1.0 * min(internal_hits, 20)
+        classical_ortho += 1.0 * min(internal_hits, 20)
 
+    # 3b. Word-final diphthongs -ay and -oy (POSITIVE: classical orthography)
     ay_hits = len(_WORD_ENDING_AY_RE.findall(text))
     oy_hits = len(_WORD_ENDING_OY_RE.findall(text))
     y_end_hits = len(_WORD_ENDING_Y_RE.findall(text))
     if ay_hits:
-        score += 1.5 * min(ay_hits, 15)
+        classical_ortho += 1.5 * min(ay_hits, 15)
     if oy_hits:
-        score += 2.0 * min(oy_hits, 15)
+        classical_ortho += 2.0 * min(oy_hits, 15)
     if y_end_hits:
-        score += 1.5 * min(y_end_hits, 15)  # word-final յ = traditional spelling
+        classical_ortho += 1.5 * min(y_end_hits, 15)
 
-    # Author names (WA authors boost score)
+    # 4. Author names (WA authors boost score)
     for name, weight in _WA_AUTHORS:
         if name in text:
-            score += weight
+            provenance_bonus += weight
 
-    # Publication cities
+    # 5. Publication cities
     for city, weight in _WA_PUBLICATION_CITIES:
         if city in text:
-            score += weight
+            provenance_bonus += weight
 
-    return score
+    total = classical_ortho + lexical_grammar + vocabulary + ea_penalty + provenance_bonus
+
+    return {
+        "total": round(total, 3),
+        "classical_ortho": round(classical_ortho, 3),
+        "lexical_grammar": round(lexical_grammar, 3),
+        "vocabulary": round(vocabulary, 3),
+        "ea_penalty": round(ea_penalty, 3),
+        "provenance_bonus": round(provenance_bonus, 3),
+    }
+
+
+def compute_wa_score(text: str) -> float:
+    """Compute a weighted Western Armenian score for *text*.
+
+    Returns the total score only. For per-component breakdown use
+    ``compute_wa_score_detailed()``.  Higher score = stronger WA signal.
+    Threshold for Western Armenian classification: WA_SCORE_THRESHOLD (5.0).
+    """
+    return compute_wa_score_detailed(text)["total"]
 
 
 def is_armenian(text: str) -> bool:
@@ -428,6 +586,23 @@ def try_wa_filter(text: str) -> bool | None:
     if not _has_armenian_script(text):
         return None
     return is_western_armenian(text)
+
+
+def classify_language(text: str) -> tuple[str, str]:
+    """Derive internal language code and branch from text analysis.
+
+    Returns
+    -------
+    (internal_language_code, internal_language_branch):
+        - ``("hy", "hye-w")`` — Western Armenian
+        - ``("hy", "hye-e")`` — Eastern Armenian (or Armenian below WA threshold)
+        - ``("eng", "eng")``  — English (no Armenian script detected)
+    """
+    if _has_armenian_script(text):
+        if compute_wa_score(text) >= WA_SCORE_THRESHOLD:
+            return ("hy", "hye-w")
+        return ("hy", "hye-e")
+    return ("eng", "eng")
 
 
 # ═════════════════════════════════════════════════════════════════════════════

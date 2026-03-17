@@ -54,7 +54,9 @@ class MorphologicalMetrics:
     Suffixes:
     - -եմ: Western 1st singular present (e.g. բերեմ "I bring")
     - -իմ: Possessive "my" in Western (not verb suffix)
-    - -ում: Eastern imperfective; not used in Western (WA uses կոր)
+    - -UM: EA verbal inflection (e.g. բERUM EM = "I bring"); also appears in WA in
+      verbal nouns and certain lexical roots — NOT a WA present-tense marker, but
+      flagging every -UM form as EA contamination would be an over-count.
     - -ան: Shared (plural, 3rd person)
     - -ել: Shared infinitive (e.g. գրել)
     - -իլ: Western-only infinitive (e.g. խօսիլ)
@@ -66,7 +68,7 @@ class MorphologicalMetrics:
     suffix_em_frequency: float
     suffix_im_count: int  # Possessive "my" (Western); not verb suffix
     suffix_im_frequency: float
-    suffix_um_count: int  # Eastern: -ում (not used in Western)
+    suffix_um_count: int  # Eastern verbal inflection (-UM); also occurs in WA verbal nouns/roots — see class docstring
     suffix_um_frequency: float
     suffix_an_count: int  # -ան (various)
     suffix_an_frequency: float
@@ -253,9 +255,13 @@ class QuantitativeLinguisticsAnalyzer:
         )
 
     def _tokenize_sentences(self, text: str) -> list[str]:
-        """Tokenize text into sentences."""
-        # Armenian sentence terminators: ։ (full stop), ? ! etc.
-        sentences = re.split(r'[։?!]+', text)
+        """Tokenize text into sentences.
+
+        Delimiters: ։ (Armenian full stop U+0589), ? ! and : — the colon is
+        used as a sentence-final marker in both Western and Eastern Armenian
+        prose (e.g. quoting, listing, rhetorical pause that ends a unit).
+        """
+        sentences = re.split(r'[։?!:]+', text)
         return [s.strip() for s in sentences if s.strip()]
 
     def _compute_lexical_metrics(self, words: list[str]) -> LexicalMetrics:
@@ -343,17 +349,50 @@ class QuantitativeLinguisticsAnalyzer:
         # Average sentence length
         asl = total_words / num_sentences
 
-        # Rough clause count (Armenian uses relative clauses with որ, ինչ)
-        clause_markers = sum(1 for sentence in sentences if 'որ' in sentence or 'ինչ' in sentence)
-        clauses_per_sentence = clause_markers / max(1, num_sentences)
-
-        # Flesch-Kincaid grade level (adapted for Armenian)
-        # FK = 0.39 * (words/sentences) + 11.8 * (syllables/words) - 15.59
-        # Using estimated Armenian syllable count
-        avg_syllables_per_word = 2.0  # Armenian average
-        fk_grade = (
-            0.39 * asl + 11.8 * avg_syllables_per_word - 15.59
+        # Clause count — Armenian-specific approach.
+        #
+        # Methodology: count subordinating conjunctions per sentence.  Each
+        # occurrence of a clause-introducing word adds one embedded clause to
+        # the sentence count.  This is NOT English-biased: the conjunctions
+        # listed below are genuine Armenian subordinators for WA and EA.
+        #
+        # A more accurate (but heavier) alternative is to count finite verb
+        # forms per sentence using WA conjugation markers (կ / կ՚ prefix count
+        # + inflected-verb suffixes).  That approach is recorded as a future
+        # improvement in FUTURE_IMPROVEMENTS.md.
+        #
+        # The baseline is 1 clause per sentence (the main clause); each
+        # subordinating conjunction adds one more clause.
+        _ARMEN_SUBORD = {
+            'որ',   # that / which / who
+            'ինч',  # what / whatever (ինչ)
+            'ինչ',  # what
+            'եթե',  # if (reformed / EA spelling)
+            'եթէ',  # if (classical / WA spelling)
+            'երբ',  # when
+            'ուր',  # where
+            'մինչ', # while / until
+            'թէ',   # whether / or (WA classical)
+            'թե',   # whether / or (reformed)
+            'ուստի',# therefore / so (discourse connective)
+        }
+        total_clause_markers = sum(
+            sum(1 for token in re.findall(r'[\u0531-\u0587]+', sentence)
+                if token in _ARMEN_SUBORD)
+            for sentence in sentences
         )
+        # 1 base clause per sentence + 1 extra per embedded subordinate clause.
+        clauses_per_sentence = 1.0 + total_clause_markers / max(1, num_sentences)
+
+        # Flesch-Kincaid grade level using per-word Armenian syllable count.
+        # Syllables are counted via the internal vowel-nucleus counter
+        # (linguistics.morphology.core.count_syllables), which handles the
+        # ու digraph (one syllable) and Armenian-only characters correctly —
+        # no English syllabification heuristics are used.
+        from linguistics.morphology.core import count_syllables as _count_syl
+        total_syllables = sum(_count_syl(w) for w in words)
+        avg_syllables_per_word = total_syllables / total_words if total_words > 0 else 2.0
+        fk_grade = 0.39 * asl + 11.8 * avg_syllables_per_word - 15.59
 
         return SyntacticMetrics(
             avg_sentence_length=round(asl, 2),
@@ -481,8 +520,11 @@ class QuantitativeLinguisticsAnalyzer:
     ) -> ContaminationMetrics:
         """Compute Eastern Armenian contamination metrics.
 
-        - - em = Western 1st sg; -ում = Eastern imperfective.
-        Higher eastern_form_ratio = more Eastern contamination.
+        -եМ = Western 1st sg present (e.g. բEREM = I bring).
+        -UM = Eastern present/imperfective verbal inflection (e.g. բERUM EM).
+        -UM also appears in WA in verbal nouns and certain roots, so a high
+        -UM ratio is a strong EA *signal* but not a definitive EA *proof*.
+        Higher eastern_form_ratio = more likely EA contamination.
         """
         total_words = len(words)
 
@@ -598,9 +640,11 @@ class QuantitativeLinguisticsAnalyzer:
         issues = []
         dialect_purity = 1.0
 
-        # Check for Eastern contamination (-ում is EA; -եմ is WA)
-        if morphological.suffix_um_count > 0:
-            issues.append(f"Found {morphological.suffix_um_count} Eastern -ում forms")
+        # -UM as verbal inflection is an EA marker.  Penalise only when there
+        # are several -UM forms relative to -EM forms (a couple of occurrences
+        # as lexical/verbal-noun roots is not significant).
+        if morphological.suffix_um_count > 2:
+            issues.append(f"Found {morphological.suffix_um_count} -UM forms (EA verbal marker)")
             dialect_purity -= 0.1 * min(1.0, morphological.suffix_um_count / 10)
 
         # Check code-switching

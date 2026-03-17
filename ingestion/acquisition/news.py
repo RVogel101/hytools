@@ -53,7 +53,7 @@ class ArticleRecord:
     text: str
     publication_date: Optional[str] = None
     category: Optional[str] = None
-    language_code: str = "und"
+    source_language_code: str = "und"
     content_type: str = "article"
     writing_category: Optional[str] = None
     # Extra metadata merged into the MongoDB document (e.g. wa_score, dialect)
@@ -73,13 +73,13 @@ def _upsert_article_from_record(
 
     cfg = config or {}
     catalog = getattr(client, "news_article_catalog", None)
-    language_code = (record.language_code or "und").strip() or "und"
+    source_language_code = (record.source_language_code or "und").strip() or "und"
     writing_category = record.writing_category or record.category or "news"
 
     if catalog is not None and record.url:
         add_to_set = {
             "sources": record.source_id,
-            "source_language_codes": language_code,
+            "source_language_codes": source_language_code,
         }
         try:
             catalog.update_one(
@@ -92,8 +92,8 @@ def _upsert_article_from_record(
                         "published_at": record.publication_date,
                         "category": record.category or writing_category,
                         "tags": [],
-                        "language_code": language_code,
-                        "source_language_codes": [language_code],
+                        "source_language_code": source_language_code,
+                        "source_language_codes": [source_language_code],
                         "content_type": record.content_type,
                         "writing_category": writing_category,
                         "document_id": None,
@@ -108,11 +108,12 @@ def _upsert_article_from_record(
     meta = {
         "source_type": "news",
         "category": record.category or writing_category,
+        "publication_date": record.publication_date,
         "published_at": record.publication_date,
         "tags": [],
         "rss_sources": [record.source_id],
-        "language_code": language_code,
-        "source_language_codes": [language_code],
+        "source_language_code": source_language_code,
+        "source_language_codes": [source_language_code],
         "content_type": record.content_type,
         "writing_category": writing_category,
     }
@@ -653,7 +654,7 @@ def _scrape_newspaper_source(
                 text=text,
                 publication_date=None,
                 category="diaspora",
-                language_code=detected_lc,
+                source_language_code=detected_lc,
                 content_type="article",
                 writing_category="diaspora",
                 metadata={
@@ -1146,7 +1147,7 @@ def _scrape_ea_news_agency(
                 text=article_text or "",
                 publication_date=meta.publication_date,
                 category=meta.category or "news",
-                language_code="hye",
+                source_language_code="hye",
                 content_type="article",
                 writing_category="news",
             )
@@ -1203,7 +1204,7 @@ def _scrape_ea_news_agency(
                 text=article_text or "",
                 publication_date=meta.publication_date,
                 category=meta.category or "news",
-                language_code="hye",
+                source_language_code="hye",
                 content_type="article",
                 writing_category="news",
             )
@@ -1258,44 +1259,44 @@ _RSS_HEADERS = {
 
 # Diaspora newspapers (same as Selenium newspaper sources): include in RSS process so catalog gets their articles too. Mark hyw (Western Armenian).
 _DIASPORA_NEWSPAPER_RSS_SOURCES: list[dict] = [
-    {"name": "Aztag", "url": "https://aztagdaily.com", "rss": "https://aztagdaily.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Horizon Weekly", "url": "https://horizonweekly.ca", "rss": "https://horizonweekly.ca/am/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Asbarez", "url": "https://asbarez.com", "rss": "https://asbarez.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Hairenik", "url": "https://hairenik.com", "rss": "https://hairenik.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Keghart", "url": "https://keghart.com", "rss": "https://keghart.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Nor Or", "url": "https://noror.com", "rss": "https://noror.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Marmara", "url": "https://marmaragazetesi.com", "rss": "https://marmaragazetesi.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Jamanag", "url": "https://jamanakatert.com", "rss": "https://jamanakatert.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Aztag", "url": "https://aztagdaily.com", "rss": "https://aztagdaily.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Horizon Weekly", "url": "https://horizonweekly.ca", "rss": "https://horizonweekly.ca/am/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Asbarez", "url": "https://asbarez.com", "rss": "https://asbarez.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Hairenik", "url": "https://hairenik.com", "rss": "https://hairenik.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Keghart", "url": "https://keghart.com", "rss": "https://keghart.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Nor Or", "url": "https://noror.com", "rss": "https://noror.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Marmara", "url": "https://marmaragazetesi.com", "rss": "https://marmaragazetesi.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Jamanag", "url": "https://jamanakatert.com", "rss": "https://jamanakatert.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
 ]
 
 # Republic of Armenia sources: prefer Armenian feeds when the site offers them; mark Armenian content as hye (Eastern).
-# language_code: ISO 639-3 (hyw=Western, hye=Eastern, eng=English, hy=undetermined).
+# source_language_code: ISO 639-3 (hyw=Western, hye=Eastern, eng=English, hy=undetermined).
 _ARMENIAN_SOURCES: list[dict] = [
-    {"name": "Armenpress", "url": "https://armenpress.am/hy/news/", "rss": "https://armenpress.am/hy/rss/news/", "category": "news", "language_code": "hye"},
-    {"name": "Armenian Weekly", "url": "https://armenianweekly.com", "rss": "https://armenianweekly.com/feed/", "category": "news", "language_code": "hyw"},
-    {"name": "Azatutyun", "url": "https://www.azatutyun.am", "rss": "https://www.azatutyun.am/api/zijrreypui", "category": "news", "language_code": "hye"},
-    {"name": "Hetq", "url": "https://hetq.am/hy/news", "rss": "https://hetq.am/hy/rss", "category": "investigative", "language_code": "hye"},
-    {"name": "Panorama.am", "url": "https://www.panorama.am", "rss": "https://www.panorama.am/rss/?lang=hy", "category": "news", "language_code": "hye"},
-    {"name": "EVN Report", "url": "https://evnreport.com", "rss": "https://evnreport.com/feed/", "category": "analysis", "language_code": "eng"},
-    {"name": "OC Media", "url": "https://oc-media.org", "rss": "https://oc-media.org/feed/", "category": "news", "language_code": "eng"},
-    {"name": "Civilnet", "url": "https://www.civilnet.am", "rss": "https://www.civilnet.am/feed/", "category": "culture", "language_code": "hye"},
-    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora", "language_code": "hyw"},
-    {"name": "Agos", "url": "https://www.agos.com.tr/am", "rss": "https://www.agos.com.tr/am/rss", "category": "diaspora", "language_code": "hyw"},
+    {"name": "Armenpress", "url": "https://armenpress.am/hy/news/", "rss": "https://armenpress.am/hy/rss/news/", "category": "news", "source_language_code": "hye"},
+    {"name": "Armenian Weekly", "url": "https://armenianweekly.com", "rss": "https://armenianweekly.com/feed/", "category": "news", "source_language_code": "hyw"},
+    {"name": "Azatutyun", "url": "https://www.azatutyun.am", "rss": "https://www.azatutyun.am/api/zijrreypui", "category": "news", "source_language_code": "hye"},
+    {"name": "Hetq", "url": "https://hetq.am/hy/news", "rss": "https://hetq.am/hy/rss", "category": "investigative", "source_language_code": "hye"},
+    {"name": "Panorama.am", "url": "https://www.panorama.am", "rss": "https://www.panorama.am/rss/?lang=hy", "category": "news", "source_language_code": "hye"},
+    {"name": "EVN Report", "url": "https://evnreport.com", "rss": "https://evnreport.com/feed/", "category": "analysis", "source_language_code": "eng"},
+    {"name": "OC Media", "url": "https://oc-media.org", "rss": "https://oc-media.org/feed/", "category": "news", "source_language_code": "eng"},
+    {"name": "Civilnet", "url": "https://www.civilnet.am", "rss": "https://www.civilnet.am/feed/", "category": "culture", "source_language_code": "hye"},
+    {"name": "Massis Post", "url": "https://massispost.com", "rss": "https://massispost.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Armenian Mirror-Spectator", "url": "https://mirrorspectator.com", "rss": "https://mirrorspectator.com/feed/", "category": "diaspora", "source_language_code": "hyw"},
+    {"name": "Agos", "url": "https://www.agos.com.tr/am", "rss": "https://www.agos.com.tr/am/rss", "category": "diaspora", "source_language_code": "hyw"},
 ]
 
 _INTERNATIONAL_SOURCES: list[dict] = [
     {"name": "Google News - Armenia", "url": "https://news.google.com",
      "rss": "https://news.google.com/rss/search?q=Armenia+OR+Armenian+OR+Artsakh+OR+Karabakh&hl=en-US&gl=US&ceid=US:en",
-     "category": "international", "keyword_filter": False, "google_news": True, "language_code": "eng"},
-    {"name": "Al Jazeera", "url": "https://www.aljazeera.com", "rss": "https://www.aljazeera.com/xml/rss/all.xml", "category": "international", "keyword_filter": True, "language_code": "eng"},
-    {"name": "Al-Monitor", "url": "https://www.al-monitor.com", "rss": "https://www.al-monitor.com/rss", "category": "international", "keyword_filter": True, "language_code": "eng"},
-    {"name": "BBC World", "url": "https://www.bbc.co.uk/news/world", "rss": "https://feeds.bbci.co.uk/news/world/rss.xml", "category": "international", "keyword_filter": True, "language_code": "eng"},
-    {"name": "France 24", "url": "https://www.france24.com/en/", "rss": "https://www.france24.com/en/rss", "category": "international", "keyword_filter": True, "language_code": "eng"},
-    {"name": "Deutsche Welle", "url": "https://www.dw.com/en/", "rss": "https://rss.dw.com/xml/rss-en-world", "category": "international", "keyword_filter": True, "language_code": "eng"},
-    {"name": "Euronews", "url": "https://www.euronews.com", "rss": "https://www.euronews.com/rss", "category": "international", "keyword_filter": True, "language_code": "eng"},
+     "category": "international", "keyword_filter": False, "google_news": True, "source_language_code": "eng"},
+    {"name": "Al Jazeera", "url": "https://www.aljazeera.com", "rss": "https://www.aljazeera.com/xml/rss/all.xml", "category": "international", "keyword_filter": True, "source_language_code": "eng"},
+    {"name": "Al-Monitor", "url": "https://www.al-monitor.com", "rss": "https://www.al-monitor.com/rss", "category": "international", "keyword_filter": True, "source_language_code": "eng"},
+    {"name": "BBC World", "url": "https://www.bbc.co.uk/news/world", "rss": "https://feeds.bbci.co.uk/news/world/rss.xml", "category": "international", "keyword_filter": True, "source_language_code": "eng"},
+    {"name": "France 24", "url": "https://www.france24.com/en/", "rss": "https://www.france24.com/en/rss", "category": "international", "keyword_filter": True, "source_language_code": "eng"},
+    {"name": "Deutsche Welle", "url": "https://www.dw.com/en/", "rss": "https://rss.dw.com/xml/rss-en-world", "category": "international", "keyword_filter": True, "source_language_code": "eng"},
+    {"name": "Euronews", "url": "https://www.euronews.com", "rss": "https://www.euronews.com/rss", "category": "international", "keyword_filter": True, "source_language_code": "eng"},
 ]
 
 ALL_RSS_SOURCES = _DIASPORA_NEWSPAPER_RSS_SOURCES + _ARMENIAN_SOURCES + _INTERNATIONAL_SOURCES
@@ -1633,8 +1634,8 @@ def _populate_news_article_catalog(config: dict, client) -> int:
             published_at = entry.get("published_at")
             category = entry.get("category", "news")
             tags = entry.get("tags", []) or []
-            # Tagging: language_code from source (ISO 639-3/BCP 47); source_language_codes recorded on insert
-            language_code = source.get("language_code") or "und"
+            # Tagging: source_language_code from source (ISO 639-3/BCP 47); source_language_codes recorded on insert
+            source_language_code = source.get("source_language_code") or "und"
             content_type = "article"
             writing_category = category  # news, analysis, diaspora, international, etc.
             try:
@@ -1652,8 +1653,8 @@ def _populate_news_article_catalog(config: dict, client) -> int:
                             "published_at": published_at,
                             "category": category,
                             "tags": tags,
-                            "language_code": language_code,
-                            "source_language_codes": [language_code],
+                            "source_language_code": source_language_code,
+                            "source_language_codes": [source_language_code],
                             "content_type": content_type,
                             "writing_category": writing_category,
                             "document_id": None,
@@ -1711,14 +1712,14 @@ def _run_scrape_from_news_catalog(config: dict, client) -> None:
             continue
         sources = cat_doc.get("sources") or []
         source_tag = f"rss_news:{sources[0]}" if sources else "rss_news:unknown"
-        # Detailed tagging for filtering and downstream pipelines (language_code, source_language_codes, content_type, writing_category)
+        # Detailed tagging for filtering and downstream pipelines (source_language_code, source_language_codes, content_type, writing_category)
         meta = {
             "source_type": "news",
             "category": cat_doc.get("category", "news"),
             "published_at": cat_doc.get("published_at"),
             "tags": cat_doc.get("tags", []),
             "rss_sources": sources,
-            "language_code": cat_doc.get("language_code") or "und",
+            "source_language_code": cat_doc.get("source_language_code") or cat_doc.get("language_code") or "und",
             "source_language_codes": cat_doc.get("source_language_codes") or cat_doc.get("language_codes") or [],
             "content_type": cat_doc.get("content_type") or "article",
             "writing_category": cat_doc.get("writing_category") or "news",

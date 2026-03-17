@@ -583,7 +583,7 @@ class MongoDBCorpusClient:
             title=f"{source_doc}::{strategy}::{paragraph_index}",
             text=text,
             metadata={
-                "language_code": "hyw",  # Western Armenian; required for training pipeline export
+                "source_language_code": "hyw",  # Western Armenian; required for training pipeline export
                 "augmentation_strategy": strategy,
                 "source_doc": source_doc,
                 "paragraph_index": paragraph_index,

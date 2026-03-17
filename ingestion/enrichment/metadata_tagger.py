@@ -1,4 +1,4 @@
-"""Metadata enrichment for MongoDB corpus documents.
+﻿"""Metadata enrichment for MongoDB corpus documents.
 
 Provides source-to-metadata mapping so each document in MongoDB gets
 structured metadata (region, source_type, confidence scores, etc.)
@@ -13,11 +13,11 @@ How metadata_tagger knows source, url, author:
 
 Two usage patterns:
 
-1. **Inline at insert time** — scrapers call ``get_source_metadata(source)``
+1. **Inline at insert time** â€” scrapers call ``get_source_metadata(source)``
    to obtain a dict that gets merged into the ``metadata`` kwarg of
    ``insert_or_skip`` / ``client.insert_document``.
 
-2. **Batch post-processing** — ``run(config)`` iterates all MongoDB documents
+2. **Batch post-processing** â€” ``run(config)`` iterates all MongoDB documents
    and backfills any that lack structured metadata fields.
 """
 
@@ -29,6 +29,7 @@ from typing import Optional
 
 from ingestion._shared.metadata import (
     TextMetadata,
+    DialectSubcategory,
     Region,
     SourceType,
     ContentType,
@@ -39,31 +40,31 @@ logger = logging.getLogger(__name__)
 
 
 SOURCE_METADATA: dict[str, dict] = {
-    "wikipedia": {
-        "language_code": "hyw",
+    "wikipedia_wa": {
+        "source_language_code": "hyw",
+        "dialect_subcategory": DialectSubcategory.WESTERN_DIASPORA_GENERAL,
         "source_type": SourceType.ENCYCLOPEDIA,
-        "source_name": "Wikipedia (hyw)",
+        "source_name": "Wikipedia",
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.ARTICLE,
-        "confidence_dialect": 0.99,
         "confidence_region": 1.0,
     },
     "wikipedia_ea": {
-        "language_code": "hye",
+        "source_language_code": "hye",
+        "dialect_subcategory": DialectSubcategory.EASTERN_HAYASTAN,
         "source_type": SourceType.ENCYCLOPEDIA,
-        "source_name": "Wikipedia (hye)",
+        "source_name": "Wikipedia",
         "region": Region.ARMENIA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.ARTICLE,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.85,
     },
     "wikisource": {
         "source_type": SourceType.LITERATURE,
-        "source_name": "Wikisource (hye)",
+        "source_name": "Wikisource",
+        "source_language_code": "hye",
         "content_type": ContentType.LITERATURE,
         "writing_category": WritingCategory.LITERATURE,
-        "confidence_dialect": 0.90,
         "confidence_region": 0.70,
     },
     "archive_org": {
@@ -72,7 +73,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "region": Region.WESTERN_OTHER,
         "content_type": ContentType.HISTORICAL,
         "writing_category": WritingCategory.BOOK,
-        "confidence_dialect": 0.80,
         "confidence_region": 0.70,
     },
     "hathitrust": {
@@ -80,7 +80,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "HathiTrust Digital Library",
         "content_type": ContentType.HISTORICAL,
         "writing_category": WritingCategory.BOOK,
-        "confidence_dialect": 0.75,
         "confidence_region": 0.60,
     },
     "gallica": {
@@ -88,7 +87,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "Gallica (BnF)",
         "content_type": ContentType.HISTORICAL,
         "writing_category": WritingCategory.BOOK,
-        "confidence_dialect": 0.75,
         "confidence_region": 0.60,
     },
     "loc": {
@@ -96,15 +94,14 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "Library of Congress",
         "content_type": ContentType.HISTORICAL,
         "writing_category": WritingCategory.BOOK,
-        "confidence_dialect": 0.70,
         "confidence_region": 0.60,
     },
     "dpla": {
         "source_type": SourceType.LIBRARY,
-        "source_name": "DPLA (Digital Public Library of America)",
+        "source_name_shrt": "DPLA",
+        "source_name_long": "Digital Public Library of America",
         "content_type": ContentType.LITERATURE,
         "writing_category": WritingCategory.BOOK,
-        "confidence_dialect": 0.5,
         "confidence_region": 0.50,
     },
     "newspaper:aztagdaily": {
@@ -113,7 +110,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "region": Region.LEBANON,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.95,
     },
     "newspaper:horizonweekly": {
@@ -122,7 +118,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "region": Region.CANADA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.95,
     },
     "newspaper:asbarez": {
@@ -131,7 +126,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "region": Region.CALIFORNIA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.85,
         "confidence_region": 0.90,
     },
     # Aliases for newspaper scraper source keys (aztag/horizon match aztagdaily/horizonweekly)
@@ -141,7 +135,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "region": Region.LEBANON,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.95,
     },
     "newspaper:horizon": {
@@ -150,47 +143,43 @@ SOURCE_METADATA: dict[str, dict] = {
         "region": Region.CANADA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.95,
     },
-    "eastern_armenian_news:armenpress": {
-        "language_code": "hye",
+    "newspaper:armenpress": {
+        "source_language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Armenpress",
         "region": Region.ARMENIA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.98,
         "confidence_region": 0.99,
     },
-    "eastern_armenian_news:a1plus": {
-        "language_code": "hye",
+    "newspaper:a1plus": {
+        "source_language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "A1+",
         "region": Region.ARMENIA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.98,
         "confidence_region": 0.99,
     },
-    "eastern_armenian_news:armtimes": {
-        "language_code": "hye",
+    "newspaper:armtimes": {
+        "source_language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Armtimes",
         "region": Region.ARMENIA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.98,
         "confidence_region": 0.99,
     },
-    "eastern_armenian_news:aravot": {
-        "language_code": "hye",
+    "newspaper:aravot": {
+        "source_language_code": "hye",
+        "dialect_subcategory": DialectSubcategory.EASTERN_HAYASTAN,
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Aravot",
         "region": Region.ARMENIA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.98,
         "confidence_region": 0.99,
     },
     "culturax": {
@@ -198,34 +187,30 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "CulturaX (HuggingFace)",
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.ARTICLE,
-        "confidence_dialect": 0.80,
         "confidence_region": 0.50,
     },
     "english_sources:wikipedia_history": {
         "source_type": SourceType.ENCYCLOPEDIA,
         "source_name": "English Wikipedia (Armenian history)",
-        "language_code": "en",
+        "source_language_code": "en",
         "content_type": ContentType.ACADEMIC,
         "writing_category": WritingCategory.HISTORY,
-        "confidence_dialect": 0.0,
         "confidence_region": 0.0,
     },
     "english_sources:hyestart": {
         "source_type": SourceType.WEBSITE,
         "source_name": "Hyestart.am",
-        "language_code": "en",
+        "source_language_code": "en",
         "content_type": ContentType.ACADEMIC,
         "writing_category": WritingCategory.ACADEMIC,
-        "confidence_dialect": 0.0,
         "confidence_region": 0.0,
     },
     "english_sources:csufresno": {
         "source_type": SourceType.ACADEMIC,
         "source_name": "CSU Fresno Armenian Studies",
-        "language_code": "en",
+        "source_language_code": "en",
         "content_type": ContentType.ACADEMIC,
         "writing_category": WritingCategory.ACADEMIC,
-        "confidence_dialect": 0.0,
         "confidence_region": 0.0,
     },
     "nayiri": {
@@ -233,7 +218,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "Nayiri Dictionary",
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.ARTICLE,
-        "confidence_dialect": 0.90,
         "confidence_region": 0.70,
     },
     "mss_nkr": {
@@ -241,7 +225,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "Matenadaran NKR",
         "content_type": ContentType.HISTORICAL,
         "writing_category": WritingCategory.MANUSCRIPT,
-        "confidence_dialect": 0.60,
         "confidence_region": 0.50,
     },
     "anki_lexicon": {
@@ -249,7 +232,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "Anki Flashcards (Lexicon)",
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.ARTICLE,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.50,
     },
     "anki_sentences": {
@@ -257,7 +239,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "Anki Flashcards (Sentences)",
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.ARTICLE,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.50,
     },
     "gomidas": {
@@ -265,7 +246,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "Gomidas Institute",
         "content_type": ContentType.HISTORICAL,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.85,
         "confidence_region": 0.70,
     },
     "ocr_ingest": {
@@ -273,7 +253,6 @@ SOURCE_METADATA: dict[str, dict] = {
         "source_name": "OCR ingest",
         "content_type": ContentType.HISTORICAL,
         "writing_category": WritingCategory.BOOK,
-        "confidence_dialect": 0.75,
         "confidence_region": 0.50,
     },
 }
@@ -294,28 +273,26 @@ class CorpusMetadataTagger:
     """
 
     CORPUS_CONFIGS: dict[str, dict] = dict(SOURCE_METADATA)
-    CORPUS_CONFIGS["wikipedia/extracted"] = SOURCE_METADATA["wikipedia"]
+    CORPUS_CONFIGS["wikipedia/extracted"] = SOURCE_METADATA["wikipedia_wa"]
     CORPUS_CONFIGS["newspapers/aztag"] = SOURCE_METADATA["newspaper:aztagdaily"]
     CORPUS_CONFIGS["newspapers/horizon"] = SOURCE_METADATA["newspaper:horizonweekly"]
-    CORPUS_CONFIGS["news_ea/aravot"] = SOURCE_METADATA["eastern_armenian_news:aravot"]
+    CORPUS_CONFIGS["news_ea/aravot"] = SOURCE_METADATA["newspaper:aravot"]
     CORPUS_CONFIGS["news_ea/russian_influence"] = {
-        "language_code": "hye",
+        "source_language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Eastern Armenian (Russian influence)",
         "region": Region.ARMENIA,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.90,
         "confidence_region": 0.80,
     }
     CORPUS_CONFIGS["news_ea/iran"] = {
-        "language_code": "hye",
+        "source_language_code": "hye",
         "source_type": SourceType.NEWS_AGENCY,
         "source_name": "Eastern Armenian (Iran)",
         "region": Region.IRAN,
         "content_type": ContentType.ARTICLE,
         "writing_category": WritingCategory.NEWS,
-        "confidence_dialect": 0.90,
         "confidence_region": 0.85,
     }
     CORPUS_CONFIGS["armeno_turkish"] = {
@@ -323,7 +300,6 @@ class CorpusMetadataTagger:
         "source_name": "Armeno-Turkish",
         "content_type": ContentType.LITERATURE,
         "writing_category": WritingCategory.LITERATURE,
-        "confidence_dialect": 0.95,
         "confidence_region": 0.70,
     }
 
@@ -354,11 +330,11 @@ def get_source_metadata(source: str) -> dict:
         return {}
 
     meta: dict = {}
-    for key in ("source_name", "language_code", "confidence_dialect", "confidence_region"):
+    for key in ("source_name", "source_language_code", "confidence_region"):
         if key in cfg:
             meta[key] = cfg[key]
 
-    for key in ("dialect", "dialect_subcategory", "region", "source_type", "content_type", "writing_category"):
+    for key in ("dialect_subcategory", "region", "source_type", "content_type", "writing_category"):
         val = cfg.get(key)
         if val is not None:
             meta[key] = val.value if hasattr(val, "value") else val
@@ -371,14 +347,19 @@ def get_source_metadata(source: str) -> dict:
     return meta
 
 
-def _enrich_document(doc: dict, source: str) -> dict | None:
+def _enrich_document(doc: dict, source: str, text: str = "", analyzer: object | None = None) -> dict | None:
     """Build a ``$set`` update dict for a single document.
 
     Returns None if the document already has structured metadata or there
     is no config for the source.
+
+    When *text* is provided, derives ``internal_language_code`` and
+    ``internal_language_branch`` via text analysis (``classify_language``).
     """
+    from ingestion._shared.helpers import classify_language, compute_wa_score_detailed, compute_script_purity_score, _any_armenian_script
+
     existing = doc.get("metadata", {})
-    if existing.get("source_type") and existing.get("confidence_dialect") is not None:
+    if existing.get("source_type") and existing.get("enrichment_date"):
         return None
 
     enrichment = get_source_metadata(source)
@@ -390,11 +371,159 @@ def _enrich_document(doc: dict, source: str) -> dict | None:
         if existing.get(key) is None:
             updates[f"metadata.{key}"] = value
 
+    # Derive internal language classification from actual text content
+    if text.strip() and existing.get("internal_language_branch") is None:
+        lang_code, lang_branch = classify_language(text)
+        updates["metadata.internal_language_code"] = lang_code
+        updates["metadata.internal_language_branch"] = lang_branch
+
+    # Compute WA score breakdown — applied to every document containing any Armenian script
+    if text.strip() and existing.get("wa_score") is None and _any_armenian_script(text):
+        updates["metadata.wa_score"] = compute_wa_score_detailed(text)
+
+    # Compute script purity (fraction of Armenian chars — detects OCR contamination)
+    if text.strip() and existing.get("script_purity_score") is None:
+        updates["metadata.script_purity_score"] = compute_script_purity_score(text)
+
+    # Full quantitative linguistic metrics + loanword profile (Armenian docs only).
+    # text_metrics_date acts as the sentinel: present = metrics have been computed.
+    if text.strip() and existing.get("text_metrics_date") is None and _any_armenian_script(text):
+        try:
+            from dataclasses import asdict as _asdict
+            from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
+            from linguistics.lexicon.loanword_tracker import analyze_loanwords
+
+            _qla = analyzer if analyzer is not None else QuantitativeLinguisticsAnalyzer()
+            _card = _qla.analyze_text(
+                text, text_id=str(doc.get("_id", "")), source=source
+            )
+            updates["metadata.text_metrics"] = {
+                "lexical": _asdict(_card.lexical),
+                "syntactic": _asdict(_card.syntactic),
+                "morphological": _asdict(_card.morphological),
+                "orthographic": _asdict(_card.orthographic),
+                "semantic": _asdict(_card.semantic),
+                "contamination": _asdict(_card.contamination),
+                "quality_flags": _asdict(_card.quality_flags),
+            }
+            updates["metadata.loanwords"] = analyze_loanwords(
+                text, text_id=str(doc.get("_id", "")), source=source
+            ).to_dict()
+            updates["metadata.text_metrics_date"] = datetime.now(timezone.utc).isoformat()
+        except Exception as _tm_exc:
+            logger.debug("text_metrics computation failed for doc %s: %s", doc.get("_id"), _tm_exc)
+
     if not updates:
         return None
 
     updates["metadata.enrichment_date"] = datetime.now(timezone.utc).isoformat()
     return updates
+
+
+def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
+    """Compute all MongoDB updates for one document (primary enrichment + backfill).
+
+    Called by worker threads in ``run()``.  Thread-safe: ``analyzer`` is
+    read-only after ``__init__``; all imports are cached after first load.
+
+    Returns a dict with:
+      doc_id, source, char_count, word_count,
+      write_op (UpdateOne | None),
+      was_enriched (bool), was_backfilled (bool),
+      text_metrics_computed (bool), text_metrics_error (bool).
+    """
+    from pymongo import UpdateOne as _UpdateOne
+
+    source = doc.get("source", "")
+    text = doc.get("text") or ""
+    char_count = len(text)
+    word_count = len(text.split())
+    existing = doc.get("metadata", {})
+
+    result: dict = {
+        "doc_id": doc["_id"],
+        "source": source,
+        "char_count": char_count,
+        "word_count": word_count,
+        "write_op": None,
+        "was_enriched": False,
+        "was_backfilled": False,
+        "text_metrics_computed": False,
+        "text_metrics_error": False,
+    }
+
+    # Stats fields are always backfilled regardless of path
+    combined: dict = {}
+    if existing.get("char_count") is None or existing.get("word_count") is None:
+        combined["metadata.char_count"] = char_count
+        combined["metadata.word_count"] = word_count
+
+    primary = _enrich_document(doc, source, text=text, analyzer=analyzer)
+
+    if primary is not None:
+        combined.update(primary)
+        combined["metadata.enrichment_date"] = datetime.now(timezone.utc).isoformat()
+        result["was_enriched"] = True
+        result["text_metrics_computed"] = "metadata.text_metrics_date" in combined
+    else:
+        # Backfill path: already enriched — fill any missing computed fields.
+        if text.strip():
+            from ingestion._shared.helpers import (
+                classify_language,
+                compute_wa_score_detailed,
+                compute_script_purity_score,
+                _any_armenian_script,
+            )
+            _has_arm = _any_armenian_script(text)
+
+            if existing.get("internal_language_branch") is None:
+                lang_code, lang_branch = classify_language(text)
+                combined["metadata.internal_language_code"] = lang_code
+                combined["metadata.internal_language_branch"] = lang_branch
+
+            if existing.get("wa_score") is None and _has_arm:
+                combined["metadata.wa_score"] = compute_wa_score_detailed(text)
+
+            if existing.get("script_purity_score") is None:
+                combined["metadata.script_purity_score"] = compute_script_purity_score(text)
+
+            if existing.get("text_metrics_date") is None and _has_arm:
+                try:
+                    from dataclasses import asdict as _asdict
+                    from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
+                    from linguistics.lexicon.loanword_tracker import analyze_loanwords
+
+                    _qla = analyzer if analyzer is not None else QuantitativeLinguisticsAnalyzer()
+                    _card = _qla.analyze_text(
+                        text, text_id=str(doc.get("_id", "")), source=source
+                    )
+                    combined["metadata.text_metrics"] = {
+                        "lexical": _asdict(_card.lexical),
+                        "syntactic": _asdict(_card.syntactic),
+                        "morphological": _asdict(_card.morphological),
+                        "orthographic": _asdict(_card.orthographic),
+                        "semantic": _asdict(_card.semantic),
+                        "contamination": _asdict(_card.contamination),
+                        "quality_flags": _asdict(_card.quality_flags),
+                    }
+                    combined["metadata.loanwords"] = analyze_loanwords(
+                        text, text_id=str(doc.get("_id", "")), source=source
+                    ).to_dict()
+                    combined["metadata.text_metrics_date"] = datetime.now(timezone.utc).isoformat()
+                    result["text_metrics_computed"] = True
+                except Exception as _tm_exc:
+                    result["text_metrics_error"] = True
+                    logger.warning(
+                        "text_metrics backfill failed for doc %s (source=%s): %s",
+                        doc.get("_id"), source, _tm_exc,
+                    )
+
+        if combined:
+            result["was_backfilled"] = True
+
+    if combined:
+        result["write_op"] = _UpdateOne({"_id": doc["_id"]}, {"$set": combined})
+    return result
 
 
 def run(config: dict) -> None:
@@ -427,57 +556,91 @@ def run(config: dict) -> None:
         if client is None:
             raise RuntimeError("MongoDB is required for metadata enrichment")
 
+        import concurrent.futures
+
         docs = client.documents
         total = docs.count_documents({})
         enriched = 0
         skipped = 0
         stats_updated = 0
+        text_metrics_computed = 0
+        text_metrics_errors = 0
+        _LOG_INTERVAL = 500
 
-        cursor = docs.find(
-            {},
-            {"source": 1, "metadata": 1, "text": 1},
+        workers = max(1, scrape_cfg.get("workers", 4))
+        chunk_size = max(10, scrape_cfg.get("write_batch_size", 200))
+
+        # Pre-initialize the expensive QuantitativeLinguisticsAnalyzer once and share
+        # it across all worker threads.  It is read-only after __init__ → thread-safe.
+        _analyzer: object | None = None
+        try:
+            from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer as _QLA
+            _analyzer = _QLA()
+        except Exception as _ae:
+            logger.warning(
+                "metadata_tagger: could not pre-initialize QuantitativeLinguisticsAnalyzer: %s", _ae
+            )
+
+        logger.info(
+            "metadata_tagger: starting — %d documents, %d workers, chunk_size=%d",
+            total, workers, chunk_size,
         )
 
-        for doc in cursor:
-            source = doc.get("source", "")
-            text = doc.get("text") or ""
-            char_count = len(text)
-            word_count = len(text.split())
-            existing = doc.get("metadata", {})
+        def _worker(doc: dict) -> dict:
+            return _process_doc_for_run(doc, _analyzer)
 
-            updates = _enrich_document(doc, source)
-            needs_stats = existing.get("char_count") is None or existing.get("word_count") is None
-            stats_update = {}
-            if needs_stats:
-                stats_update["metadata.char_count"] = char_count
-                stats_update["metadata.word_count"] = word_count
+        def _iter_chunks():
+            chunk: list = []
+            _cursor = docs.find({}, {"source": 1, "metadata": 1, "text": 1})
+            for _doc in _cursor:
+                chunk.append(_doc)
+                if len(chunk) >= chunk_size:
+                    yield chunk
+                    chunk = []
+            if chunk:
+                yield chunk
 
-            if updates is not None:
-                updates.update(stats_update)
-                updates["metadata.enrichment_date"] = datetime.now(timezone.utc).isoformat()
-                docs.update_one({"_id": doc["_id"]}, {"$set": updates})
-                enriched += 1
-                if csv_path:
-                    csv_rows.append({
-                        "document_id": str(doc["_id"]),
-                        "source": source,
-                        "char_count": char_count,
-                        "word_count": word_count,
-                        "enriched": "1",
-                    })
-            else:
-                if stats_update:
-                    docs.update_one({"_id": doc["_id"]}, {"$set": stats_update})
-                    stats_updated += 1
-                skipped += 1
-                if csv_path:
-                    csv_rows.append({
-                        "document_id": str(doc["_id"]),
-                        "source": source,
-                        "char_count": char_count,
-                        "word_count": word_count,
-                        "enriched": "0",
-                    })
+        processed = 0
+        _last_logged = 0
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+            for chunk in _iter_chunks():
+                results = list(pool.map(_worker, chunk))
+                bulk_ops: list = []
+
+                for r in results:
+                    processed += 1
+                    if r["write_op"] is not None:
+                        bulk_ops.append(r["write_op"])
+                    if r["was_enriched"]:
+                        enriched += 1
+                        logger.debug("enriched  source=%-30s chars=%d", r["source"], r["char_count"])
+                    else:
+                        skipped += 1
+                        if r["was_backfilled"]:
+                            stats_updated += 1
+                            logger.debug("backfilled source=%-30s", r["source"])
+                    if r["text_metrics_computed"]:
+                        text_metrics_computed += 1
+                    if r["text_metrics_error"]:
+                        text_metrics_errors += 1
+                    if csv_path:
+                        csv_rows.append({
+                            "document_id": str(r["doc_id"]),
+                            "source": r["source"],
+                            "char_count": r["char_count"],
+                            "word_count": r["word_count"],
+                            "enriched": "1" if r["was_enriched"] else "0",
+                        })
+
+                if bulk_ops:
+                    docs.bulk_write(bulk_ops, ordered=False)
+
+                if processed - _last_logged >= _LOG_INTERVAL:
+                    logger.info(
+                        "  progress: %d/%d docs — enriched=%d  backfilled=%d  text_metrics=%d  errors=%d",
+                        processed, total, enriched, stats_updated, text_metrics_computed, text_metrics_errors,
+                    )
+                    _last_logged = processed
 
         if csv_path and csv_rows:
             csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -497,12 +660,15 @@ def run(config: dict) -> None:
                 "enriched": enriched,
                 "skipped_already_tagged": skipped,
                 "stats_updated": stats_updated,
+                "text_metrics_computed": text_metrics_computed,
+                "text_metrics_errors": text_metrics_errors,
             },
             upsert=True,
         )
 
         logger.info(
-            "Metadata enrichment complete: %d enriched, %d skipped (already tagged), %d stats backfilled, %d total",
-            enriched, skipped, stats_updated, total,
+            "Metadata enrichment complete: %d enriched, %d skipped (already tagged), "
+            "%d stats backfilled, %d text_metrics computed, %d text_metrics errors, %d total",
+            enriched, skipped, stats_updated, text_metrics_computed, text_metrics_errors, total,
         )
         print(f"Metadata enrichment: {enriched} enriched, {skipped} already tagged, {stats_updated} stats backfilled, {total} total")

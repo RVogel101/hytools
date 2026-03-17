@@ -16,6 +16,13 @@ Memory for agent behavior across sessions. Plain bullet points only.
 - After updating or implementing anything in `armenian-corpus-core`, update `docs/development/FUTURE_IMPROVEMENTS.md` (not `docs/FUTURE_IMPROVEMENTS.md`) to reflect the current status (mark items as implemented when done and adjust summary tables/notes).
 - **Armenian transliteration:** Before writing any Armenian letter to English/roman transliteration, always verify against the Western Armenian standard: check the mapping in `.cursor/rules/western-armenian-transliteration.mdc` and in `docs/armenian_language_guids/` (e.g. WESTERN_ARMENIAN_PHONETICS_GUIDE.md, ARMENIAN_QUICK_REFERENCE.md) and `docs/development/ARMENIAN_TRANSLITERATION_SYSTEMS.md`. Use WA voicing (բ=p, պ=b, ջ=ch, ճ=j, ձ=ts, ծ=dz, etc.) and context rules (յ→h/y, ո→vo/o, ե→ye/e); never default to Eastern Armenian mappings.
 
+## MongoDB Data Flow Rules
+
+- **All final/persistent data lives in MongoDB.** Every new pipeline must read inputs from MongoDB and write outputs to MongoDB collections. Never write final outputs to local files.
+- **Intermediary/scratch data:** Local files are acceptable for in-process intermediary data only if it genuinely speeds up processing (e.g. temp batch files). All such files MUST be cleaned up (deleted) by the end of the pipeline run. If intermediary data is needed by a downstream (upstream) pipeline, store it in MongoDB instead.
+- **When touching existing code:** If you find any step that saves data to a local directory as its final output (e.g. writing JSON/JSONL/CSV to `data/` as the permanent store), **stop and report it to the user** before changing anything. Do not silently fix it. The user will decide: (a) remove the local save, (b) keep it as a transitional intermediary and clean it up, or (c) migrate it to MongoDB.
+- **New pipeline checklist:** (1) Inputs → read from MongoDB collection(s). (2) Processing → local temp only if justified. (3) Outputs → write to MongoDB collection(s). (4) Cleanup → delete any temp files. (5) Log the MongoDB collection names written in the final summary log line.
+
 ## Learned Workspace Facts
 
 - Workspace includes multiple roots: armenian-corpus-core, WesternArmenianLLM, lousardzag.

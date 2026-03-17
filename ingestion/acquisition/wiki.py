@@ -100,7 +100,7 @@ def extract_wikipedia_to_mongodb(
                     url=wiki_url,
                     metadata={
                         "source_type": "encyclopedia",
-                        "language_code": language_code,
+                        "source_language_code": language_code,
                         "dump_file": name,
                     },
                     config=cfg,
@@ -374,7 +374,7 @@ def run_wikisource(config: dict) -> None:
                     continue
 
                 wa_score = compute_wa_score(text)
-                language_code = "hyw" if wa_score >= WA_SCORE_THRESHOLD else "hye"
+                source_language_code = "hyw" if wa_score >= WA_SCORE_THRESHOLD else "hye"
 
                 url = f"https://hy.wikisource.org/wiki/{title.replace(' ', '_')}"
 
@@ -387,7 +387,7 @@ def run_wikisource(config: dict) -> None:
                     metadata={
                         "source_type": "literature",
                         "category": cat_slug,
-                        "language_code": language_code,
+                        "source_language_code": source_language_code,
                         "wa_score": wa_score,
                     },
                     config=config,
@@ -397,7 +397,7 @@ def run_wikisource(config: dict) -> None:
                     logger.info(
                         "  Inserted: %s [%s, wa_score=%.1f]",
                         title,
-                        language_code,
+                        source_language_code,
                         wa_score,
                     )
                 else:

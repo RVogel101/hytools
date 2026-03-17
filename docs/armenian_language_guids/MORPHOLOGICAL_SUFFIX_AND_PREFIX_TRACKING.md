@@ -8,7 +8,7 @@ The `linguistics.metrics.text_metrics` module tracks suffixes in `MorphologicalM
 |--------|----------|------|----------------|
 | -եմ | em | Western 1st singular present | Western (e.g. բերեմ "I bring") |
 | -իմ | im | Possessive "my" (pre-noun) | Western — not verb suffix; իմ = "my" |
-| -ում | um | Eastern imperfective/present | Eastern (e.g. բերում եմ "I bring"); not used in Western |
+| -ում | um | EA present/imperfective verbal inflection | Eastern (e.g. բերում եմ "I bring"); also occurs in WA verbal nouns and certain roots — NOT a WA present-tense conjugation marker |
 | -ան | an | Various (plural, 3rd person) | Shared |
 | -ել | el | Infinitive | Shared (e.g. գրել "to write") |
 | -իլ | il | Infinitive (passive verb form) | Western only (e.g. խօսիլ "to speak") |
@@ -17,7 +17,7 @@ The `linguistics.metrics.text_metrics` module tracks suffixes in `MorphologicalM
 - In **Eastern** Armenian, "I bring" = բերում եմ (berum yem).
 - In **Western** Armenian, "I bring" = բերեմ (berem).
 - -իմ in Western means "my" (possessive, can be dropped when implied); not a 1st singular verb ending.
-- -ում is Eastern; Western uses **կոր** (gor) for present continuous (e.g. with կը/կ՚).
+- -ում is distinctively EA as a verbal inflection; WA uses կոր (gor) for present progressive. -ում does appear in WA as part of verbal nouns and certain lexical roots, so its presence alone is a signal, not proof, of EA influence.
 - -իլ is Western-only infinitive; -ել is shared.
 
 **Value of these statistics:** The ratio of -եմ (WA) vs -ում (EA) is a dialect marker. -իլ presence indicates Western Armenian. -իմ as word-final on verbs was a misclassification; in correct WA, -իմ is possessive "my".

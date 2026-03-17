@@ -42,7 +42,7 @@ def _get_facet_value(doc: dict, facet: str) -> str | None:
         return str(v).strip()[:500]
 
     if facet == "dialect":
-        lc = meta.get("language_code", "")
+        lc = meta.get("source_language_code") or meta.get("language_code", "")
         if lc == "hyw":
             return "western_armenian"
         if lc in ("hye", "hy"):
@@ -106,6 +106,7 @@ def run_aggregation(config: dict) -> dict:
         projection = {
             "source": 1,
             "metadata.author": 1,
+            "metadata.source_language_code": 1,
             "metadata.language_code": 1,
             "metadata.gallica_date": 1,
             "metadata.date_scraped": 1,

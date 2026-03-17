@@ -57,7 +57,10 @@ def _validate(client) -> dict[str, Any]:
         ))
 
     allowed_language_codes = {"hyw", "hye", "hy", "hyc", "eng", "und"}
-    lang_values = docs.distinct("metadata.language_code")
+    # Check both old (language_code) and new (source_language_code) field names.
+    lang_values_old = docs.distinct("metadata.language_code")
+    lang_values_new = docs.distinct("metadata.source_language_code")
+    lang_values = list(set(lang_values_old + lang_values_new))
     bad_lc = sorted(set(str(lc) for lc in lang_values if lc) - allowed_language_codes - {None})
     results.append(ValidationResult(
         "language_code_values",

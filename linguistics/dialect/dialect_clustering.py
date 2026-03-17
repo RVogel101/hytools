@@ -62,7 +62,7 @@ class FeatureRow:
     source_name: str
     dialect: str
     dialect_subcategory: str
-    language_code: str
+    source_language_code: str
     region: str
     feature_vector: list[float]
 
@@ -170,7 +170,7 @@ def build_feature_matrix_from_mongodb(
         subcategory = meta.get("dialect_subcategory") or "unknown"
         if hasattr(subcategory, "value"):
             subcategory = subcategory.value
-        language_code = meta.get("language_code") or "unknown"
+        language_code = meta.get("source_language_code") or meta.get("language_code") or "unknown"
         region = meta.get("region") or "unknown"
         if hasattr(region, "value"):
             region = region.value
@@ -186,7 +186,7 @@ def build_feature_matrix_from_mongodb(
                 source_name=source_name,
                 dialect=str(dialect),
                 dialect_subcategory=str(subcategory),
-                language_code=str(language_code),
+                source_language_code=str(language_code),
                 region=str(region),
                 feature_vector=feature_vector,
             )
@@ -261,7 +261,7 @@ def save_artifacts_to_mongodb(
             "source_name": row.source_name,
             "dialect": row.dialect,
             "dialect_subcategory": row.dialect_subcategory,
-            "language_code": row.language_code,
+            "source_language_code": row.source_language_code,
             "region": row.region,
             "cluster_label": int(labels[i]) if i < len(labels) else -1,
         }
@@ -303,7 +303,7 @@ def build_feature_matrix(corpus_base: Path, max_rows: int = 5000) -> tuple[list[
         source_name = entry.get("source_name", "unknown")
         dialect = entry.get("dialect", "unknown")
         subcategory = entry.get("dialect_subcategory") or "unknown"
-        language_code = entry.get("language_code") or "unknown"
+        language_code = entry.get("source_language_code") or entry.get("language_code") or "unknown"
         region = entry.get("region") or "unknown"
 
         # Locate text file by trying common roots.
@@ -343,7 +343,7 @@ def build_feature_matrix(corpus_base: Path, max_rows: int = 5000) -> tuple[list[
                 source_name=source_name,
                 dialect=dialect,
                 dialect_subcategory=subcategory,
-                language_code=language_code,
+                source_language_code=language_code,
                 region=region,
                 feature_vector=feature_vector,
             )
@@ -390,69 +390,6 @@ def run_pca_dbscan(
     return pca_coords, labels
 
 
-def write_outputs(rows: list[FeatureRow], pca_coords: np.ndarray, labels: np.ndarray, out_prefix: Path) -> None:
-    """Write clustering outputs as JSON and CSV."""
-    out_prefix.parent.mkdir(parents=True, exist_ok=True)
-
-    json_rows = []
-    for i, row in enumerate(rows):
-        entry = {
-            "text_file": row.text_file,
-            "source_name": row.source_name,
-            "dialect": row.dialect,
-            "dialect_subcategory": row.dialect_subcategory,
-            "language_code": row.language_code,
-            "region": row.region,
-            "cluster_label": int(labels[i]) if len(labels) > i else -1,
-            "feature_vector": row.feature_vector,
-        }
-        if pca_coords.shape[1] >= 2:
-            entry["pca_x"] = float(pca_coords[i, 0])
-            entry["pca_y"] = float(pca_coords[i, 1])
-        if pca_coords.shape[1] >= 3:
-            entry["pca_z"] = float(pca_coords[i, 2])
-        json_rows.append(entry)
-
-    json_path = out_prefix.with_suffix(".json")
-    with open(json_path, "w", encoding="utf-8") as fh:
-        json.dump(json_rows, fh, ensure_ascii=False, indent=2)
-
-    csv_path = out_prefix.with_suffix(".csv")
-    header = [
-        "text_file",
-        "source_name",
-        "dialect",
-        "dialect_subcategory",
-        "language_code",
-        "region",
-        "cluster_label",
-        "pca_x",
-        "pca_y",
-        "pca_z",
-    ]
-    with open(csv_path, "w", encoding="utf-8") as fh:
-        fh.write(",".join(header) + "\n")
-        for i, row in enumerate(rows):
-            pca_x = float(pca_coords[i, 0]) if pca_coords.shape[1] >= 1 else 0.0
-            pca_y = float(pca_coords[i, 1]) if pca_coords.shape[1] >= 2 else 0.0
-            pca_z = float(pca_coords[i, 2]) if pca_coords.shape[1] >= 3 else 0.0
-            values = [
-                row.text_file,
-                row.source_name,
-                row.dialect,
-                row.dialect_subcategory,
-                row.language_code,
-                row.region,
-                str(int(labels[i]) if len(labels) > i else -1),
-                f"{pca_x:.6f}",
-                f"{pca_y:.6f}",
-                f"{pca_z:.6f}",
-            ]
-            # Simple CSV escaping for commas.
-            values = [v.replace(",", " ") for v in values]
-            fh.write(",".join(values) + "\n")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run dialect subcategory PCA + DBSCAN clustering")
     parser.add_argument("--corpus-base", default="data/raw", help="Corpus base directory (when not using --mongodb)")
@@ -464,43 +401,34 @@ def main() -> None:
     parser.add_argument("--dbscan-eps", type=float, default=0.8, help="DBSCAN eps")
     parser.add_argument("--dbscan-min-samples", type=int, default=8, help="DBSCAN min samples")
     parser.add_argument("--sweep", action="store_true", help="Run DBSCAN parameter sweep and print stability")
-    parser.add_argument("--save-mongodb", action="store_true", help="Save clustering artifacts to MongoDB")
-    parser.add_argument(
-        "--out-prefix",
-        default="results/dialect_subcategory_clusters",
-        help="Output prefix without extension (file output)",
-    )
     args = parser.parse_args()
 
+    from integrations.database.mongodb_client import MongoDBCorpusClient
+    client = MongoDBCorpusClient(uri=args.mongodb_uri, database_name=args.mongodb_database)
+    client.connect()
+
     if args.mongodb:
-        try:
-            from integrations.database.mongodb_client import MongoDBCorpusClient
-            client = MongoDBCorpusClient(uri=args.mongodb_uri, database_name=args.mongodb_database)
-            client.connect()
-            rows, matrix = build_feature_matrix_from_mongodb(client, max_rows=args.max_rows)
-            if matrix.size == 0:
-                raise SystemExit("No documents from MongoDB. Ensure documents have text and metadata.")
-        except Exception as e:
-            raise SystemExit(f"MongoDB build failed: {e}") from e
+        rows, matrix = build_feature_matrix_from_mongodb(client, max_rows=args.max_rows)
+        if matrix.size == 0:
+            client.close()
+            raise SystemExit("No documents from MongoDB. Ensure documents have text and metadata.")
     else:
         corpus_base = Path(args.corpus_base)
         rows, matrix = build_feature_matrix(corpus_base=corpus_base, max_rows=args.max_rows)
         if matrix.size == 0:
+            client.close()
             raise SystemExit("No feature rows produced. Ensure metadata and text files exist.")
-        client = None
 
     if args.sweep:
         sweep_results = run_dbscan_sweep(matrix, pca_dims=args.pca_dims)
         for r in sweep_results:
             print(r)
-        if client and args.save_mongodb:
-            pca_coords, labels = run_pca_dbscan(
-                matrix, pca_dims=args.pca_dims,
-                dbscan_eps=args.dbscan_eps, dbscan_min_samples=args.dbscan_min_samples,
-            )
-            save_artifacts_to_mongodb(client, rows, pca_coords, labels, sweep_results=sweep_results)
-        if args.mongodb and client:
-            client.close()
+        pca_coords, labels = run_pca_dbscan(
+            matrix, pca_dims=args.pca_dims,
+            dbscan_eps=args.dbscan_eps, dbscan_min_samples=args.dbscan_min_samples,
+        )
+        save_artifacts_to_mongodb(client, rows, pca_coords, labels, sweep_results=sweep_results)
+        client.close()
         return
 
     pca_coords, labels = run_pca_dbscan(
@@ -510,20 +438,14 @@ def main() -> None:
         dbscan_min_samples=args.dbscan_min_samples,
     )
 
-    write_outputs(rows, pca_coords, labels, Path(args.out_prefix))
-
-    if client and args.save_mongodb:
-        save_artifacts_to_mongodb(client, rows, pca_coords, labels, batch_id="dialect_clustering")
-
-    if args.mongodb and client:
-        client.close()
+    save_artifacts_to_mongodb(client, rows, pca_coords, labels, batch_id="dialect_clustering")
+    client.close()
 
     n_clusters = len(set(labels.tolist()) - {-1})
     n_noise = int(np.sum(labels == -1))
     print(f"Rows clustered: {len(rows)}")
     print(f"Clusters found: {n_clusters}")
     print(f"Noise points: {n_noise}")
-    print(f"Output prefix: {args.out_prefix}")
 
 
 if __name__ == "__main__":

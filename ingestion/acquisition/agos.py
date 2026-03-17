@@ -272,7 +272,7 @@ def _scrape_agos(
 
         meta = {
             "source_type": "newspaper",
-            "language_code": detected_lc,
+            "source_language_code": detected_lc,
             "source_language_codes": [detected_lc],
             "wa_score": round(wa_score, 2),
             "content_type": "article",

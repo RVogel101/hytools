@@ -366,7 +366,7 @@ def _load_texts_from_mongodb(config: dict, dialect: str | None = None, limit: in
     with MongoDBCorpusClient(uri=uri, database_name=db) as client:
         query = {}
         if dialect:
-            query["metadata.language_code"] = dialect
+            query["$or"] = [{"metadata.source_language_code": dialect}, {"metadata.language_code": dialect}]
         cursor = client.documents.find(query, {"text": 1}).limit(limit)
         return [doc["text"] for doc in cursor if doc.get("text")]
 

@@ -39,16 +39,19 @@
 - **Use case**: Detect stylistic differences between dialects
 - **Range**: Typically 15-25 words in standard texts
 - **Limitation**: Dialects may naturally have different pacing
+- **Sentence delimiters**: ։ (Armenian full stop U+0589), `?`, `!`, and `:` — the colon ends a sentence unit in both WA and EA prose
 
 #### Clause Count / Clauses per Sentence
 - **What it measures**: Syntactic richness
-- **Formula**: Total clauses / Total sentences
+- **Formula**: 1 + (subordinating conjunctions per sentence) — each sentence has at least one main clause; each subordinating conjunction introduces one additional embedded clause
 - **Use case**: Detect if dialect prefers simple vs complex sentence structures
+- **Armenian methodology**: Not English-biased — Armenian subordinating conjunctions (որ, ինչ, եթէ, եթե, երբ, ուր, մինչ, թէ/թե) are used as clause markers. A more accurate approach — counting finite verb forms (WA: կե/կ՚ prefix occurrences per sentence) — is a planned improvement.
 
 #### Flesch-Kincaid Grade Level
 - **What it measures**: Text readability/complexity
 - **Formula**: 0.39 × (words/sentences) + 11.8 × (syllables/words) - 15.59
 - **Use case**: Compare formal vs informal register between dialects
+- **Syllable counting**: Uses `linguistics.morphology.core.count_syllables()` — a vowel-nucleus counter that handles the ու digraph (one syllable) and Armenian-only characters. No English heuristics.
 
 ### 3. MORPHOLOGICAL METRICS
 
@@ -56,12 +59,14 @@
 - **What it measures**: Usage patterns of prefixes/suffixes
 - **Implementation**: Count morphological markers per word
 - **Use case**: Critical for Western vs Eastern Armenian
-  - Eastern: uses -եմ suffix for 1st singular, Western: -իմ
+  - **-եМ (-em)**: Western Armenian 1st singular present suffix — attached directly to the verb stem (e.g. կե բերեМ = I bring). Also stands alone as “I am.” **Not an Eastern marker.**
+  - **-իМ (-im)**: Western Armenian possessive “my” (pre-noun pronoun, e.g. իմ տունը = my house). **Not a verb suffix at all.**
+  - **-UM (-um)**: Eastern Armenian present/imperfective verbal inflection (e.g. բերուМ եМ = I bring). Also occurs in WA verbal nouns and certain lexical roots but not as a present-tense conjugation marker.
   - Track frequency of specific morphological patterns
 - **Example**:
-  - Suffix -եմ frequency (Eastern marker)
-  - Suffix -իմ frequency (Western marker)
-  - Suffix -ում frequency (shared but different contexts)
+  - Suffix -եМ frequency → Western marker (higher = more WA)
+  - Suffix -իМ frequency → WA possessive usage (not verb-related)
+  - Suffix -UM frequency (distinctively EA as verbal inflection; also appears in WA in nouns/verbal-nouns)
 
 #### Morpheme Richness
 - **What it measures**: How many different morphemes in text

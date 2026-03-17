@@ -74,7 +74,7 @@ def _get_api_key(config: dict) -> str | None:
 
 
 def _language_from_api(lang_list) -> str:
-    """Map DPLA sourceResource.language to language_code.
+    """Map DPLA sourceResource.language to source_language_code.
 
     Returns: hye (Eastern Armenian), hyw (Western Armenian), hyc (Classical Armenian),
     hy (undetermined Armenian), eng (English), or und for other/unknown.
@@ -146,7 +146,7 @@ def _infer_writing_category(sr: dict) -> str:
 
 
 def _normalize_item(doc: dict) -> dict | None:
-    """Extract title, text, url, language_code, writing_category, creator from a DPLA item doc."""
+    """Extract title, text, url, source_language_code, writing_category, creator from a DPLA item doc."""
     sr = doc.get("sourceResource") or {}
     title = sr.get("title")
     if isinstance(title, list):
@@ -170,7 +170,7 @@ def _normalize_item(doc: dict) -> dict | None:
     url = (url or "").strip() or None
 
     lang_list = sr.get("language")
-    language_code = _language_from_api(lang_list)
+    source_language_code = _language_from_api(lang_list)
 
     writing_category = _infer_writing_category(sr)
 
@@ -183,7 +183,7 @@ def _normalize_item(doc: dict) -> dict | None:
         "title": title,
         "text": text,
         "url": url,
-        "language_code": language_code,
+        "source_language_code": source_language_code,
         "writing_category": writing_category,
         "author": author,
         "dpla_id": doc.get("id"),
@@ -237,30 +237,30 @@ def _run_query(
             if not norm:
                 continue
             meta = get_source_metadata("dpla")
-            meta["language_code"] = norm["language_code"]
+            meta["source_language_code"] = norm["source_language_code"]
             meta["writing_category"] = norm["writing_category"]
             meta["dpla_id"] = norm.get("dpla_id")
             meta["data_provider"] = norm.get("data_provider")
             # Run WA scoring on Armenian-language items for dialect classification.
             text = norm["text"]
-            if norm["language_code"] not in ("eng",) and text:
+            if norm["source_language_code"] not in ("eng",) and text:
                 try:
                     wa_score = compute_wa_score(text[:5000])
                     meta["wa_score"] = round(wa_score, 2)
                     if wa_score >= WA_SCORE_THRESHOLD:
-                        meta["language_code"] = "hyw"
-                    elif norm["language_code"] in ("hy", "und"):
-                        meta["language_code"] = "hye"
+                        meta["source_language_code"] = "hyw"
+                    elif norm["source_language_code"] in ("hy", "und"):
+                        meta["source_language_code"] = "hye"
                 except Exception:
                     pass
-            elif norm["language_code"] == "hy":
+            elif norm["source_language_code"] == "hy":
                 # No text but DPLA tagged as Armenian — default to Eastern Armenian
-                meta["language_code"] = "hye"
-            elif norm["language_code"] == "und":
+                meta["source_language_code"] = "hye"
+            elif norm["source_language_code"] == "und":
                 # No text and no DPLA language info — check title for Armenian chars
                 arm_in_title = sum(1 for c in norm["title"] if "\u0530" <= c <= "\u058f")
                 if arm_in_title >= 3:
-                    meta["language_code"] = "hye"
+                    meta["source_language_code"] = "hye"
             ok = insert_or_skip(
                 client,
                 source="dpla",

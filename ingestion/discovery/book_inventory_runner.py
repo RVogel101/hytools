@@ -242,9 +242,10 @@ def main() -> int:
     
     # Load config for MongoDB (default: config/settings.yaml)
     cfg = {}
-    if args.config and args.config.exists():
+    config_path = args.config or Path("config/settings.yaml")
+    if config_path.exists():
         import yaml
-        with open(args.config, encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     
     try:

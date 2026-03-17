@@ -277,7 +277,7 @@ def _ingest_corpus(corpus: _OpusCorpus, zip_path: Path, client, config: dict) ->
 
         meta = {
             "source_type": "dataset",
-            "language_code": detected_lc,
+            "source_language_code": detected_lc,
             "source_language_codes": [detected_lc],
             "wa_score": round(wa_score, 2),
             "opus_corpus": corpus.name,

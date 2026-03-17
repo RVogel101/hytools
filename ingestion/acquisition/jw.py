@@ -343,7 +343,7 @@ def _scrape_wol_lang(
 
         meta = {
             "source_type": "religious",
-            "language_code": detected_lc,
+            "source_language_code": detected_lc,
             "source_language_codes": [detected_lc],
             "wa_score": round(wa_score, 2),
             "url_lang": wol.code,

@@ -144,7 +144,7 @@ class BookEdition:
     publisher_location: Optional[str] = None
     edition_number: Optional[int] = None
     num_pages: Optional[int] = None
-    language_code: str = "hyw"  # Default to Western Armenian
+    source_language_code: str = "hyw"  # Default to Western Armenian
     notes: str = ""
 
 
@@ -222,7 +222,7 @@ class BookInventoryEntry:
                 publisher_location=e.get("publisher_location"),
                 edition_number=e.get("edition_number"),
                 num_pages=e.get("num_pages"),
-                language_code=e.get("language_code", "hyw"),
+                source_language_code=e.get("source_language_code") or e.get("language_code", "hyw"),
                 notes=e.get("notes", ""),
             )
             for e in editions_data

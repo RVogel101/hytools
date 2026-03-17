@@ -107,16 +107,36 @@ class WritingCategory(str, Enum):
     UNKNOWN = "unknown"
 
 
+class InternalLanguageCode(str, Enum):
+    """Top-level language classification derived from text analysis."""
+    ARMENIAN = "hy"
+    ENGLISH = "eng"
+
+
+class InternalLanguageBranch(str, Enum):
+    """Fine-grained language branch derived from text analysis.
+
+    For Armenian, distinguishes Western vs Eastern dialect using
+    compute_wa_score().  English is a single branch.
+    """
+    WESTERN_ARMENIAN = "hye-w"
+    EASTERN_ARMENIAN = "hye-e"
+    ENGLISH = "eng"
+
+
 @dataclass
 class TextMetadata:
     """Comprehensive metadata for a text document."""
 
     # Required fields
-    dialect: Dialect
     source_type: SourceType
 
-    # Language/Wikipedia code
-    language_code: Optional[str] = None
+    # Language code from the source (e.g. hyw, hye, en) — as declared by the data provider
+    source_language_code: Optional[str] = None
+    # Internally derived language code from text analysis (hy or eng)
+    internal_language_code: Optional[str] = None
+    # Internally derived language branch from text analysis (hye-w, hye-e, or eng)
+    internal_language_branch: Optional[str] = None
     dialect_subcategory: Optional[DialectSubcategory] = None
 
     # Date fields
@@ -143,7 +163,6 @@ class TextMetadata:
     processor_version: str = "1.0"
 
     # Quality/confidence flags
-    confidence_dialect: float = 1.0
     confidence_region: float = 0.8
 
     # Additional metadata
@@ -155,7 +174,6 @@ class TextMetadata:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         data = asdict(self)
-        data["dialect"] = self.dialect.value
         data["dialect_subcategory"] = (
             self.dialect_subcategory.value if self.dialect_subcategory else None
         )
@@ -171,35 +189,31 @@ class TextMetadata:
     def western_wikipedia(cls, title: str, extraction_date: str) -> TextMetadata:
         """Factory for Western Armenian Wikipedia articles.
 
-        language_code: hyw (ISO 639-3 Western) or hy (ISO 639-1 general).
+        source_language_code: hyw (ISO 639-3 Western).
         """
         return cls(
-            dialect=Dialect.WESTERN_ARMENIAN,
             dialect_subcategory=DialectSubcategory.WESTERN_DIASPORA_GENERAL,
             source_type=SourceType.ENCYCLOPEDIA,
-            language_code="hyw",
+            source_language_code="hyw",
             source_name="Wikipedia (hyw)",
             extraction_date=extraction_date,
             content_type=ContentType.ARTICLE,
-            confidence_dialect=0.99,
         )
 
     @classmethod
     def eastern_wikipedia(cls, title: str, extraction_date: str) -> TextMetadata:
         """Factory for Eastern Armenian Wikipedia articles.
 
-        language_code: hye (ISO 639-3 Eastern) or hy (ISO 639-1 general).
+        source_language_code: hye (ISO 639-3 Eastern).
         """
         return cls(
-            dialect=Dialect.EASTERN_ARMENIAN,
             dialect_subcategory=DialectSubcategory.EASTERN_HAYASTAN,
             source_type=SourceType.ENCYCLOPEDIA,
-            language_code="hye",
+            source_language_code="hye",
             source_name="Wikipedia (hye)",
             region=Region.ARMENIA,
             extraction_date=extraction_date,
             content_type=ContentType.ARTICLE,
-            confidence_dialect=0.95,
             confidence_region=0.85,
         )
 
@@ -213,7 +227,6 @@ class TextMetadata:
     ) -> TextMetadata:
         """Factory for diaspora newspaper articles (typically WA)."""
         return cls(
-            dialect=Dialect.WESTERN_ARMENIAN,
             dialect_subcategory=DialectSubcategory.WESTERN_DIASPORA_GENERAL,
             source_type=SourceType.NEWSPAPER,
             source_name=source_name,
@@ -221,7 +234,6 @@ class TextMetadata:
             publication_date=publication_date,
             extraction_date=extraction_date,
             content_type=ContentType.ARTICLE,
-            confidence_dialect=0.90,
             confidence_region=0.95,
         )
 
@@ -234,23 +246,20 @@ class TextMetadata:
     ) -> TextMetadata:
         """Factory for Armenian news agencies (Armenpress, A1+, etc.)."""
         return cls(
-            dialect=Dialect.EASTERN_ARMENIAN,
             dialect_subcategory=DialectSubcategory.EASTERN_HAYASTAN,
             source_type=SourceType.NEWS_AGENCY,
-            language_code="hye",
+            source_language_code="hye",
             source_name=source_name,
             region=Region.ARMENIA,
             publication_date=publication_date,
             extraction_date=extraction_date,
             content_type=ContentType.ARTICLE,
-            confidence_dialect=0.98,
             confidence_region=0.99,
         )
 
     @classmethod
     def historical_archive(
         cls,
-        dialect: Dialect,
         source_name: str,
         region: Optional[Region] = None,
         original_date: Optional[str] = None,
@@ -259,12 +268,6 @@ class TextMetadata:
     ) -> TextMetadata:
         """Factory for historical documents from archives."""
         return cls(
-            dialect=dialect,
-            dialect_subcategory=(
-                DialectSubcategory.WESTERN_DIASPORA_GENERAL
-                if dialect == Dialect.WESTERN_ARMENIAN
-                else DialectSubcategory.EASTERN_OTHER
-            ),
             source_type=SourceType.ARCHIVE,
             source_name=source_name,
             region=region or Region.UNCERTAIN,
@@ -272,5 +275,4 @@ class TextMetadata:
             extraction_date=extraction_date,
             catalog_id=catalog_id,
             content_type=ContentType.HISTORICAL,
-            confidence_dialect=0.85,
         )

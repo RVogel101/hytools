@@ -428,10 +428,8 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
             metadata={
                 "source_type": "book",
                 "identifier": ident,
-                "language_code": lang_code,
-                "confidence_dialect": round(
-                    min(compute_wa_score(text) / WA_SCORE_THRESHOLD, 2.0), 2
-                ),
+                "source_language_code": lang_code,
+                "publication_date": item.get("date") or None,
                 "ia_date": item.get("date", ""),
                 "ia_language": item.get("language", ""),
             },

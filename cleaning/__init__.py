@@ -29,6 +29,11 @@ from .language_filter import (
     WA_SCORE_THRESHOLD,
 )
 from .dedup import deduplicate_files
+from .bilingual_splitter import (
+    BilingualSplitResult,
+    split_bilingual,
+    extract_armenian_content,
+)
 from ingestion._shared.helpers import is_western_armenian
 
 __all__ = [
@@ -60,6 +65,10 @@ __all__ = [
     "WA_SCORE_THRESHOLD",
     # Dedup
     "deduplicate_files",
+    # Bilingual splitter
+    "BilingualSplitResult",
+    "split_bilingual",
+    "extract_armenian_content",
     # WA classifier (re-export from ingestion._shared.helpers)
     "is_western_armenian",
 ]
