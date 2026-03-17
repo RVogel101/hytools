@@ -36,6 +36,7 @@ class LexicalMetrics:
     yule_k: float  # Yule's K (vocabulary repetitiveness)
     unique_words: int
     total_words: int
+    unique_word_rate: float  # unique_words / total_words
     vocabulary_breadth: float  # Unique words per 1000 words
 
 
@@ -57,7 +58,9 @@ class MorphologicalMetrics:
     - -UM: EA verbal inflection (e.g. բERUM EM = "I bring"); also appears in WA in
       verbal nouns and certain lexical roots — NOT a WA present-tense marker, but
       flagging every -UM form as EA contamination would be an over-count.
-    - -ան: Shared (plural, 3rd person)
+    - -եան: Classical marker (should not be counted as -ան)
+    - -ան: Shared (plural, 3rd person; excluding -եան)
+    - -արան, -ական, -ութիւն: common derivational suffixes
     - -ել: Shared infinitive (e.g. գրել)
     - -իլ: Western-only infinitive (e.g. խօսիլ)
 
@@ -70,8 +73,16 @@ class MorphologicalMetrics:
     suffix_im_frequency: float
     suffix_um_count: int  # Eastern verbal inflection (-UM); also occurs in WA verbal nouns/roots — see class docstring
     suffix_um_frequency: float
-    suffix_an_count: int  # -ան (various)
+    suffix_ean_count: int  # Classical marker -եան (do not count as -ան)
+    suffix_ean_frequency: float
+    suffix_an_count: int  # -ան (various, excluding -եան)
     suffix_an_frequency: float
+    suffix_aran_count: int  # -արան (derivational)
+    suffix_aran_frequency: float
+    suffix_akan_count: int  # -ական (derivational)
+    suffix_akan_frequency: float
+    suffix_utyun_count: int  # -ութիւն (derivational)
+    suffix_utyun_frequency: float
     suffix_el_count: int  # -ել (infinitive, shared)
     suffix_el_frequency: float
     suffix_il_count: int  # Western-only infinitive (e.g. խօսիլ)
@@ -290,6 +301,7 @@ class QuantitativeLinguisticsAnalyzer:
 
         # Vocabulary breadth (unique words per 1000 words)
         vocab_breadth = (unique_words / total_words) * 1000 if total_words > 0 else 0
+        unique_word_rate = unique_words / total_words if total_words > 0 else 0
 
         return LexicalMetrics(
             ttr=round(ttr, 4),
@@ -297,6 +309,7 @@ class QuantitativeLinguisticsAnalyzer:
             yule_k=round(yule_k, 2),
             unique_words=unique_words,
             total_words=total_words,
+            unique_word_rate=round(unique_word_rate, 4),
             vocabulary_breadth=round(vocab_breadth, 2),
         )
 
@@ -414,9 +427,14 @@ class QuantitativeLinguisticsAnalyzer:
         em_count = sum(1 for w in words if w.endswith("եմ"))
         im_count = sum(1 for w in words if w.endswith("իմ"))
         um_count = sum(1 for w in words if w.endswith("ում"))
-        an_count = sum(1 for w in words if w.endswith("ան"))
+        ean_count = sum(1 for w in words if w.endswith("եան"))
+        an_count = sum(1 for w in words if w.endswith("ան") and not w.endswith("եան"))
         el_count = sum(1 for w in words if w.endswith("ել"))
         il_count = sum(1 for w in words if w.endswith("իլ"))
+
+        aran_count = sum(1 for w in words if w.endswith("արան"))
+        akan_count = sum(1 for w in words if w.endswith("ական"))
+        utyun_count = sum(1 for w in words if w.endswith("ութիւն"))
 
         # Prefix counts (WA markers — as separate words or before verb)
         gu_count = sum(1 for w in words if w == "կը")
@@ -434,8 +452,16 @@ class QuantitativeLinguisticsAnalyzer:
             suffix_im_frequency=_freq(im_count),
             suffix_um_count=um_count,
             suffix_um_frequency=_freq(um_count),
+            suffix_ean_count=ean_count,
+            suffix_ean_frequency=_freq(ean_count),
             suffix_an_count=an_count,
             suffix_an_frequency=_freq(an_count),
+            suffix_aran_count=aran_count,
+            suffix_aran_frequency=_freq(aran_count),
+            suffix_akan_count=akan_count,
+            suffix_akan_frequency=_freq(akan_count),
+            suffix_utyun_count=utyun_count,
+            suffix_utyun_frequency=_freq(utyun_count),
             suffix_el_count=el_count,
             suffix_el_frequency=_freq(el_count),
             suffix_il_count=il_count,
@@ -450,6 +476,16 @@ class QuantitativeLinguisticsAnalyzer:
             prefix_ch_frequency=_freq(ch_count),
         )
 
+    def debug_morphological_suffixes(self, words: list[str]) -> dict:
+        """Return the words that triggered specific morphological suffix counters."""
+        return {
+            "suffix_ian_words": [w for w in words if w.endswith("եան")],
+            "suffix_an_words": [w for w in words if w.endswith("ան") and not w.endswith("եան")],
+            "suffix_aran_words": [w for w in words if w.endswith("արան")],
+            "suffix_agan_words": [w for w in words if w.endswith("ական")],
+            "suffix_utyun_words": [w for w in words if w.endswith("ութիւն")],
+        }
+
     def _compute_orthographic_metrics(self, text: str) -> OrthographicMetrics:
         """Compute classical vs reformed Armenian orthography metrics.
         
@@ -457,16 +493,32 @@ class QuantitativeLinguisticsAnalyzer:
         Reformed (Eastern Armenian): simplified these
         """
         # Classical Armenian markers (Western retains, Eastern removed)
+        # The patterns below capture Western classical spellings that Eastern
+        # reform removed / simplified.
         classical_patterns = [
-            r'ո',  # Starts many Western words
+            r'ո',   # Starts many Western words
             r'իւ',  # Diphthong retained in Western
             r'եա',  # Retained in Western
+            r'եօ',  # Classical diphthong often rewritten in reform
+            r'էա',  # Classical use of է + ա
+            r'էյ',  # Classical use of է + յ
+            r'իա',  # Classical diphthong
+            r'ոյ',  # Classical diphthong
+            r'այ',  # Classical diphthong
+            r'աւ',  # Classical spelling variant
         ]
 
-        # Reformed markers (Eastern orthography)
+        # Reformed markers (Eastern orthography).
+        # Includes word-final 'ա' and common reformed endings.
+        # Note: Python's ``\b`` word boundary does not treat Armenian letters as
+        # word characters, so we use an explicit negative lookahead for Armenian
+        # letters to detect word-final occurrences.
+        armenian_letter = r"[\u0530-\u058F]"
         reformed_patterns = [
-            r'ա',  # Eastern uses more bare ա
-            r'ե',  # Reformed form usage
+            r'ա(?!' + armenian_letter + r')',    # word-final ա (more common in reformed spelling)
+            r'թյուն(?!' + armenian_letter + r')',  # reformed spelling (classical: թիւն)
+            r'յան(?!' + armenian_letter + r')',   # classical եան vs reformed յան
+            r'ե',                                # reformed form usage (broad marker)
         ]
 
         classical_count = sum(len(re.findall(p, text)) for p in classical_patterns)
@@ -486,6 +538,34 @@ class QuantitativeLinguisticsAnalyzer:
             reformed_markers_frequency=round(reformed_freq, 6),
             classical_to_reformed_ratio=round(ratio, 2),
         )
+
+    def debug_orthographic_markers(self, text: str) -> dict:
+        """Return the exact substrings that triggered classical/reformed markers."""
+        classical_patterns = [
+            r'ո', r'իւ', r'եա', r'եօ', r'էա', r'էյ', r'իա', r'ոյ', r'այ', r'աւ'
+        ]
+        # Avoid Python '\b' word boundaries, since they don't treat Armenian
+        # letters as word characters reliably. Use an explicit negative lookahead.
+        armenian_letter = r"[\u0530-\u058F]"
+        reformed_patterns = [
+            r'ա(?!' + armenian_letter + r')',
+            r'թյուն(?!' + armenian_letter + r')',
+            r'յան(?!' + armenian_letter + r')',
+            r'ե',
+        ]
+
+        def _matches(patterns: list[str]) -> dict:
+            out: dict = {}
+            for pat in patterns:
+                matches = re.findall(pat, text)
+                if matches:
+                    out[pat] = matches
+            return out
+
+        return {
+            "classical": _matches(classical_patterns),
+            "reformed": _matches(reformed_patterns),
+        }
 
     def _compute_semantic_metrics(self, words: list[str]) -> SemanticMetrics:
         """Compute semantic diversity and complexity metrics."""

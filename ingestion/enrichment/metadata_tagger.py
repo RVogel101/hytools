@@ -376,6 +376,7 @@ def _enrich_document(doc: dict, source: str, text: str = "", analyzer: object | 
         lang_code, lang_branch = classify_language(text)
         updates["metadata.internal_language_code"] = lang_code
         updates["metadata.internal_language_branch"] = lang_branch
+        updates["processing.internal_language_classified"] = True
 
     # Compute WA score breakdown — applied to every document containing any Armenian script
     if text.strip() and existing.get("wa_score") is None and _any_armenian_script(text):

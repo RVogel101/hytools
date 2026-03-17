@@ -226,7 +226,7 @@ _CLASSICAL_ORTHO_MARKERS: list[tuple[str, float]] = [
     ("\u0565\u0561", 2.0),       # եա ea diphthong (WA retains, EA reformed to ya)
     ("\u056B\u0582", 3.0),       # իւ iv → yu/yoo (classical spelling)
     ("\u0574\u0567\u057B", 2.5), # մէջ mech "in/among" (WA: ջ=ch; classical long է)
-    #("\u056B\u0582\u0580\u0561\u0584\u0561\u0576\u0579\u056B\u0582\u0580", 4.0),  # իւրաքանչիւր yurakanchoor "each"
+    ("\u056B\u0582\u0580\u0561\u0584\u0561\u0576\u0579\u056B\u0582\u0580", 4.0),  # իւրաքանչիւր yurakanchoor "each"
     ("\u056C\u0565\u0566\u0578\u0582", 1.5),  # լեզու lezoo "language"
     ("\u0578\u0575", 2.0),       # ոյ oy diphthong (classical)
     ("\u0561\u0575", 2.0),      # այ ay diphthong (classical)

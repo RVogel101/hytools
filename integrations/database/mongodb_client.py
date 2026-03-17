@@ -291,7 +291,7 @@ class MongoDBCorpusClient:
                 "normalized": False,
                 "deduplicated": False,
                 "filtered": False,
-                "dialect_classified": False,
+                "internal_language_classified": False,
             },
         }
 
@@ -350,7 +350,7 @@ class MongoDBCorpusClient:
         normalized: bool = False,
         deduplicated: bool = False,
         filtered: bool = False,
-        dialect_classified: bool = False,
+        internal_language_classified: bool = False,
     ) -> bool:
         """Update document processing flags.
 
@@ -359,7 +359,7 @@ class MongoDBCorpusClient:
             normalized: Text has been normalized
             deduplicated: Document passed deduplication
             filtered: Document passed Western Armenian filter
-            dialect_classified: Dialect has been determined
+            internal_language_classified: Internal language classification has been run
 
         Returns:
             True if updated, False if document not found
@@ -373,7 +373,7 @@ class MongoDBCorpusClient:
                     "processing.normalized": normalized,
                     "processing.deduplicated": deduplicated,
                     "processing.filtered": filtered,
-                    "processing.dialect_classified": dialect_classified,
+                    "processing.internal_language_classified": internal_language_classified,
                 }
             },
         )

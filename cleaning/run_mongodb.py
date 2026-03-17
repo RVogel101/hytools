@@ -48,7 +48,7 @@ def run(config: dict) -> None:
                         "text": normalized_text,
                         "processing.normalized": True,
                         "processing.filtered": is_wa,
-                        "processing.dialect_classified": True,
+                        "processing.internal_language_classified": True,
                         "metadata.wa_score": wa_score,
                     }
                 },

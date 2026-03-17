@@ -35,6 +35,8 @@ class TestQuantitativeLinguisticsMetrics(unittest.TestCase):
         self.assertGreater(metrics.lexical.total_words, 0)
         self.assertGreater(metrics.lexical.unique_words, 0)
         self.assertLessEqual(metrics.lexical.unique_words, metrics.lexical.total_words)
+        self.assertGreaterEqual(metrics.lexical.unique_word_rate, 0.0)
+        self.assertLessEqual(metrics.lexical.unique_word_rate, 1.0)
         self.assertGreaterEqual(metrics.lexical.ttr, 0.0)
         self.assertLessEqual(metrics.lexical.ttr, 1.0)
         self.assertGreaterEqual(metrics.lexical.sttr, 0.0)
@@ -126,6 +128,26 @@ class TestMetricInterpretation(unittest.TestCase):
         metrics = self.analyzer.analyze_text(diverse_text, text_id="diverse")
 
         self.assertGreater(metrics.lexical.ttr, 0.6)
+
+    def test_debug_marker_helpers(self):
+        """Debug helpers should locate specific suffix/orthographic triggers."""
+        # Contains a classical marker (եա) and reformed endings (word-final ա, թյուն)
+        text = "մեա տունան թյուն"
+        words = text.split()
+
+        suffix_debug = self.analyzer.debug_morphological_suffixes(words)
+        self.assertIn("suffix_an_words", suffix_debug)
+        self.assertIn("տունան", suffix_debug["suffix_an_words"])  # word ending with 'ան'
+        self.assertIn("suffix_ian_words", suffix_debug)
+
+        orth_debug = self.analyzer.debug_orthographic_markers(text)
+        self.assertIn("classical", orth_debug)
+        self.assertIn("reformed", orth_debug)
+        # Ensure classical markers capture 'եա'
+        self.assertTrue(any("եա" in ''.join(vals) for vals in orth_debug["classical"].values()))
+        # Ensure reformed markers capture word-final 'ա' and 'թյուն'
+        self.assertTrue(any("ա" in ''.join(vals) for vals in orth_debug["reformed"].values()))
+        self.assertTrue(any("թյուն" in ''.join(vals) for vals in orth_debug["reformed"].values()))
 
     def test_low_ttr_indicates_repetition(self):
         """Low TTR should indicate repetitive vocabulary.

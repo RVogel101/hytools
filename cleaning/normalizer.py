@@ -20,6 +20,11 @@ _WHITESPACE_RE = re.compile(r"[^\S\n]+")
 # Pattern to remove lines that are entirely punctuation / digits / symbols
 _JUNK_LINE_RE = re.compile(r"^\W+$")
 
+# Patterns to detect Latin / Arabic character usage (for removing foreign-language fragments)
+_FOREIGN_SCRIPT_RE = re.compile(r"[A-Za-z\u00C0-\u024F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
+_PARENS_FOREIGN_RE = re.compile(r"\([^)]*" + _FOREIGN_SCRIPT_RE.pattern + r"[^)]*\)")
+_QUOTED_FOREIGN_RE = re.compile(r"«[^»]*" + _FOREIGN_SCRIPT_RE.pattern + r"[^»]*»")
+
 
 def normalize_unicode(text: str) -> str:
     """Normalize *text* to NFC Unicode form."""
@@ -39,14 +44,41 @@ def remove_junk_lines(text: str) -> str:
     return "\n".join(lines)
 
 
+def remove_foreign_fragments(text: str) -> str:
+    """Remove Latin/Arabic fragments that may pollute Western Armenian text.
+
+    This removes:
+    - Parenthesized notes that contain Latin/Arabic characters.
+    - Armenian guillemet-quoted fragments («…») that contain Latin/Arabic.
+    - Any remaining Latin/Arabic characters (e.g. inline English words, Arabic
+      script, transliterations).
+    """
+
+    # Remove parenthesized phrases that contain Latin/Arabic script
+    text = _PARENS_FOREIGN_RE.sub("", text)
+
+    # Remove guillemet-quoted phrases that contain Latin/Arabic script
+    text = _QUOTED_FOREIGN_RE.sub("", text)
+
+    # Remove any remaining Latin/Arabic characters (leaving Armenian-only text)
+    text = _FOREIGN_SCRIPT_RE.sub("", text)
+
+    # Cleanup common stray punctuation left behind by removals
+    text = re.sub(r"\(\s*\)", "", text)
+    text = re.sub(r"«\s*»", "", text)
+
+    return text
+
+
 def normalize(text: str) -> str:
     """Apply the full normalization pipeline to *text*.
 
     Steps applied in order:
 
     1. Unicode NFC normalization
-    2. Whitespace normalization
-    3. Junk-line removal
+    2. Remove Latin/Arabic fragments (e.g. parenthesized English or Arabic, quotes)
+    3. Whitespace normalization
+    4. Junk-line removal
 
     Parameters
     ----------
@@ -59,6 +91,7 @@ def normalize(text: str) -> str:
         Normalized text.
     """
     text = normalize_unicode(text)
+    text = remove_foreign_fragments(text)
     text = normalize_whitespace(text)
     text = remove_junk_lines(text)
     return text.strip()
