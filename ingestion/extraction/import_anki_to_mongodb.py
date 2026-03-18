@@ -3,6 +3,10 @@
 
 Connects to a running Anki desktop (AnkiConnect) and imports flashcard notes
 into MongoDB using the corpus document schema.
+
+This script is strictly read-only with respect to Anki— it only queries AnkiConnect
+(note lookup via `findNotes`/`notesInfo`) and does not modify or write any notes,
+decks, or cards back into the Anki desktop database.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ import requests
 
 from ingestion._shared.helpers import open_mongodb_client
 from ingestion._shared.mappers import anki_card_row_to_lexicon_entry
+from ingestion._shared.schema import CARD_SCHEMA_KEYS, REQUIRED_CARD_FIELDS
 
 try:
     from pymongo.errors import DuplicateKeyError  # type: ignore[reportMissingModuleSource]
@@ -129,14 +134,22 @@ def _normalize_ankiconnect_note(note: dict[str, Any]) -> dict[str, Any]:
 
     # Keep the full AnkiConnect note record available for downstream inspection.
     # Preserve existing shorthand fields for backward compatibility.
-    return {
+    # Normalize to the contract defined in ingestion._shared.schema.
+    row = {
         "anki_note_id": int(note.get("noteId") or note.get("id") or 0),
         "deck_name": deck_name,
         "sub_deck_name": sub_deck_name,
+        "anki_deck_name": deck_name,
         "word": _first_non_empty("armenian", "Armenian", "Word", "word", "Front", "front", "phrase"),
         "translation": _first_non_empty("english", "English", "Translation", "meaning", "Back", "back", "definition"),
+        "pos": None,
+        "card_type": "anki_note:vocab",
+        "frequency_rank": 9999,
+        "syllable_count": 0,
         "tags": note.get("tags"),
         "model_name": note.get("modelName"),
+        "deck_id": note.get("deckId"),
+        "guid": note.get("guid"),
         "fields": fields,
         "flags": note.get("flags"),
         "data": note.get("data"),
@@ -148,6 +161,12 @@ def _normalize_ankiconnect_note(note: dict[str, Any]) -> dict[str, Any]:
         "morphology_json": _first_non_empty("morphology_json", "morphology") or "{}",
         "custom_level": None,
     }
+
+    # Enforce the schema contract (ensures missing keys are present in docs)
+    for key in CARD_SCHEMA_KEYS:
+        row.setdefault(key, None)
+
+    return row
 
 
 def _entry_to_dict(entry) -> dict:
@@ -161,17 +180,17 @@ def _entry_to_dict(entry) -> dict:
     return d
 
 
-REQUIRED_CARD_FIELDS = [
-    "deck_name",
-    "sub_deck_name",
-    "word",
-    "translation",
-]
-
-
 def _validate_card_row(row: dict[str, Any]) -> dict[str, Any]:
     """Validate required card schema fields and normalize values."""
-    missing = [k for k in REQUIRED_CARD_FIELDS if k not in row or row.get(k) is None]
+
+    def _is_blank(value: Any) -> bool:
+        return value is None or (isinstance(value, str) and not value.strip())
+
+    missing = [
+        k
+        for k in REQUIRED_CARD_FIELDS
+        if k not in row or _is_blank(row.get(k))
+    ]
     if missing:
         raise ValueError(f"Missing required card fields: {missing}")
 
@@ -185,6 +204,7 @@ def _validate_card_row(row: dict[str, Any]) -> dict[str, Any]:
 def _export_lexicon_from_rows(rows: Iterable[dict[str, Any]], client, config: dict) -> int:
     """Import a sequence of lexicon-like row dicts into MongoDB cards collection."""
     count = 0
+    _skipped_notes: list[dict[str, Any]] = []
     for row in rows:
         morph = row.get("morphology_json")
         if isinstance(morph, str) and morph.strip():
@@ -196,7 +216,17 @@ def _export_lexicon_from_rows(rows: Iterable[dict[str, Any]], client, config: di
                 pass
 
         # Validate strict schema before inserting
-        card_doc = _validate_card_row(row)
+        try:
+            card_doc = _validate_card_row(row)
+        except ValueError as e:
+            # Some Anki notes may lack required fields (e.g. blank front/back); skip them.
+            # Capture first few examples for debugging.
+            _skipped_notes.append(row)
+            if len(_skipped_notes) <= 3:
+                note_id = row.get("anki_note_id")
+                fields_keys = list(row.get("fields", {}).keys()) if isinstance(row.get("fields"), dict) else []
+                print(f"Skipping note id={note_id} (missing required fields) -> fields keys: {fields_keys}")
+            continue
 
         # Convert to canonical LexiconEntry for metadata (used for search/lookup)
         entry = anki_card_row_to_lexicon_entry(card_doc)
@@ -211,6 +241,8 @@ def _export_lexicon_from_rows(rows: Iterable[dict[str, Any]], client, config: di
             # Duplicate card based on unique index (anki_note_id)
             continue
 
+    if _skipped_notes:
+        print(f"Skipped {len(_skipped_notes)} notes due to missing required fields (e.g. blank word/translation).")
     return count
 
 
@@ -221,64 +253,69 @@ def run(config: dict) -> None:
         config: pipeline configuration (MongoDB, AnkiConnect settings)
 
     Config keys:
-      - ingestion.import_anki_sqlite.limit (0 = all)
+      - ingestion.import_anki_to_mongodb.limit (0 = all)
       - database.* for MongoDB
       - anki_connect.url (optional) for AnkiConnect endpoint
     """
-    ing_cfg = config.get("ingestion", {}).get("import_anki_sqlite", {}) or config.get("scraping", {}).get("extraction", {})
+    ing_cfg = config.get("ingestion", {}).get("import_anki_to_mongodb", {})
     limit = int(ing_cfg.get("limit", 0) or 0)
 
-    with open_mongodb_client(config) as client:
-        if client is None:
-            raise RuntimeError("MongoDB unavailable. Ensure pymongo is installed and MongoDB is reachable.")
+    try:
+        with open_mongodb_client(config) as client:
+            if client is None:
+                raise RuntimeError("MongoDB unavailable. Ensure pymongo is installed and MongoDB is reachable.")
 
-        ankiconnect_url = _get_anki_connect_url(config)
-        deck_names = _get_anki_deck_names(ankiconnect_url)
-        if not deck_names:
-            raise RuntimeError(f"AnkiConnect returned no decks at {ankiconnect_url}")
+            ankiconnect_url = _get_anki_connect_url(config)
+            deck_names = _get_anki_deck_names(ankiconnect_url)
+            if not deck_names:
+                raise RuntimeError(f"AnkiConnect returned no decks at {ankiconnect_url}")
 
-        rows: List[dict[str, Any]] = []
-        remaining = limit if limit and limit > 0 else None
+            rows: List[dict[str, Any]] = []
+            remaining = limit if limit and limit > 0 else None
 
-        for deck in deck_names:
-            # Anki's query syntax requires deck names with spaces to be quoted.
-            quoted_deck = deck.replace('"', '\\"')
-            query = f"deck:\"{quoted_deck}\""
-            note_ids = _find_anki_notes(ankiconnect_url, query=query)
-            if not note_ids:
-                continue
-            if remaining is not None:
-                note_ids = note_ids[:remaining]
-            notes = _get_notes_info(ankiconnect_url, note_ids)
-            rows.extend(_normalize_ankiconnect_note(n) for n in notes)
-            print(f"Fetched {len(notes)} notes from deck {deck!r}")
-            if remaining is not None:
-                remaining -= len(notes)
-                if remaining <= 0:
-                    break
+            for deck in deck_names:
+                # Anki's query syntax requires deck names with spaces to be quoted.
+                quoted_deck = deck.replace('"', '\\"')
+                query = f"deck:\"{quoted_deck}\""
+                note_ids = _find_anki_notes(ankiconnect_url, query=query)
+                if not note_ids:
+                    continue
+                if remaining is not None:
+                    note_ids = note_ids[:remaining]
+                notes = _get_notes_info(ankiconnect_url, note_ids)
+                rows.extend(_normalize_ankiconnect_note(n) for n in notes)
+                print(f"Fetched {len(notes)} notes from deck {deck!r}")
+                if remaining is not None:
+                    remaining -= len(notes)
+                    if remaining <= 0:
+                        break
 
-        lexicon_count = _export_lexicon_from_rows(rows, client, config)
-        docs_count = 0
+            lexicon_count = _export_lexicon_from_rows(rows, client, config)
 
-    # Report where data went and basic schema info
-    db_name = getattr(client, "database_name", "<unknown>")
-    uri = getattr(client, "uri", "<unknown>")
+            # Report where data went and basic schema info while still connected.
+            db_name = getattr(client, "database_name", "<unknown>")
+            uri = getattr(client, "uri", "<unknown>")
 
-    print(f"Inserted LexiconEntry records: {lexicon_count} (source=anki_lexicon)")
-    print(f"MongoDB URI: {uri}")
-    print(f"MongoDB database: {db_name}")
+            print(f"Inserted LexiconEntry records: {lexicon_count} (source=anki_lexicon)")
+            print(f"MongoDB URI: {uri}")
+            print(f"MongoDB database: {db_name}")
 
-    cards_coll = getattr(client, "cards", None)
-    if cards_coll is not None:
-        card_count = cards_coll.count_documents({})
-        print(f"Cards collection: {cards_coll.name} (total={card_count})")
-        sample = cards_coll.find_one({})
-        if sample:
-            print("Sample card fields:", sorted(sample.keys()))
-        else:
-            print("No sample card found to infer schema.")
-    else:
-        print("Could not access the cards collection for schema reporting.")
+            cards_coll = getattr(client, "cards", None)
+            if cards_coll is not None:
+                card_count = cards_coll.count_documents({})
+                print(f"Cards collection: {cards_coll.name} (total={card_count})")
+                sample = cards_coll.find_one({})
+                if sample:
+                    print("Sample card fields:", sorted(sample.keys()))
+                else:
+                    print("No sample card found to infer schema.")
+            else:
+                print("Could not access the cards collection for schema reporting.")
+
+    except Exception as exc:
+        # Avoid crashing when some notes are invalid or connection issues occur.
+        print(f"Import failed: {exc}")
+        return
 
 
 def main(argv: Optional[List[str]] = None) -> int:

@@ -78,6 +78,47 @@ def _nullable_text(value: Any) -> Optional[str]:
     return text if text else None
 
 
+def wa_fingerprint_row_to_document_record(row: Mapping[str, Any]) -> DocumentRecord:
+    """Convert a WesternArmenianLLM fingerprint CSV row to ``DocumentRecord``.
+
+    Note: fingerprint exports typically do not include raw text; the row often
+    includes a pre-computed normalized hash (``sha256(text_normalized)``).
+    """
+
+    raw_dialect = str(row.get("dialect_tag", "")).strip().lower()
+    if raw_dialect in {"western_armenian", "wa", "hyw"}:
+        dialect = DialectTag.WESTERN_ARMENIAN
+    elif raw_dialect in {"eastern_armenian", "ea", "hy"}:
+        dialect = DialectTag.EASTERN_ARMENIAN
+    elif raw_dialect == "mixed":
+        dialect = DialectTag.MIXED
+    else:
+        dialect = DialectTag.UNKNOWN
+
+    source = _nullable_text(row.get("source")) or "wa_export"
+    path_id = _nullable_text(row.get("id/path")) or _nullable_text(row.get("id"))
+    content_hash = _nullable_text(row.get("sha256(text_normalized)"))
+
+    document_id = path_id or (f"sha256:{content_hash}" if content_hash else "unknown")
+    title = _nullable_text(row.get("title"))
+    char_count = _nullable_int(row.get("char_count"))
+
+    return DocumentRecord(
+        document_id=document_id,
+        source_family=source,
+        text="",
+        title=title,
+        source_url=path_id,
+        content_hash=content_hash,
+        char_count=char_count,
+        dialect_tag=dialect,
+        metadata={
+            "source_path": path_id,
+            "fingerprint_only": True,
+        },
+    )
+
+
 def _nullable_int(value: Any) -> Optional[int]:
     if value is None or value == "":
         return None

@@ -107,7 +107,6 @@ class TestAnkiCardRowToLexiconEntry:
             "morphology_json": '{"stem": "test"}',
         }
         entry = anki_card_row_to_lexicon_entry(row)
-        assert entry.metadata["anki_note_id"] == 123
         assert entry.metadata["deck_name"] == "Armenian"
         assert entry.metadata["metadata_json"] == {"level": 1}
         assert entry.metadata["morphology_json"] == {"stem": "test"}

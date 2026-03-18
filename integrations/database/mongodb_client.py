@@ -96,6 +96,11 @@ class MongoDBCorpusClient:
         return self.db["documents"]
 
     @property
+    def cards(self) -> Any:
+        """Get cards collection, used for Anki flashcard data."""
+        return self.db["cards"]
+
+    @property
     def metadata(self) -> Any:
         """Get metadata collection for pipeline tracking."""
         return self.db["metadata"]
@@ -192,6 +197,11 @@ class MongoDBCorpusClient:
         self.documents.create_index([("processing.filtered", ASCENDING)])
         self.documents.create_index([("content_hash", ASCENDING)], unique=True)
         self.documents.create_index([("normalized_content_hash", ASCENDING)])
+
+        # Cards collection indexes (Anki flashcard data)
+        self.cards.create_index([("anki_note_id", ASCENDING)], unique=True)
+        self.cards.create_index([("word", ASCENDING)])
+        self.cards.create_index([("deck_name", ASCENDING)])
 
         # Metadata collection indexes
         self.metadata.create_index([("stage", ASCENDING)])

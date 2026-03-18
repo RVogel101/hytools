@@ -55,17 +55,17 @@ class ExtractionRegistry:
     def _register_default_tools(self) -> None:
         """Register the canonical extraction tool suite (all MongoDB-native)."""
 
-        self._tools["import_anki_sqlite"] = ExtractionToolSpec(
-            name="import_anki_sqlite",
-            description="Import Anki SQLite DB rows into MongoDB",
-            module="ingestion.extraction.import_anki_sqlite",
+        self._tools["import_anki_to_mongodb"] = ExtractionToolSpec(
+            name="import_anki_to_mongodb",
+            description="Import Anki cards from AnkiConnect into MongoDB",
+            module="ingestion.extraction.import_anki_to_mongodb",
             function="main",
-            inputs=["armenian_cards.db (SQLite)"],
-            outputs=["MongoDB documents collection"],
+            inputs=["AnkiConnect (HTTP)"],
+            outputs=["MongoDB cards collection"],
             status=ToolStatus.AVAILABLE,
             batch=1,
-            dependencies=[ToolDependency(name="sqlite3", required=True)],
-            notes="Reads from Anki SQLite DB; inserts to MongoDB",
+            dependencies=[ToolDependency(name="requests", required=True), ToolDependency(name="pymongo", required=True)],
+            notes="Fetches Anki notes via AnkiConnect and stores them in MongoDB",
         )
 
         self._tools["validate_contract_alignment"] = ExtractionToolSpec(

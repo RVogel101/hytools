@@ -110,7 +110,7 @@ def _build_stages(cfg: dict) -> list[Stage]:
               enabled=_on("export_corpus_overlap_fingerprints"), has_run=True, has_main=True),
 
         # ── Extraction pipeline (all MongoDB-native) ────────────────────
-        Stage("import_anki_sqlite",                    "ingestion.extraction.import_anki_sqlite",
+        Stage("import_anki_to_mongodb",                "ingestion.extraction.import_anki_to_mongodb",
               enabled=_on("extraction"), has_run=True, has_main=True),
         Stage("validate_contract_alignment",           "ingestion.validation.validate_contract_alignment",
               enabled=_on("extraction"), has_run=True, has_main=True),
@@ -488,7 +488,7 @@ def main() -> None:
                 "nayiri", "mss_nkr", "worldcat_searcher",
             ],
             "extraction": [
-                "import_anki_sqlite", "validate_contract_alignment",
+                "import_anki_to_mongodb", "validate_contract_alignment",
                 "materialize_dialect_views", "summarize_unified_documents",
             ],
             "postprocessing": [
