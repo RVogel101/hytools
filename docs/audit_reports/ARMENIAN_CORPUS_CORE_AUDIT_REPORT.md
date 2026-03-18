@@ -35,7 +35,7 @@ The project uses **GitHub Actions** for CI/CD:
 
 1. Checkout code, install package (`pip install -e '.[all]'`)
 2. Restore cache (`data/raw/`, `data/logs/`, `data/frequencies/`)
-3. Ingest cached JSONL into MongoDB (`integrations.database.run_ingestion`)
+3. **[REMOVED]** Ingest cached JSONL into MongoDB (previously `integrations.database.run_ingestion`)
 4. Determine stages from schedule or manual input
 5. Run scraping pipeline (`scraping.runner run`)
 6. Upload artifacts: `pipeline_summary.json`, frequency lists
@@ -77,7 +77,7 @@ The project uses **flat packages** only. The legacy `armenian_corpus_core` packa
 | `linguistics`    | Dialect distance, text metrics, vocabulary filter                       |
 | `ocr`            | Tesseract pipeline, preprocessing, cursive detection                    |
 | `research`       | Book inventory, author research, coverage analysis                      |
-| `integrations`   | MongoDB client, run_ingestion, Anki                                     |
+| `integrations`   | MongoDB client, Anki                                                    |
 | `core_contracts` | Types, hashing, domain contracts                                        |
 
 
@@ -139,11 +139,11 @@ The project uses **flat packages** only. The legacy `armenian_corpus_core` packa
 
 - Stage names aligned with runner: `wikipedia_wa`, `wikipedia_ea`, `ea_news`, `loc`, etc.
 - Artifact path: `data/logs/pipeline_summary.json`.
-- Ingestion step: `integrations.database.run_ingestion --raw-only` before scraping.
+- Ingestion step: **removed** (previously `integrations.database.run_ingestion --raw-only`).
 
 ### Run Ingestion Script
 
-- `integrations/database/run_ingestion.py`: Loads cached JSONL from `data/raw/` into MongoDB.
+- `integrations/database/run_ingestion.py`: **removed** (JSONL caching path is no longer supported).
 - Used by CI; available for manual runs.
 
 ### LOC and Background Design
@@ -178,7 +178,7 @@ The project uses **flat packages** only. The legacy `armenian_corpus_core` packa
 | cleaning.run_mongodb | ✅           | ✅          | Via `scraping.runner --only cleaning` |
 | augmentation.runner  | ✅           | ✅          | CLI: estimate, run, status, metrics   |
 | augmentation metrics | ✅           | ✅          | MongoDB only; `runner metrics`        |
-| run_ingestion        | ✅           | ✅          | CI + manual                           |
+| run_ingestion        | ❌ Removed | ❌ Removed | Not used (JSONL path removed)         |
 | book_inventory       | ✅           | ✅          | MongoDB when config present           |
 | cursive detection    | ✅           | ✅          | OCR preprocessor                      |
 | CI scraping workflow | ✅           | ✅          | Weekly + daily + manual               |

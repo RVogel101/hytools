@@ -16,7 +16,7 @@
 | **HathiTrust** | Implemented; catalog + Bibliographic API fallback in MongoDB. 403 on public search; use Hathifiles/seed list or HTRC bulk when available |
 | **Other sources** | Wikipedia (WA/EA), Wikisource, newspaper, ea_news, rss_news, culturax, english_sources, nayiri, gomidas, ocr_ingest, mss_nkr; mechitarist/agbu stubs (partnership required) |
 | **Post-processing** | metadata_tagger, frequency_aggregator, word_frequency_facets (multi-dimensional + target-weighted); cleaning via `cleaning.run_mongodb` |
-| **Extraction** | import_anki_sqlite, validate_contract_alignment, materialize_dialect_views, summarize_unified_documents |
+| **Extraction** | import_anki_to_mongodb, validate_contract_alignment, materialize_dialect_views, summarize_unified_documents |
 
 ---
 

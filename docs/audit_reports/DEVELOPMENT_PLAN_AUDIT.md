@@ -31,7 +31,7 @@ From README, INDEX, and FUTURE_IMPROVEMENTS:
 |------|--------|------|
 | Package scaffolding (pyproject.toml, setuptools) | ✅ Done | Flat packages: scraping, cleaning, core_contracts, linguistics, ocr, research, augmentation, integrations |
 | Extraction tool registry | ✅ Done | `scraping/registry.py` with ExtractionToolSpec; used by tests/docs; runner uses `_build_stages()` directly |
-| CI/CD workflow | ✅ Done | `.github/workflows/scraping.yml` — weekly/daily/manual; MongoDB service; run_ingestion + runner |
+| CI/CD workflow | ✅ Done | `.github/workflows/scraping.yml` — weekly/daily/manual; MongoDB service; runner |
 | Pipeline orchestration | ✅ Done | `scraping/runner.py` — run/status/list, --only/--skip/--group, background mode |
 | Move core contracts to central package | ✅ Done | `core_contracts/` (types, hashing); used by scraping/mappers, data_sources, tests |
 
@@ -79,7 +79,7 @@ From README, INDEX, and FUTURE_IMPROVEMENTS:
 | cleaning (run_mongodb) | ✅ | Stage in runner |
 | metadata_tagger, frequency_aggregator | ✅ | |
 | export_corpus_overlap_fingerprints | ✅ | main(); in runner |
-| import_anki_sqlite | ✅ | main(); extraction group |
+| import_anki_to_mongodb | ✅ | main(); extraction group |
 | validate_contract_alignment | ✅ | run() + main(); extraction |
 | materialize_dialect_views | ✅ | run(); extraction |
 | summarize_unified_documents | ✅ | run(); extraction |
@@ -113,7 +113,7 @@ All extraction stages in README exist and are registered in `runner._build_stage
 | Component | Status | Notes |
 |-----------|--------|------|
 | insert_or_skip + document_metrics | ✅ | TextMetricCard + loanwords + possible_loanwords when compute_metrics_on_ingest |
-| run_ingestion (JSONL → MongoDB) | ✅ | integrations.database.run_ingestion; used in CI |
+| run_ingestion (JSONL → MongoDB) | ❌ Removed | Removed; uses local JSONL and is no longer supported |
 | Drift detection on ingest | ❌ | FUTURE_IMPROVEMENTS — pending baseline + ingest hook |
 | Metrics pipeline (augmentation) | ✅ | MongoDB-only; augmentation_metrics |
 

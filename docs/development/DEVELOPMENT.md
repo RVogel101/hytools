@@ -72,7 +72,7 @@ armenian-corpus-core/
 │   ├── english_sources.py     # English-language academic sources
 │   ├── nayiri.py              # Nayiri dictionary scraper (Selenium)
 │   ├── mss_nkr.py             # Matenadaran NKR archive
-│   ├── import_anki_sqlite.py   # Anki SQLite -> MongoDB
+│   ├── import_anki_to_mongodb.py   # AnkiConnect -> MongoDB
 │   ├── _wa_filter.py          # Western Armenian dialect classifier
 │   ├── _mongodb_helper.py     # Shared MongoDB utilities
 │   └── (other extraction/post-processing modules)

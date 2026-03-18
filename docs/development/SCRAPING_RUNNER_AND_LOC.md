@@ -10,7 +10,7 @@ The scraping pipeline is **centralized** in `scraping.runner`. All data-acquisit
 - **Datasets**: culturax, english_sources  
 - **Reference**: nayiri, gomidas, **mechitarist**, **agbu**, ocr_ingest, mss_nkr, worldcat_searcher  
 - **Post-processing**: **cleaning** (cleaning.run_mongodb), metadata_tagger, frequency_aggregator  
-- **Extraction**: import_anki_sqlite, validate_contract_alignment, materialize_dialect_views, summarize_unified_documents  
+- **Extraction**: import_anki_to_mongodb, validate_contract_alignment, materialize_dialect_views, summarize_unified_documents  
 
 **CLI:** `python -m scraping.runner run | status | list | dashboard`
 
@@ -76,7 +76,7 @@ Stage names for `--only` and `--skip` (and `--group` when used) match the runner
 - **Datasets:** culturax, english_sources  
 - **Reference:** nayiri, gomidas, mechitarist, agbu, ocr_ingest, mss_nkr, worldcat_searcher  
 - **Post-processing:** cleaning, metadata_tagger, frequency_aggregator, export_corpus_overlap_fingerprints  
-- **Extraction:** import_anki_sqlite, validate_contract_alignment, materialize_dialect_views, summarize_unified_documents  
+- **Extraction:** import_anki_to_mongodb, validate_contract_alignment, materialize_dialect_views, summarize_unified_documents  
 
 **Dashboard:** `python -m scraping.runner dashboard [--output data/logs/scraper_dashboard.html]` generates static HTML with document counts by source and word frequency summary. Requires MongoDB.
 

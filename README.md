@@ -34,8 +34,8 @@ Central package for Armenian language corpus collection, extraction, and normali
 
 After scraping, the extraction pipeline processes MongoDB data through these stages:
 
-### 1. Import Anki Data
-Imports Anki flashcard data (SQLite) into MongoDB.
+### 1. Import Vocabulary Data
+Imports vocabulary data into MongoDB.
 
 ### 2. Validate Contract Alignment
 Validates data integrity: required fields, dialect tags, source distribution.
@@ -240,14 +240,8 @@ mypy armenian_corpus_core/
 - `armenian_corpus_core/core_contracts/types.py` — Domain dataclasses
 - `armenian_corpus_core/core_contracts/hashing.py` — Text normalization and hash helpers
 
-**Pipeline & Extraction**:
 
-- `scraping/runner.py` — Unified pipeline orchestrator (scraping + extraction + post-processing)
-- `scraping/registry.py` — Stage metadata catalog
-- `scraping/import_anki_sqlite.py` — Anki SQLite -> MongoDB import
-- `scraping/validate_contract_alignment.py` — Corpus integrity validation
-- `scraping/export_corpus_overlap_fingerprints.py` — Near-duplicate detection
-- `scraping/materialize_dialect_views.py` — Dialect view materialization
+ `ingestion/extraction/import_anki_to_mongodb.py` — AnkiConnect → MongoDB import
 - `scraping/summarize_unified_documents.py` — Corpus summary statistics
 - `scraping/frequency_aggregator.py` — Word frequency aggregation
 - `scraping/metadata_tagger.py` — Source metadata enrichment

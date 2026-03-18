@@ -59,7 +59,7 @@ These stages work with only MongoDB + default config:
 | **ocr_ingest** | Scans `paths.raw_dir` for files to OCR | No-op if directory empty |
 | **mss_nkr** | None | Can run (downloads to disk) |
 | **worldcat_searcher** | None | Catalog search only; doesn't insert into corpus |
-| **import_anki_sqlite** | Anki SQLite DB path | Fails if file missing |
+| **import_anki_to_mongodb** | AnkiConnect → MongoDB | Fails if MongoDB unavailable |
 | **export_corpus_overlap_fingerprints** | None | Runs over MongoDB |
 
 ---
@@ -84,7 +84,7 @@ python -m ingestion.runner run --only metadata_tagger frequency_aggregator clean
 Or run scraping + post-processing in one go, but **skip** stages that require keys or often fail:
 
 ```powershell
-python -m ingestion.runner run --skip dpla hathitrust culturax newspaper nayiri import_anki_sqlite worldcat_searcher mechitarist agbu
+python -m ingestion.runner run --skip dpla hathitrust culturax newspaper nayiri import_anki_to_mongodb worldcat_searcher mechitarist agbu
 ```
 
 ---
@@ -159,7 +159,7 @@ python -m ingestion.runner run --config config/settings.yaml --skip dpla ...
 
 1. **Start MongoDB**, install deps (`pip install -e ".[mongodb,rss,browser,huggingface]"`).
 2. **First test:** `python -m ingestion.runner run --only wikipedia wikisource archive_org gallica loc gomidas` then `--only metadata_tagger frequency_aggregator cleaning materialize_dialect_views summarize_unified_documents validate_contract_alignment`.
-3. **Or** full run with skips: `python -m ingestion.runner run --skip dpla hathitrust culturax newspaper nayiri import_anki_sqlite worldcat_searcher mechitarist agbu`.
+3. **Or** full run with skips: `python -m ingestion.runner run --skip dpla hathitrust culturax newspaper nayiri import_anki_to_mongodb worldcat_searcher mechitarist agbu`.
 4. **Verify:** `python -m ingestion.runner status` and `dashboard`; check `db.documents` in MongoDB.
 
 For more detail: [DEVELOPMENT.md](development/DEVELOPMENT.md), [SCRAPING_RUNNER_AND_LOC.md](SCRAPING_RUNNER_AND_LOC.md), [SCRAPER_IMPLEMENTATION_STATUS.md](development/SCRAPER_IMPLEMENTATION_STATUS.md).

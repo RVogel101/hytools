@@ -30,12 +30,12 @@
 5. **Reference**: nayiri → gomidas → mechitarist → agbu → ocr_ingest → mss_nkr  
 6. **Standalone**: worldcat_searcher (has_main only)  
 7. **Post-processing**: cleaning (cleaning.run_mongodb) → metadata_tagger → frequency_aggregator → export_corpus_overlap_fingerprints  
-8. **Extraction**: import_anki_sqlite → validate_contract_alignment → materialize_dialect_views → summarize_unified_documents  
+8. **Extraction**: import_anki_to_mongodb → validate_contract_alignment → materialize_dialect_views → summarize_unified_documents  
 
 ### Stage Invocation
 
 - **`run(config)`**: Most stages; runner passes `config` dict.  
-- **`main()`**: worldcat_searcher, import_anki_sqlite; export_corpus_overlap_fingerprints and validate_contract_alignment have both.  
+- **`main()`**: worldcat_searcher, import_anki_to_mongodb; export_corpus_overlap_fingerprints and validate_contract_alignment have both.  
 - **materialize_dialect_views**, **summarize_unified_documents**: `run()` only.
 
 ---
@@ -88,7 +88,7 @@
 | **frequency_aggregator** | ✅ Complete | ✅ | ❌ | Word frequency; target-weighted config supported |
 | **word_frequency_facets** | ✅ Complete | ✅ | ❌ | Multi-dimensional facets (author, source, dialect, year, region); aggregate/query CLI |
 | **export_corpus_overlap_fingerprints** | ✅ Complete | ✅ | ❌ | main() or run |
-| **import_anki_sqlite** | ✅ Complete | ✅ | ❌ | Reads SQLite, inserts to MongoDB |
+| **import_anki_to_mongodb** | ✅ Complete | ✅ | ❌ | Reads AnkiConnect, inserts to MongoDB |
 | **validate_contract_alignment** | ✅ Complete | ✅ | ❌ | Validates corpus |
 | **materialize_dialect_views** | ✅ Complete | ✅ | ❌ | Dialect tagging |
 | **summarize_unified_documents** | ✅ Complete | ✅ | ❌ | Summary stats |
@@ -111,7 +111,7 @@
 - **wikipedia_wa**, **wikipedia_ea**, **wikisource** — stream to MongoDB (dumps kept for resume)  
 - **ocr_ingest** — temp dirs only  
 - **metadata_tagger**, **frequency_aggregator**, **word_frequency_facets**, **materialize_dialect_views**, **summarize_unified_documents** — read/write MongoDB only  
-- **import_anki_sqlite** — reads SQLite, writes MongoDB  
+- **import_anki_to_mongodb** — reads AnkiConnect, writes MongoDB  
 - **validate_contract_alignment**, **export_corpus_overlap_fingerprints** — MongoDB only  
 - **mechitarist**, **agbu** — stubs; when configured, catalog/API → MongoDB
 
@@ -142,7 +142,7 @@
 - newspaper, rss_news, english_sources, culturax, nayiri, mss_nkr
 - ocr_ingest
 - metadata_tagger, frequency_aggregator, materialize_dialect_views, summarize_unified_documents
-- import_anki_sqlite, validate_contract_alignment, export_corpus_overlap_fingerprints
+- import_anki_to_mongodb, validate_contract_alignment, export_corpus_overlap_fingerprints
 - runner
 
 ### `test_worldcat_searcher`
@@ -186,7 +186,7 @@
 - **archive_org**, **hathitrust**, **gallica**, **dpla**, **gomidas**: MongoDB-only  
 - **wikipedia_wa**, **wikipedia_ea**, **wikisource**: MongoDB-only  
 - **metadata_tagger**, **frequency_aggregator**, **word_frequency_facets**, **materialize_dialect_views**, **summarize_unified_documents**  
-- **import_anki_sqlite**, **validate_contract_alignment**, **export_corpus_overlap_fingerprints**  
+- **import_anki_to_mongodb**, **validate_contract_alignment**, **export_corpus_overlap_fingerprints**  
 - **runner**: run, status, list, dashboard; --only, --skip, --group
 
 ### Medium (works but writes files)
@@ -272,7 +272,7 @@ scraping/
 ├── materialize_dialect_views.py
 ├── summarize_unified_documents.py
 ├── export_corpus_overlap_fingerprints.py
-├── import_anki_sqlite.py
+├── import_anki_to_mongodb.py
 ├── validate_contract_alignment.py
 ├── worldcat_searcher.py     # WorldCat (catalog only)
 ├── metadata.py

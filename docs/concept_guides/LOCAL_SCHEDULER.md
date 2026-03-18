@@ -170,7 +170,7 @@ systemctl --user start armenian-corpus-scraping-daily.timer
 If you have cached JSONL in `data/raw/` and want to load it into MongoDB before scraping:
 
 ```bash
-python -m integrations.database.run_ingestion --raw-only --mongodb-uri mongodb://localhost:27017/ --skip-if-unavailable
+# (Removed) JSONL ingestion step no longer supported: run_ingestion has been removed.
 ```
 
 Add to cron or a systemd service if you run ingestion before scraping.

@@ -33,7 +33,7 @@ Packages are at **repository root** (no `armenian_corpus_core/` directory). The 
 │   ├── anki/               # AnkiConnect + card DB
 │   └── database/           # MongoDB client, ingestion, GridFS
 │       ├── mongodb_client.py
-│       ├── run_ingestion.py
+│       ├── (removed) run_ingestion.py
 │       └── ...
 ├── linguistics/            # Language analysis (Option B: phonology, lexicon, dialect, metrics)
 │   ├── __init__.py         # Re-exports + backward-compat aliases (phonetics, dialect_classifier, loanword_tracker)
@@ -110,7 +110,7 @@ Packages are at **repository root** (no `armenian_corpus_core/` directory). The 
 │   │   └── migrate_book_inventory.py   # JSONL -> MongoDB migration CLI
 │   ├── extraction/         # Other stores -> MongoDB
 │   │   ├── __init__.py
-│   │   └── import_anki_sqlite.py
+│   │   └── import_anki_to_mongodb.py
 │   ├── enrichment/        # MongoDB -> MongoDB (backfill, views, biography)
 │   │   ├── __init__.py
 │   │   ├── metadata_tagger.py
@@ -139,7 +139,7 @@ Packages are at **repository root** (no `armenian_corpus_core/` directory). The 
 
 ## Architecture principles
 
-1. **Ingestion is organized by function** — `ingestion/` has subpackages: `_shared` (helpers, metadata, mappers, registry, research_config), `acquisition` (wiki, archive_org, loc, news, etc.), `discovery` (worldcat_searcher, book_inventory, book_inventory_runner, author_research, author_extraction), `extraction` (import_anki_sqlite), `enrichment` (metadata_tagger, materialize_dialect_views, biography_enrichment), `aggregation` (frequency_aggregator, word_frequency_facets, summarize_unified_documents, coverage_analysis, timeline_generation), `validation` (validate_contract_alignment, export_corpus_overlap_fingerprints). Use `ingestion._shared.helpers` for MongoDB, WA filter, wikitext. Author/book pipeline: `ingestion.research_runner`; config: `ingestion._shared.research_config`.
+1. **Ingestion is organized by function** — `ingestion/` has subpackages: `_shared` (helpers, metadata, mappers, registry, research_config), `acquisition` (wiki, archive_org, loc, news, etc.), `discovery` (worldcat_searcher, book_inventory, book_inventory_runner, author_research, author_extraction), `extraction` (import_anki_to_mongodb), `enrichment` (metadata_tagger, materialize_dialect_views, biography_enrichment), `aggregation` (frequency_aggregator, word_frequency_facets, summarize_unified_documents, coverage_analysis, timeline_generation), `validation` (validate_contract_alignment, export_corpus_overlap_fingerprints). Use `ingestion._shared.helpers` for MongoDB, WA filter, wikitext. Author/book pipeline: `ingestion.research_runner`; config: `ingestion._shared.research_config`.
 2. **Runner-driven stages** — `ingestion/runner.py` builds the ordered stage list in `_build_stages()` and runs them via dynamic import. Config key: `ingestion` (or `scraping` for backward compatibility). Use `--only` / `--skip` to select stages. Dashboard: `python -m ingestion.runner dashboard`.
 3. **MongoDB-first** — Corpus documents, catalogs, metadata, word frequencies, book inventory, and augmentation state live in MongoDB. Config: `database.mongodb_uri`, `database.mongodb_database`.
 4. **Post-processing separate** — Enrichment and aggregation stages do not fetch external data; they enrich or aggregate from existing documents.

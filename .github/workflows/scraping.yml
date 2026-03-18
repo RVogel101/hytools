@@ -60,13 +60,6 @@ jobs:
       - name: Prepare directories
         run: mkdir -p config data/raw data/logs data/frequencies
 
-      - name: Ingest cached JSONL into MongoDB
-        env:
-          MONGODB_URI: mongodb://localhost:27017/
-        run: |
-          python -m integrations.database.run_ingestion --raw-only \
-            --mongodb-uri "$MONGODB_URI" --skip-if-unavailable || true
-
       - name: Determine stages from schedule
         id: stages
         run: |

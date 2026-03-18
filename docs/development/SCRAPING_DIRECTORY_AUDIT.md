@@ -57,7 +57,7 @@ The name **“scraping”** is misleading: only a subset of modules perform web 
 
 | Module | Source | Entry |
 |--------|--------|--------|
-| `import_anki_sqlite` | Anki SQLite DB → MongoDB | `main` |
+| `import_anki_to_mongodb` | AnkiConnect → MongoDB | `main` |
 
 ### 2.4 Enrichment (MongoDB → MongoDB, add/backfill fields)
 
@@ -118,7 +118,7 @@ The name **“scraping”** is misleading: only a subset of modules perform web 
    The skill mentions `wikimedia/`, `digital_libraries/`, `news/`, `datasets/`, `reference/`. The codebase is flat. Either implement subpackages (see below) or update the skill to say “flat under `scraping/`”.
 
 5. **Entry-point inconsistency**  
-   Most stages use `run(config)`; a few use `main()` only (`import_anki_sqlite`, `worldcat_searcher`, `export_corpus_overlap_fingerprints`, `validate_contract_alignment`). Runner handles both; for consistency and testability, prefer `run(config)` where applicable and have `main()` call it.
+   Most stages use `run(config)`; a few use `main()` only (`import_anki_to_mongodb`, `worldcat_searcher`, `export_corpus_overlap_fingerprints`, `validate_contract_alignment`). Runner handles both; for consistency and testability, prefer `run(config)` where applicable and have `main()` call it.
 
 ---
 
@@ -156,7 +156,7 @@ So “ETL” can be used if you clarify “load into document store, not relatio
   - **`acquisition`** — “Data acquisition pipeline for the Armenian corpus.”
 - **Stage naming (internal):**
   - **Acquisition / ingest** — keep source-based names: `wikipedia`, `archive_org`, `loc`, `news`, `culturax`, etc. No need to suffix “_scraper” or “_ingest” for every one; the runner already groups them.
-  - **Extraction** — name by source: `import_anki_sqlite` is clear.
+  - **Extraction** — name by source: `import_anki_to_mongodb` is clear.
   - **Enrichment** — `metadata_tagger`, `materialize_dialect_views` are already clear.
   - **Aggregation** — `frequency_aggregator`, `word_frequency_facets`, `summarize_unified_documents` are clear.
   - **Validation** — `validate_contract_alignment`, `export_corpus_overlap_fingerprints` are clear.
@@ -215,7 +215,7 @@ scraping/   (or ingestion/)
 │   └── worldcat_searcher.py
 ├── extraction/             # Other store → MongoDB
 │   ├── __init__.py
-│   └── import_anki_sqlite.py
+│   └── import_anki_to_mongodb.py
 ├── enrichment/             # MongoDB → MongoDB (add/backfill)
 │   ├── __init__.py
 │   ├── metadata_tagger.py
@@ -253,7 +253,7 @@ scraping/
 ├── reference/        # nayiri, gomidas, mechitarist, agbu, mss_nkr
 ├── ingest/           # ocr_ingest (generic file ingest)
 ├── discovery/        # worldcat_searcher
-├── extraction/       # import_anki_sqlite
+├── extraction/       # import_anki_to_mongodb
 ├── enrichment/       # metadata_tagger, materialize_dialect_views
 ├── aggregation/      # frequency_aggregator, word_frequency_facets, summarize_unified_documents
 └── validation/       # validate_contract_alignment, export_corpus_overlap_fingerprints
@@ -327,7 +327,7 @@ Augmentation exists to produce **extra training data** for the Western Armenian 
 - **Runner and facets:** **`word_frequency_facets`** added as a pipeline stage (after `frequency_aggregator`) with **`run(config)`**.
 - **Docs:** **STRUCTURE.md** and **add-new-scraper skill** updated to Option B and ingestion paths.
 - **Organization:** **Option B** implemented: `ingestion/_shared`, `acquisition`, `discovery`, `extraction`, `enrichment`, `aggregation`, `validation`. **`scraping/`** kept as compat shim (only `runner.py` delegating to `ingestion.runner`).
-- **Entry points:** All stages use **`run(config)`**; **`main()`** calls it. Updated: `import_anki_sqlite`, `worldcat_searcher`, `export_corpus_overlap_fingerprints`, `validate_contract_alignment`.
+- **Entry points:** All stages use **`run(config)`**; **`main()`** calls it. Updated: `import_anki_to_mongodb`, `worldcat_searcher`, `export_corpus_overlap_fingerprints`, `validate_contract_alignment`.
 
 ---
 
@@ -360,7 +360,7 @@ Augmentation exists to produce **extra training data** for the Western Armenian 
 | Function           | Current modules (examples)                    | Suggested umbrella term in docs |
 |--------------------|-----------------------------------------------|----------------------------------|
 | Acquire from web/API/dump | wiki, archive_org, loc, news, culturax, … | Acquisition / ingest             |
-| Extract from other DB     | import_anki_sqlite                          | Extraction                       |
+| Extract from other DB     | import_anki_to_mongodb                      | Extraction                       |
 | Enrich in place          | metadata_tagger, materialize_dialect_views | Enrichment                       |
 | Aggregate / analytics   | frequency_aggregator, word_frequency_facets, summarize_unified_documents | Aggregation                      |
 | Validate / export        | validate_contract_alignment, export_corpus_overlap_fingerprints | Validation                       |
