@@ -81,6 +81,22 @@ Then post-processing and extraction (they need documents in MongoDB):
 python -m ingestion.runner run --only metadata_tagger frequency_aggregator cleaning materialize_dialect_views summarize_unified_documents validate_contract_alignment
 ```
 
+# Western Armenian branch-only frequency aggregation
+Use this config when you only want `internal_language_branch:hye-w` documents.
+In `config/settings.yaml`, add:
+
+```yaml
+ingestion:
+  frequency_aggregator:
+    internal_language_branch: hye-w
+```
+
+Then run:
+
+```powershell
+python -m ingestion.runner run --only frequency_aggregator --config config/settings.yaml
+```
+
 Or run scraping + post-processing in one go, but **skip** stages that require keys or often fail:
 
 ```powershell

@@ -91,6 +91,16 @@ def _tokenize_armenian(text: str) -> list[str]:
     return _ARMENIAN_WORD_RE.findall(text.lower())
 
 
+def _build_docs_query(config: dict) -> dict:
+    """Build MongoDB query for documents to include in frequency aggregation."""
+    query = {"text": {"$exists": True, "$ne": ""}}
+    scrape_cfg = config.get("ingestion", {}).get("frequency_aggregator", {}) or config.get("scraping", {}).get("frequency_aggregator", {}) or {}
+    branch = scrape_cfg.get("internal_language_branch")
+    if branch:
+        query["metadata.internal_language_branch"] = branch
+    return query
+
+
 def run(config: dict) -> None:
     from hytools.ingestion._shared.helpers import open_mongodb_client
 
@@ -106,8 +116,12 @@ def run(config: dict) -> None:
         source_doc_counts: dict[str, int] = {}
         total_docs = 0
 
+        query = _build_docs_query(config)
+        if query.get("metadata.internal_language_branch"):
+            logger.info("frequency_aggregator: filtering documents by internal_language_branch=%s", query["metadata.internal_language_branch"])
+
         cursor = docs_col.find(
-            {"text": {"$exists": True, "$ne": ""}},
+            query,
             {"source": 1, "text": 1, "title": 1},
         )
 
