@@ -1,8 +1,8 @@
-"""Tests for dialect distance module (moved from WesternArmenianLLM)."""
+﻿"""Tests for dialect distance module (moved from WesternArmenianLLM)."""
 
 from collections import Counter
 
-from linguistics.dialect.dialect_distance import (
+from hytool.linguistics.dialect.dialect_distance import (
     DistanceWeights,
     compute_component_distance,
     cosine_distance,
@@ -91,3 +91,4 @@ def test_component_distance_weight_override():
 
     report = compute_component_distance(west, east, weights=weights)
     assert abs(report.total_distance - report.lexical_metrics["js_divergence"]) < 1e-9
+

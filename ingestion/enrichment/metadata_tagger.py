@@ -1,4 +1,4 @@
-﻿"""Metadata enrichment for MongoDB corpus documents.
+"""Metadata enrichment for MongoDB corpus documents.
 
 Provides source-to-metadata mapping so each document in MongoDB gets
 structured metadata (region, source_type, confidence scores, etc.)
@@ -13,11 +13,11 @@ How metadata_tagger knows source, url, author:
 
 Two usage patterns:
 
-1. **Inline at insert time** â€” scrapers call ``get_source_metadata(source)``
+1. **Inline at insert time** — scrapers call ``get_source_metadata(source)``
    to obtain a dict that gets merged into the ``metadata`` kwarg of
    ``insert_or_skip`` / ``client.insert_document``.
 
-2. **Batch post-processing** â€” ``run(config)`` iterates all MongoDB documents
+2. **Batch post-processing** — ``run(config)`` iterates all MongoDB documents
    and backfills any that lack structured metadata fields.
 """
 
@@ -27,7 +27,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from ingestion._shared.metadata import (
+from hytool.ingestion._shared.metadata import (
     TextMetadata,
     DialectSubcategory,
     Region,
@@ -356,7 +356,7 @@ def _enrich_document(doc: dict, source: str, text: str = "", analyzer: object | 
     When *text* is provided, derives ``internal_language_code`` and
     ``internal_language_branch`` via text analysis (``classify_language``).
     """
-    from ingestion._shared.helpers import classify_language, compute_wa_score_detailed, compute_script_purity_score, _any_armenian_script
+    from hytool.ingestion._shared.helpers import classify_language, compute_wa_score_detailed, compute_script_purity_score, _any_armenian_script
 
     existing = doc.get("metadata", {})
     if existing.get("source_type") and existing.get("enrichment_date"):
@@ -378,11 +378,11 @@ def _enrich_document(doc: dict, source: str, text: str = "", analyzer: object | 
         updates["metadata.internal_language_branch"] = lang_branch
         updates["processing.internal_language_classified"] = True
 
-    # Compute WA score breakdown — applied to every document containing any Armenian script
+    # Compute WA score breakdown � applied to every document containing any Armenian script
     if text.strip() and existing.get("wa_score") is None and _any_armenian_script(text):
         updates["metadata.wa_score"] = compute_wa_score_detailed(text)
 
-    # Compute script purity (fraction of Armenian chars — detects OCR contamination)
+    # Compute script purity (fraction of Armenian chars � detects OCR contamination)
     if text.strip() and existing.get("script_purity_score") is None:
         updates["metadata.script_purity_score"] = compute_script_purity_score(text)
 
@@ -391,8 +391,8 @@ def _enrich_document(doc: dict, source: str, text: str = "", analyzer: object | 
     if text.strip() and existing.get("text_metrics_date") is None and _any_armenian_script(text):
         try:
             from dataclasses import asdict as _asdict
-            from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
-            from linguistics.lexicon.loanword_tracker import analyze_loanwords
+            from hytool.linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
+            from hytool.linguistics.lexicon.loanword_tracker import analyze_loanwords
 
             _qla = analyzer if analyzer is not None else QuantitativeLinguisticsAnalyzer()
             _card = _qla.analyze_text(
@@ -467,9 +467,9 @@ def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
         result["was_enriched"] = True
         result["text_metrics_computed"] = "metadata.text_metrics_date" in combined
     else:
-        # Backfill path: already enriched — fill any missing computed fields.
+        # Backfill path: already enriched � fill any missing computed fields.
         if text.strip():
-            from ingestion._shared.helpers import (
+            from hytool.ingestion._shared.helpers import (
                 classify_language,
                 compute_wa_score_detailed,
                 compute_script_purity_score,
@@ -491,8 +491,8 @@ def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
             if existing.get("text_metrics_date") is None and _has_arm:
                 try:
                     from dataclasses import asdict as _asdict
-                    from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
-                    from linguistics.lexicon.loanword_tracker import analyze_loanwords
+                    from hytool.linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
+                    from hytool.linguistics.lexicon.loanword_tracker import analyze_loanwords
 
                     _qla = analyzer if analyzer is not None else QuantitativeLinguisticsAnalyzer()
                     _card = _qla.analyze_text(
@@ -542,7 +542,7 @@ def run(config: dict) -> None:
     """
     from pathlib import Path
 
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     scrape_cfg = config.get("scraping", {}).get("metadata_tagger", {}) or {}
     output_csv = scrape_cfg.get("output_csv")
@@ -572,10 +572,10 @@ def run(config: dict) -> None:
         chunk_size = max(10, scrape_cfg.get("write_batch_size", 200))
 
         # Pre-initialize the expensive QuantitativeLinguisticsAnalyzer once and share
-        # it across all worker threads.  It is read-only after __init__ → thread-safe.
+        # it across all worker threads.  It is read-only after __init__ ? thread-safe.
         _analyzer: object | None = None
         try:
-            from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer as _QLA
+            from hytool.linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer as _QLA
             _analyzer = _QLA()
         except Exception as _ae:
             logger.warning(
@@ -583,7 +583,7 @@ def run(config: dict) -> None:
             )
 
         logger.info(
-            "metadata_tagger: starting — %d documents, %d workers, chunk_size=%d",
+            "metadata_tagger: starting � %d documents, %d workers, chunk_size=%d",
             total, workers, chunk_size,
         )
 
@@ -638,7 +638,7 @@ def run(config: dict) -> None:
 
                 if processed - _last_logged >= _LOG_INTERVAL:
                     logger.info(
-                        "  progress: %d/%d docs — enriched=%d  backfilled=%d  text_metrics=%d  errors=%d",
+                        "  progress: %d/%d docs � enriched=%d  backfilled=%d  text_metrics=%d  errors=%d",
                         processed, total, enriched, stats_updated, text_metrics_computed, text_metrics_errors,
                     )
                     _last_logged = processed
@@ -673,3 +673,4 @@ def run(config: dict) -> None:
             enriched, skipped, stats_updated, text_metrics_computed, text_metrics_errors, total,
         )
         print(f"Metadata enrichment: {enriched} enriched, {skipped} already tagged, {stats_updated} stats backfilled, {total} total")
+

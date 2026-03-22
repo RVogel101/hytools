@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
+from hytool.ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
 
 logger = logging.getLogger(__name__)
 
@@ -281,7 +281,7 @@ class TimelineGenerator:
             logger.warning("MongoDB not configured; timeline not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; timeline not saved")
             return 0
@@ -315,7 +315,7 @@ class TimelineGenerator:
             logger.warning("MongoDB not configured; period analysis not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; period analysis not saved")
             return 0
@@ -355,7 +355,7 @@ class TimelineGenerator:
             logger.warning("MongoDB not configured; generation report not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; generation report not saved")
             return 0
@@ -371,7 +371,7 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
     
-    from ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
+    from hytool.ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
     
     # Example usage
     manager = AuthorProfileManager()
@@ -394,3 +394,4 @@ if __name__ == "__main__":
     print(f"Generated {len(events)} timeline events")
     for event in events[:5]:
         print(f"  {event.year}: {event.description}")
+

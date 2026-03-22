@@ -348,7 +348,7 @@ class BookInventoryManager:
     ) -> int:
         """Scan MongoDB corpus documents for book/manuscript titles and add to inventory."""
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; cannot scan MongoDB")
             return 0
@@ -491,7 +491,7 @@ class BookInventoryManager:
         if not self._use_mongodb:
             raise RuntimeError("BookInventoryManager requires MongoDB; cannot save.")
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.error("ingestion._shared.helpers not available; cannot save to MongoDB")
             return 0
@@ -569,7 +569,7 @@ class BookInventoryManager:
         if not self._use_mongodb:
             return
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; cannot load from MongoDB")
             return
@@ -621,3 +621,4 @@ if __name__ == "__main__":
     manager.export_to_csv()
     manager.export_summary_report()
     print("✓ Book inventory initialized and sample book added")
+

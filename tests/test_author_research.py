@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ingestion.discovery.author_research import (
+from hytool.ingestion.discovery.author_research import (
     AuthorChronology,
     AuthorProfile,
     AuthorProfileManager,
@@ -194,3 +194,4 @@ class TestAuthorChronology(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -1,9 +1,9 @@
-"""Tests for core_contracts.types module."""
+﻿"""Tests for core_contracts.types module."""
 
 import pytest
 from dataclasses import FrozenInstanceError
 
-from core_contracts.types import (
+from hytool.core_contracts.types import (
     DialectTag,
     DocumentRecord,
     LexiconEntry,
@@ -106,7 +106,7 @@ class TestLexiconEntry:
             lemma="word",
             translation="translation",
             pos="noun",
-            pronunciation="/wɜːrd/",
+            pronunciation="/wÉœËrd/",
             frequency_rank=42,
             syllable_count=1,
             dialect_tag=DialectTag.EASTERN_ARMENIAN,
@@ -125,18 +125,18 @@ class TestPhoneticResult:
     def test_required_fields(self):
         result = PhoneticResult(
             word="test",
-            ipa="/tɛst/",
+            ipa="/tÉ›st/",
             english_approx="test",
             max_phonetic_difficulty=1.5,
         )
         assert result.word == "test"
-        assert result.ipa == "/tɛst/"
+        assert result.ipa == "/tÉ›st/"
         assert result.max_phonetic_difficulty == 1.5
 
     def test_defaults(self):
         result = PhoneticResult(
             word="test",
-            ipa="/tɛst/",
+            ipa="/tÉ›st/",
             english_approx="test",
             max_phonetic_difficulty=1.0,
         )
@@ -145,9 +145,10 @@ class TestPhoneticResult:
     def test_frozen(self):
         result = PhoneticResult(
             word="test",
-            ipa="/tɛst/",
+            ipa="/tÉ›st/",
             english_approx="test",
             max_phonetic_difficulty=1.0,
         )
         with pytest.raises(FrozenInstanceError):
             result.word = "other"  # type: ignore[attr-defined]
+

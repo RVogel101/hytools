@@ -27,7 +27,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Optional
 
-from cleaning.armenian_tokenizer import extract_words
+from hytool.cleaning.armenian_tokenizer import extract_words
 
 
 class CorpusVocabularyBuilder:
@@ -491,3 +491,4 @@ if __name__ == "__main__":
     # Build and save West-East pair mapping for quantitative distance analysis
     west_east_mapping = builder.build_west_east_usage_mapping(east_vocab)
     builder.save_mapping(west_east_mapping)
+

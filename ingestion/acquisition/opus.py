@@ -207,7 +207,7 @@ def _classify(text: str) -> tuple[str, float]:
     language_code is 'hyw' if score meets WA threshold, 'hye' otherwise.
     """
     try:
-        from ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytool.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
         score = compute_wa_score(text[:4000])
         lc = "hyw" if score >= WA_SCORE_THRESHOLD else "hye"
         return lc, score
@@ -242,7 +242,7 @@ def _ingest_corpus(corpus: _OpusCorpus, zip_path: Path, client, config: dict) ->
 
     Returns stats dict.
     """
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     stats = {"lines": 0, "inserted": 0, "skipped": 0, "wa": 0, "ea": 0}
 
@@ -338,7 +338,7 @@ def run(config: dict) -> None:
       corpora (list[str] | null, default null): corpus names to process.
         null = all corpora.  Example: ["CCAligned_hyw", "NLLB_hyw"]
     """
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     opus_cfg = (config.get("scraping") or {}).get("opus") or {}
     enabled: Optional[list[str]] = opus_cfg.get("corpora")  # None → all
@@ -368,3 +368,4 @@ def run(config: dict) -> None:
                 stats = _ingest_corpus(corpus, zip_path, client, config)
                 logger.info("OPUS %s stats: %s", corpus.name, stats)
                 # zip_path is deleted when tmpdir context exits above
+

@@ -3,7 +3,7 @@
 See docs/TEST_VALIDATION_ARMENIAN.md for translations, transliterations, and marker reference.
 """
 
-from linguistics.metrics import (
+from hytool.linguistics.metrics import (
     validate_augmentation_output,
     validate_classical_spelling,
     validate_nayiri_dictionary,
@@ -233,3 +233,4 @@ def test_validation_result_structure():
     assert isinstance(result.armenian_ratio, float)
     assert isinstance(result.issues, list)
     assert isinstance(result.feedback, str)
+

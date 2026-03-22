@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     ArticleChunk,
     split_issue_into_articles,
 )
@@ -38,4 +38,5 @@ def test_max_bytes_enforced_by_subsplitting() -> None:
     assert len(articles) >= 2
     for art in articles:
         assert len(art.text.encode("utf-8")) <= 5_000
+
 

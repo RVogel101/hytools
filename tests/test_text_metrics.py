@@ -8,7 +8,7 @@ See docs/TEST_VALIDATION_ARMENIAN.md for translations, transliterations, and mar
 import unittest
 from pathlib import Path
 
-from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
+from hytool.linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
 
 
 class TestQuantitativeLinguisticsMetrics(unittest.TestCase):
@@ -161,3 +161,4 @@ class TestMetricInterpretation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

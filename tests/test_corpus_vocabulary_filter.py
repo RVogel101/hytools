@@ -13,8 +13,8 @@ Note: Filter may treat -եմ as Eastern; per corrected rules -եմ is Western. S
 import unittest
 from pathlib import Path
 
-from linguistics.metrics.corpus_vocabulary_builder import CorpusVocabularyBuilder
-from linguistics.metrics.vocabulary_filter import WesternArmenianVocabularyFilter
+from hytool.linguistics.metrics.corpus_vocabulary_builder import CorpusVocabularyBuilder
+from hytool.linguistics.metrics.vocabulary_filter import WesternArmenianVocabularyFilter
 
 
 class TestCorpusVocabularyBuilder(unittest.TestCase):
@@ -143,7 +143,7 @@ class TestIntegrationWithLanguageFilter(unittest.TestCase):
 
     def test_compute_wa_score_available(self):
         """Should be able to import and use compute_wa_score."""
-        from cleaning.language_filter import compute_wa_score
+        from hytool.cleaning.language_filter import compute_wa_score
 
         text = "Սա լավ տուն է։"
         score = compute_wa_score(text)
@@ -156,7 +156,7 @@ class TestIntegrationWithLanguageFilter(unittest.TestCase):
         """Should be able to import and use is_western_armenian.
 
         Text: "This is a good house." """
-        from cleaning.language_filter import is_western_armenian
+        from hytool.cleaning.language_filter import is_western_armenian
 
         text = "Սա լավ տուն է։"
         is_wa = is_western_armenian(text)
@@ -189,3 +189,4 @@ class TestCorpusSamples(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

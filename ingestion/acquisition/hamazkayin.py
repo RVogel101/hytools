@@ -70,7 +70,7 @@ def _make_session() -> requests.Session:
 def _classify(text: str) -> tuple[str, float]:
     """Classify text dialect. Returns (language_code, wa_score)."""
     try:
-        from ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytool.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
         score = compute_wa_score(text[:6000])
         lc = "hyw" if score >= WA_SCORE_THRESHOLD else "hye"
         return lc, score
@@ -132,7 +132,7 @@ def _scrape_via_wp_api(
     already_scraped: set[str],
 ) -> dict:
     """Scrape all posts (and pages if configured) via WordPress REST API. Returns stats dict."""
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     stats = {"discovered": 0, "inserted": 0, "skipped": 0, "failed": 0, "wa": 0, "ea": 0}
     base_api = site["base_url"] + "/wp-json/wp/v2"
@@ -230,7 +230,7 @@ def _scrape_via_html_fallback(
     already_scraped: set[str],
 ) -> dict:
     """Fallback HTML scraper if WP REST API is unavailable."""
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     stats = {"discovered": 0, "inserted": 0, "skipped": 0, "failed": 0, "wa": 0, "ea": 0}
     base_url = site["base_url"]
@@ -373,7 +373,7 @@ def run(config: dict) -> None:
       sites (list[str] | null, default null): site names to scrape. null = all.
         Examples: ["pakine"], ["pakine", "hamazkayin"]
     """
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     hz_cfg = (config.get("scraping") or {}).get("hamazkayin") or {}
     enabled_sites: list[str] | None = hz_cfg.get("sites")
@@ -396,3 +396,4 @@ def run(config: dict) -> None:
                 site["name"], stats["discovered"], stats["inserted"], stats["skipped"],
                 stats["failed"], stats["wa"], stats["ea"],
             )
+

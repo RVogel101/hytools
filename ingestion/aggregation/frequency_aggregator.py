@@ -92,7 +92,7 @@ def _tokenize_armenian(text: str) -> list[str]:
 
 
 def run(config: dict) -> None:
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(config) as client:
         if client is None:
@@ -108,9 +108,23 @@ def run(config: dict) -> None:
         # Counter for aggregated Western Armenian (wa) when requested
         wa_counter: Counter = Counter()
 
+        # Include nested metadata and common fields in the projection so
+        # `_is_western_doc` can inspect `internal_language_branch` when it
+        # lives under `metadata` or other containers. Some imports store the
+        # WA flag under `metadata.internal_language_branch` which is not
+        # returned by the default minimal projection.
         cursor = docs_col.find(
             {"text": {"$exists": True, "$ne": ""}},
-            {"source": 1, "text": 1, "title": 1},
+            {
+                "source": 1,
+                "text": 1,
+                "title": 1,
+                "internal_language_branch": 1,
+                "metadata": 1,
+                "processing": 1,
+                "meta": 1,
+                "headers": 1,
+            },
         )
 
         def _is_western_doc(d: dict) -> bool:
@@ -203,6 +217,18 @@ def run(config: dict) -> None:
             logger.info("Building aggregated Western Armenian frequency list (aggregate_western_only=True)")
             # If no WA docs were found, fail loudly per user request
             if not wa_counter:
+                # perform a targeted diagnostic query to help debug cases where
+                # the WA flag may be present but unseen due to projection/schema
+                query = {"$or": [
+                    {"internal_language_branch": "hye-w"},
+                    {"metadata.internal_language_branch": "hye-w"},
+                    {"processing.internal_language_branch": "hye-w"},
+                    {"meta.internal_language_branch": "hye-w"},
+                    {"headers.internal_language_branch": "hye-w"},
+                ]}
+                sample = docs_col.find_one(query, {"_id": 1, "source": 1, "title": 1, "internal_language_branch": 1, "metadata.internal_language_branch": 1})
+                if sample:
+                    raise RuntimeError(f"Found matching WA document via diagnostic query but no WA words aggregated — sample doc: {sample!r}")
                 raise RuntimeError("No documents with internal_language_branch == 'hye-w' found; aborting Western Armenian aggregation")
             # Build set of words from WA counter
             for word, count in wa_counter.items():
@@ -257,7 +283,7 @@ def run(config: dict) -> None:
 
         # Compute difficulty components and composite Option B ranking
         try:
-            from linguistics.morphology.difficulty import analyze_word, score_word_difficulty
+            from hytool.linguistics.morphology.difficulty import analyze_word, score_word_difficulty
         except Exception:
             analyze_word = None
             score_word_difficulty = None
@@ -398,3 +424,4 @@ if __name__ == "__main__":
         cfg.setdefault('ingestion', {}).setdefault('frequency_aggregator', {})['composite_beta'] = b
 
     run(cfg)
+

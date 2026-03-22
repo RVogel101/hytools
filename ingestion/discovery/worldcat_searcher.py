@@ -23,7 +23,7 @@ from typing import Optional
 
 import requests
 
-from ingestion.discovery.book_inventory import (
+from hytool.ingestion.discovery.book_inventory import (
     BookAuthor,
     BookEdition,
     BookInventoryEntry,
@@ -602,3 +602,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

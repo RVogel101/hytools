@@ -1,4 +1,4 @@
-"""Investigate Western Armenian documents in the MongoDB `documents` collection.
+﻿"""Investigate Western Armenian documents in the MongoDB `documents` collection.
 
 Usage:
     python 07-tools/investigate_wa_docs.py --top 20 --sample 5
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from ingestion._shared.helpers import open_mongodb_client
+from hytool.ingestion._shared.helpers import open_mongodb_client
 
 
 def run(limit_sources: int = 20, sample_per_source: int = 3, config: dict | None = None) -> None:
@@ -88,3 +88,4 @@ if __name__ == "__main__":
             cfg = yaml.safe_load(fh) or {}
 
     run(limit_sources=args.top, sample_per_source=args.sample, config=cfg)
+

@@ -1,4 +1,4 @@
-"""MongoDB-native cleaning: normalize and filter corpus documents in place.
+﻿"""MongoDB-native cleaning: normalize and filter corpus documents in place.
 
 Reads from MongoDB documents collection, normalizes text, runs Western Armenian
 filter, and updates processing flags. No file I/O. Deduplication is deferred
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def run(config: dict) -> None:
     """Normalize and filter MongoDB corpus documents in place."""
     try:
-        from ingestion._shared.helpers import open_mongodb_client, compute_wa_score, WA_SCORE_THRESHOLD
+        from hytool.ingestion._shared.helpers import open_mongodb_client, compute_wa_score, WA_SCORE_THRESHOLD
     except ImportError:
         logger.error("ingestion._shared.helpers not available")
         raise
@@ -60,3 +60,4 @@ def run(config: dict) -> None:
                 logger.info("Cleaning MongoDB: %d updated, %d WA", updated, filtered_count)
 
         logger.info("MongoDB cleaning complete: %d normalized, %d Western Armenian", updated, filtered_count)
+

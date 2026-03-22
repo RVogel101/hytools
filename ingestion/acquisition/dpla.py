@@ -30,7 +30,7 @@ from urllib.parse import quote_plus, urlencode
 
 import requests
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     compute_wa_score,
     insert_or_skip,
     log_item,
@@ -38,7 +38,7 @@ from ingestion._shared.helpers import (
     open_mongodb_client,
     WA_SCORE_THRESHOLD,
 )
-from ingestion.enrichment.metadata_tagger import get_source_metadata
+from hytool.ingestion.enrichment.metadata_tagger import get_source_metadata
 
 logger = logging.getLogger(__name__)
 _STAGE = "dpla"
@@ -333,3 +333,4 @@ if __name__ == "__main__":
         with open(path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     run(cfg)
+

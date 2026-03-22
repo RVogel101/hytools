@@ -23,8 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
-from ingestion.discovery.book_inventory import BookInventoryEntry, BookInventoryManager
+from hytool.ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
+from hytool.ingestion.discovery.book_inventory import BookInventoryEntry, BookInventoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -454,3 +454,4 @@ if __name__ == "__main__":
     print("\nTop 10 authors:")
     for name, count in extractor.name_frequency.most_common(10):
         print(f"  {name}: {count} mentions")
+

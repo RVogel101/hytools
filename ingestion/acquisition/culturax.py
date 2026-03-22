@@ -18,7 +18,7 @@ _CULTURAX_STAGE = "culturax"
 def _classify_dialect(text: str) -> str:
     """Classify text as western_armenian or eastern_armenian."""
     try:
-        from ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytool.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
         score = compute_wa_score(text[:5000])
         return "western_armenian" if score >= WA_SCORE_THRESHOLD else "eastern_armenian"
     except ImportError:
@@ -60,7 +60,7 @@ def run(config: dict) -> None:
     """Entry-point: download the Armenian CulturaX subset and stream to MongoDB."""
     from datasets import load_dataset  # type: ignore[import]
 
-    from ingestion._shared.helpers import insert_or_skip, open_mongodb_client
+    from hytool.ingestion._shared.helpers import insert_or_skip, open_mongodb_client
 
     scrape_cfg = config.get("scraping", {}).get("culturax", {})
     dataset_name: str = scrape_cfg.get("dataset_name", "uonlp/CulturaX")
@@ -134,3 +134,4 @@ def run(config: dict) -> None:
             "CulturaX ingest complete: inserted=%d (processed=%d) — %s",
             written, processed, dialect_counts,
         )
+

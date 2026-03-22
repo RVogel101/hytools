@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Summarize corpus documents in MongoDB by source and dialect."""
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def run(config: dict) -> None:
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(config) as client:
         if client is None:
@@ -74,3 +74,4 @@ def run(config: dict) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     run({})
+

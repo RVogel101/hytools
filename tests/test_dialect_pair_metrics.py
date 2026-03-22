@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from linguistics.dialect.dialect_pair_metrics import (
+from hytool.linguistics.dialect.dialect_pair_metrics import (
     compute_dialect_pair_metrics,
     load_pairs,
     save_records_jsonl,
@@ -103,3 +103,4 @@ def test_save_outputs(tmp_path: Path):
 
     summary_obj = json.loads(summary_path.read_text(encoding="utf-8"))
     assert summary_obj["total_pairs"] == 1
+

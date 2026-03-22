@@ -1,4 +1,4 @@
-"""Etymology and loanword-origin storage (Phase 1: Wiktextract/kaikki import).
+﻿"""Etymology and loanword-origin storage (Phase 1: Wiktextract/kaikki import).
 
 Schema: lemma -> source (wiktionary | nayiri | manual), confidence,
 optional etymology_text and relationship types. Stored in MongoDB collection
@@ -28,7 +28,7 @@ DEFAULT_WIKTIONARY_CONFIDENCE = 0.85
 def _normalize_lemma(word: str) -> str:
     """Normalize lemma for storage (NFC, lowercase) so lookup matches tokenizer output."""
     try:
-        from cleaning.armenian_tokenizer import normalize
+        from hytool.cleaning.armenian_tokenizer import normalize
         return normalize(word.strip()) if word else ""
     except ImportError:
         import unicodedata
@@ -170,3 +170,4 @@ __all__ = [
     "import_etymology_from_wiktextract",
     "normalize_lemma",
 ]
+

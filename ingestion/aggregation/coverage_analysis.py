@@ -16,8 +16,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
-from ingestion.discovery.book_inventory import BookInventoryManager, ContentType, CoverageStatus
+from hytool.ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
+from hytool.ingestion.discovery.book_inventory import BookInventoryManager, ContentType, CoverageStatus
 
 logger = logging.getLogger(__name__)
 
@@ -323,7 +323,7 @@ class CoverageAnalyzer:
             logger.warning("MongoDB not configured; coverage gaps not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; coverage gaps not saved")
             return 0
@@ -369,7 +369,7 @@ class CoverageAnalyzer:
             logger.warning("MongoDB not configured; acquisition priorities not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; priorities not saved")
             return 0
@@ -385,7 +385,7 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
     
-    from ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
+    from hytool.ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
     
     # Example usage
     manager = AuthorProfileManager()
@@ -406,3 +406,4 @@ if __name__ == "__main__":
     print(f"Found {len(gaps)} coverage gaps:")
     for gap in gaps:
         print(f"  [{gap.priority}] {gap.description}")
+

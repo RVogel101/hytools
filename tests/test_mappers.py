@@ -1,9 +1,9 @@
-"""Tests for ingestion._shared.mappers module."""
+﻿"""Tests for ingestion._shared.mappers module."""
 
 import json
 
-from core_contracts import DialectTag, DocumentRecord, LexiconEntry
-from ingestion._shared.mappers import (
+from hytool.core_contracts import DialectTag, DocumentRecord, LexiconEntry
+from hytool.ingestion._shared.mappers import (
     _nullable_int,
     _nullable_text,
     _parse_json_field,
@@ -79,7 +79,7 @@ class TestAnkiCardRowToLexiconEntry:
             "word": "  test  ",
             "translation": "exam",
             "pos": "noun",
-            "pronunciation": "/tɛst/",
+            "pronunciation": "/tÉ›st/",
             "frequency_rank": 10,
             "syllable_count": 1,
         }
@@ -151,5 +151,6 @@ class TestSentenceRowToDocumentRecord:
         doc = sentence_row_to_document_record(row)
         assert doc.metadata["card_id"] == 99
         assert doc.metadata["grammar_type"] == "verb"
+
 
 

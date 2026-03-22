@@ -298,7 +298,7 @@ class AuthorProfileManager:
         """
         if self._use_mongodb:
             try:
-                from ingestion._shared.helpers import open_mongodb_client
+                from hytool.ingestion._shared.helpers import open_mongodb_client
             except ImportError:
                 logger.warning("ingestion._shared.helpers not available; cannot save to MongoDB")
                 return 0
@@ -361,7 +361,7 @@ class AuthorProfileManager:
             logger.warning("MongoDB not configured; chronology not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; chronology not saved")
             return 0
@@ -396,7 +396,7 @@ class AuthorProfileManager:
             logger.warning("MongoDB not configured; bibliography not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; bibliography not saved")
             return 0
@@ -422,7 +422,7 @@ class AuthorProfileManager:
             logger.warning("MongoDB not configured; summary report not persisted (no file output)")
             return 0
         try:
-            from ingestion._shared.helpers import open_mongodb_client
+            from hytool.ingestion._shared.helpers import open_mongodb_client
         except ImportError:
             logger.warning("ingestion._shared.helpers not available; summary not saved")
             return 0
@@ -437,7 +437,7 @@ class AuthorProfileManager:
         """Load existing profiles from MongoDB. No local file read; MongoDB required for persistence."""
         if self._use_mongodb:
             try:
-                from ingestion._shared.helpers import open_mongodb_client
+                from hytool.ingestion._shared.helpers import open_mongodb_client
             except ImportError:
                 logger.warning("ingestion._shared.helpers not available; cannot load from MongoDB")
                 return
@@ -490,3 +490,4 @@ if __name__ == "__main__":
     manager.export_summary_report()
     # All outputs go to MongoDB only; no local files written.
     print("✓ Author profile manager initialized with sample author (data in MongoDB)")
+

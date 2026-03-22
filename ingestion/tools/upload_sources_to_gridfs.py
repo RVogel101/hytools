@@ -1,4 +1,4 @@
-"""Upload PDF/image files to MongoDB GridFS for centralized backup.
+﻿"""Upload PDF/image files to MongoDB GridFS for centralized backup.
 
 Usage::
 
@@ -40,7 +40,7 @@ def main() -> int:
             cfg = yaml.safe_load(f) or {}
 
     try:
-        from integrations.database.mongodb_client import MongoDBCorpusClient
+        from hytool.integrations.database.mongodb_client import MongoDBCorpusClient
     except ImportError:
         logger.error("pymongo required. pip install pymongo")
         return 1
@@ -72,3 +72,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

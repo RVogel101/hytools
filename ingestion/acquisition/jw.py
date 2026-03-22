@@ -258,7 +258,7 @@ def _extract_article_content(html: str) -> tuple[Optional[str], Optional[str]]:
 def _classify(text: str) -> tuple[str, float]:
     """Return (language_code, wa_score).  'hyw' for WA, 'hye' for EA."""
     try:
-        from ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytool.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
         score = compute_wa_score(text[:6000])
         lc = "hyw" if score >= WA_SCORE_THRESHOLD else "hye"
         return lc, score
@@ -299,7 +299,7 @@ def _scrape_wol_lang(
     config: dict,
 ) -> dict:
     """Scrape all WOL publications for one language and insert into MongoDB."""
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     stats = {
         "discovered": 0, "inserted": 0, "skipped": 0,
@@ -385,7 +385,7 @@ def run(config: dict) -> None:
     Config keys (under scraping.jw):
       include_eastern (bool, default True): also scrape hy (Eastern Armenian)
     """
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     jw_cfg = (config.get("scraping") or {}).get("jw") or {}
     include_ea = bool(jw_cfg.get("include_eastern", True))
@@ -404,3 +404,4 @@ def run(config: dict) -> None:
             logger.info("=== WOL Eastern Armenian (hy) — r44/lp-rea ===")
             ea_stats = _scrape_wol_lang(_WOL_HY, session, client, config)
             logger.info("WOL hy final: %s", ea_stats)
+

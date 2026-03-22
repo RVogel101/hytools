@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from linguistics.transliteration import to_armenian, to_latin
+from hytool.linguistics.transliteration import to_armenian, to_latin
 
 
 class TestWesternOysUy(unittest.TestCase):
@@ -50,3 +50,4 @@ class TestToArmenianWesternEvYev(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

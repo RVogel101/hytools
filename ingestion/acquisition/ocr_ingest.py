@@ -21,7 +21,7 @@ import logging
 import sys
 from pathlib import Path
 
-from ingestion._shared.helpers import insert_or_skip, open_mongodb_client, try_wa_filter
+from hytool.ingestion._shared.helpers import insert_or_skip, open_mongodb_client, try_wa_filter
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +30,9 @@ _PDF_EXTENSIONS = {".pdf", ".PDF"}
 
 
 def _get_ocr_module():
-    """Import OCR pipeline from ocr package."""
+    """Import OCR pipeline from hytool.ocr package."""
     try:
-        from ocr.pipeline import ocr_pdf
+        from hytool.ocr.pipeline import ocr_pdf
         return ocr_pdf
     except ImportError as e:
         raise ImportError(
@@ -80,8 +80,8 @@ def _ocr_single_file(
     # Image-only: use pytesseract directly
     try:
         import pytesseract
-        from ocr.postprocessor import postprocess
-        from ocr.tesseract_config import build_config
+        from hytool.ocr.postprocessor import postprocess
+        from hytool.ocr.tesseract_config import build_config
     except ImportError:
         logger.warning("Cannot OCR image %s: missing OCR deps", file_path.name)
         return None
@@ -340,3 +340,4 @@ if __name__ == "__main__":
             cfg = yaml.safe_load(f) or {}
 
     run(cfg, path=args.path, source=args.source)
+

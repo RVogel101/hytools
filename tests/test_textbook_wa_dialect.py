@@ -22,7 +22,7 @@ import json
 import unittest
 from pathlib import Path
 
-from linguistics.dialect_classifier import classify_text_dialect
+from hytool.linguistics.dialect_classifier import classify_text_dialect
 
 
 def _load_textbook_data():
@@ -133,3 +133,4 @@ class TestTextbookDataStructure(unittest.TestCase):
         for key in ("vocabulary", "sentences_western", "sentences_eastern"):
             self.assertIn(key, data, f"Missing key: {key}")
             self.assertIsInstance(data[key], list, f"{key} should be a list")
+

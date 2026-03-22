@@ -1,5 +1,5 @@
 #!/bin/bash
-# Auto-install script for armenian-corpus-core (Linux/macOS)
+# Auto-install script for hytool (Linux/macOS)
 
 set -e  # Exit on error
 
@@ -26,7 +26,7 @@ if ! command -v pip3 &> /dev/null; then
 fi
 
 echo ""
-echo "Installing armenian-corpus-core in editable mode..."
+echo "Installing hytool in editable mode..."
 echo "This allows you to make changes to the source code and have them"
 echo "reflected immediately without reinstalling."
 echo ""
@@ -50,7 +50,7 @@ echo ""
 
 # Verify installation
 echo "Verifying installation..."
-python3 -c 'import importlib.metadata; print("✓ Version:", importlib.metadata.version("armenian-corpus-core"))'
+python3 -c 'import importlib.metadata; print("✓ Version:", importlib.metadata.version("hytool"))'
 python3 -c "from scraping.registry import get_registry; r = get_registry(); print(f'✓ Registry: {len(r.list_tools())} tools available')"
 
 echo ""

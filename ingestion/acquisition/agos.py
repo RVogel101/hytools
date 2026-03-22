@@ -192,7 +192,7 @@ def _extract_article_content(html: str) -> tuple[Optional[str], Optional[str]]:
 def _classify(text: str) -> tuple[str, float]:
     """Return (language_code, wa_score).  'hyw' for WA, 'hye' for EA."""
     try:
-        from ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytool.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
         score = compute_wa_score(text[:6000])
         lc = "hyw" if score >= WA_SCORE_THRESHOLD else "hye"
         return lc, score
@@ -232,7 +232,7 @@ def _scrape_agos(
     config: dict,
 ) -> dict:
     """Scrape all Agos Armenian articles and insert into MongoDB."""
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     stats = {
         "discovered": 0, "inserted": 0, "skipped": 0,
@@ -313,7 +313,7 @@ def run(config: dict) -> None:
     Config keys (under scraping.agos):
       max_pages_per_category (int, default 50): max pagination depth per category
     """
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     session = _make_session()
 
@@ -324,3 +324,4 @@ def run(config: dict) -> None:
         logger.info("=== Agos Armenian Newspaper (agos.com.tr/am) ===")
         stats = _scrape_agos(session, client, config)
         logger.info("Agos final: %s", stats)
+

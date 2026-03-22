@@ -92,7 +92,7 @@ def run_aggregation(config: dict) -> dict:
 
     Returns summary dict: total_docs, entries_stored.
     """
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(config) as client:
         if client is None:
@@ -183,7 +183,7 @@ def query(
         - list of (facet, facet_value, count) when neither is set (all facets for this word).
     """
     if client is None:
-        from ingestion._shared.helpers import open_mongodb_client
+        from hytool.ingestion._shared.helpers import open_mongodb_client
         with open_mongodb_client(config or {}) as c:
             if c is None:
                 raise RuntimeError("MongoDB required for query")
@@ -265,3 +265,4 @@ if __name__ == "__main__":
         )
     else:
         parser.print_help()
+

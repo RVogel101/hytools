@@ -268,7 +268,7 @@ def _score_orthographic_mapping(word: str) -> float:
 
     # Try to use transliteration module if available
     try:
-        from linguistics.transliteration import to_latin
+        from hytool.linguistics.transliteration import to_latin
         translit = to_latin(word, dialect="western")
         # If transliteration returns empty, fallback to per-char guess
         if not translit:
@@ -517,3 +517,4 @@ def analyze_word(
 
     # Populate phonetic/orthographic fields (already set in __post_init__)
     return analysis
+

@@ -18,8 +18,8 @@ import logging
 import re
 from pathlib import Path
 
-from ingestion._shared.helpers import compute_wa_score, is_western_armenian, WA_SCORE_THRESHOLD
-from cleaning.language_filter import detect_dialect_mixing_with_author
+from hytool.ingestion._shared.helpers import compute_wa_score, is_western_armenian, WA_SCORE_THRESHOLD
+from hytool.cleaning.language_filter import detect_dialect_mixing_with_author
 
 logger = logging.getLogger(__name__)
 
@@ -333,3 +333,4 @@ def validate_augmented_text(
     """
     filter = WesternArmenianVocabularyFilter()
     return filter.validate_augmented_text(text, author_context)
+

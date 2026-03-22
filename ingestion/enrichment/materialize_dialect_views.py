@@ -34,7 +34,7 @@ _SOURCE_LANG_TO_VIEW = {
 
 
 def run(config: dict) -> None:
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(config) as client:
         if client is None:
@@ -96,3 +96,4 @@ def run(config: dict) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     run({})
+

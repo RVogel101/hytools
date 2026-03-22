@@ -1,6 +1,6 @@
 """Language detection and filtering for Western Armenian text.
 
-Uses compute_wa_score and is_western_armenian from ingestion._shared.helpers (single
+Uses compute_wa_score and is_western_armenian from hytool.ingestion._shared.helpers (single
 source of truth). Provides filter_directory for file-based cleaning and
 detect_dialect_mixing_with_author for author-aware dialect checks.
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml  # type: ignore[reportMissingModuleSource]
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     WA_SCORE_THRESHOLD,
     compute_wa_score,
     is_armenian,
@@ -163,3 +163,4 @@ def _load_config() -> dict:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     run()
+

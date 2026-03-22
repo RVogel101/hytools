@@ -1,11 +1,11 @@
-"""Tests for book inventory system (moved from WesternArmenianLLM)."""
+﻿"""Tests for book inventory system (moved from WesternArmenianLLM)."""
 
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from ingestion.discovery.book_inventory import (
+from hytool.ingestion.discovery.book_inventory import (
     BookAuthor,
     BookInventoryEntry,
     BookInventoryManager,
@@ -263,3 +263,4 @@ class TestContentType(TestCase):
 if __name__ == "__main__":
     import unittest
     unittest.main(verbosity=2)
+

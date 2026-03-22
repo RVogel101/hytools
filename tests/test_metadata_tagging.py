@@ -1,17 +1,17 @@
-"""Tests for metadata schema and dialect tagging (moved from WesternArmenianLLM)."""
+﻿"""Tests for metadata schema and dialect tagging (moved from WesternArmenianLLM)."""
 
 import json
 from pathlib import Path
 from datetime import datetime
 
-from ingestion._shared.metadata import (
+from hytool.ingestion._shared.metadata import (
     TextMetadata,
     DialectSubcategory,
     Region,
     SourceType,
     ContentType,
 )
-from ingestion.enrichment.metadata_tagger import CorpusMetadataTagger
+from hytool.ingestion.enrichment.metadata_tagger import CorpusMetadataTagger
 
 
 def test_western_wikipedia_metadata():
@@ -123,3 +123,4 @@ def test_language_codes_hyw_and_hye_both_used():
     """Explicitly verify both hyw (Western) and hye (Eastern) are assigned."""
     assert TextMetadata.western_wikipedia("WA", "2026-01-01").source_language_code == "hyw"
     assert TextMetadata.eastern_wikipedia("EA", "2026-01-01").source_language_code == "hye"
+

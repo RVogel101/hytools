@@ -55,7 +55,7 @@ def open_mongodb_client(config: dict) -> Generator:
     missing or the connection fails.
     """
     try:
-        from integrations.database.mongodb_client import MongoDBCorpusClient
+        from hytool.integrations.database.mongodb_client import MongoDBCorpusClient
     except ImportError:
         logger.error("pymongo not installed. Run: pip install pymongo")
         yield None
@@ -87,9 +87,9 @@ def _compute_document_metrics(text: str, text_id: str, source: str) -> dict | No
 
         from dataclasses import asdict
 
-        from cleaning.armenian_tokenizer import extract_words
-        from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
-        from linguistics.loanword_tracker import (
+        from hytool.cleaning.armenian_tokenizer import extract_words
+        from hytool.linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
+        from hytool.linguistics.loanword_tracker import (
             analyze_loanwords,
             analyze_possible_loanwords,
         )
@@ -893,3 +893,4 @@ def log_item(
         if v is not None:
             parts.append(f"{k}={v!r}")
     getattr(logger_instance, level)(" | ".join(parts))
+

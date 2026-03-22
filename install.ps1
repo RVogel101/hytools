@@ -1,4 +1,4 @@
-# Auto-install script for armenian-corpus-core (Windows)
+# Auto-install script for hytool (Windows)
 # Usage: powershell -ExecutionPolicy Bypass -File install.ps1
 
 Write-Host "================================" -ForegroundColor Cyan
@@ -33,7 +33,7 @@ try {
 }
 
 Write-Host ""
-Write-Host "Installing armenian-corpus-core in editable mode..." -ForegroundColor Yellow
+Write-Host "Installing hytool in editable mode..." -ForegroundColor Yellow
 Write-Host "This allows you to make changes to the source code and have them" -ForegroundColor Cyan
 Write-Host "reflected immediately without reinstalling." -ForegroundColor Cyan
 Write-Host ""
@@ -65,7 +65,7 @@ Write-Host ""
 
 # Verify installation
 Write-Host "Verifying installation..." -ForegroundColor Yellow
-$result = python -c "import importlib.metadata; v = importlib.metadata.version('armenian-corpus-core'); print(f'Version: {v}')" 2>&1
+$result = python -c "import importlib.metadata; v = importlib.metadata.version('hytool'); print(f'Version: {v}')" 2>&1
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓ $result" -ForegroundColor Green
 } else {

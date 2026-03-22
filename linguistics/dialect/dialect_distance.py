@@ -16,7 +16,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from cleaning.armenian_tokenizer import extract_words
+from hytool.cleaning.armenian_tokenizer import extract_words
 
 _SENT_SPLIT_RE = re.compile(r"(?<=[։.!?])\s+")
 
@@ -398,3 +398,4 @@ def compute_component_distance(
         structural_component=structural_component,
         total_distance=total,
     )
+

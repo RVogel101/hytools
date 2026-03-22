@@ -1,4 +1,4 @@
-"""MSS NKR (mss.nkr.am) scraper for Armenian manuscripts and documents.
+﻿"""MSS NKR (mss.nkr.am) scraper for Armenian manuscripts and documents.
 
 Scrapes the Nagorno-Karabakh State Archive website for PDF and image links,
 then downloads them to a local directory. Uses requests + BeautifulSoup
@@ -154,7 +154,7 @@ def run_scraper(
     dict
         Catalog of discovered items: {url: {status, local_path, filename}}
     """
-    from ingestion._shared.helpers import load_catalog_from_mongodb, save_catalog_to_mongodb
+    from hytool.ingestion._shared.helpers import load_catalog_from_mongodb, save_catalog_to_mongodb
 
     output_dir = Path(output_dir)
     catalog_source = "mss_nkr_catalog"
@@ -191,7 +191,7 @@ def _ingest_text_files_to_mongodb(
     delete_after_ingest: bool = False,
 ) -> dict:
     """Insert any .txt or .html files downloaded from MSS NKR into MongoDB."""
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     stats = {"inserted": 0, "duplicates": 0}
     for url, info in catalog.items():
@@ -233,7 +233,7 @@ def _ingest_text_files_to_mongodb(
 
 def run(config: dict) -> None:
     """Entry-point: scrape and ingest MSS NKR files."""
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     raw_dir = Path(str(config.get("paths", {}).get("raw_dir", "data/raw"))) / "mss_nkr"
     scrape_cfg = config.get("scraping", {}).get("mss_nkr", {})
@@ -264,7 +264,7 @@ def run(config: dict) -> None:
 def main() -> None:
     """CLI entry point. Requires MongoDB for catalog persistence."""
     import argparse
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     parser = argparse.ArgumentParser(
         prog="python -m ingestion.acquisition.mss_nkr",
@@ -302,3 +302,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

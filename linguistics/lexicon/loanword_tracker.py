@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
 try:
-    from cleaning.armenian_tokenizer import extract_words, normalize as _tokenizer_normalize
+    from hytool.cleaning.armenian_tokenizer import extract_words, normalize as _tokenizer_normalize
 except ImportError:
     import re
 
@@ -342,3 +342,4 @@ __all__ = [
     "add_loanwords",
     "normalize_lexicon_word",
 ]
+

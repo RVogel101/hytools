@@ -1,7 +1,7 @@
-"""Integration tests for package imports and top-level API."""
+﻿"""Integration tests for package imports and top-level API."""
 
-from core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
-from ingestion._shared.registry import (
+from hytool.core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
+from hytool.ingestion._shared.registry import (
     get_registry,
     get_tool_spec,
     list_all_tools,
@@ -12,7 +12,7 @@ from ingestion._shared.registry import (
 class TestTopLevelImports:
     def test_version(self):
         import importlib.metadata
-        v = importlib.metadata.version("armenian-corpus-core")
+        v = importlib.metadata.version("hytool")
         assert v.startswith("0.1.0")  # e.g. 0.1.0-alpha or 0.1.0a0
 
     def test_contracts_importable(self):
@@ -51,11 +51,12 @@ class TestTopLevelImports:
 
 class TestCoreContractSubpackage:
     def test_hashing_from_subpackage(self):
-        from core_contracts import normalize_text_for_hash, sha256_normalized
+        from hytool.core_contracts import normalize_text_for_hash, sha256_normalized
         h = sha256_normalized("test")
         assert len(h) == 64
 
     def test_types_from_subpackage(self):
-        from core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
+        from hytool.core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
         entry = LexiconEntry(lemma="test")
         assert entry.lemma == "test"
+

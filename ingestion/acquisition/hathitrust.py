@@ -25,7 +25,7 @@ from typing import Any
 
 import requests
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     insert_or_skip,
     load_catalog_from_mongodb,
     log_item,
@@ -373,7 +373,7 @@ def _download_pdf_and_ocr(htid: str) -> str | None:
 
         out_dir = tmp_dir / "ocr_output"
         try:
-            from ocr.pipeline import ocr_pdf
+            from hytool.ocr.pipeline import ocr_pdf
         except ImportError:
             logger.warning("OCR pipeline unavailable (missing pytesseract/pdf2image). Skipping PDF OCR for %s", htid)
             return None
@@ -506,3 +506,4 @@ def run(config: dict) -> None:
                       metadata_only=stats.get("metadata_only", 0))
         else:
             log_stage(logger, _STAGE, "run_complete", status="no_catalog")
+

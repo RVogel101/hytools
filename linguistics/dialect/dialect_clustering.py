@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from cleaning.armenian_tokenizer import extract_words
+from hytool.cleaning.armenian_tokenizer import extract_words
 
 
 def _safe_log_ratio(num: float, den: float) -> float:
@@ -403,7 +403,7 @@ def main() -> None:
     parser.add_argument("--sweep", action="store_true", help="Run DBSCAN parameter sweep and print stability")
     args = parser.parse_args()
 
-    from integrations.database.mongodb_client import MongoDBCorpusClient
+    from hytool.integrations.database.mongodb_client import MongoDBCorpusClient
     client = MongoDBCorpusClient(uri=args.mongodb_uri, database_name=args.mongodb_database)
     client.connect()
 
@@ -450,3 +450,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

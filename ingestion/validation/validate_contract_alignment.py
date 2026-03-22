@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Validate corpus data integrity in MongoDB.
 
 Checks document counts, required fields, dialect tag validity,
@@ -110,7 +110,7 @@ def _validate(client) -> dict[str, Any]:
 
 
 def run(config: dict) -> None:
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(config) as client:
         if client is None:
@@ -168,3 +168,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

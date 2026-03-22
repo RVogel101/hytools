@@ -66,7 +66,7 @@ def _upsert_article_from_record(
     config: dict | None = None,
 ) -> bool:
     """Upsert article into news_article_catalog and documents; return True if inserted."""
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     if client is None:
         return False
@@ -596,7 +596,7 @@ def _scrape_newspaper_source(
     _wa_threshold = 5.0
     if validate_wa:
         try:
-            from ingestion._shared.helpers import compute_wa_score as _cws, WA_SCORE_THRESHOLD as _thresh
+            from hytool.ingestion._shared.helpers import compute_wa_score as _cws, WA_SCORE_THRESHOLD as _thresh
             _compute_wa_score = _cws
             _wa_threshold = _thresh
         except ImportError:
@@ -718,7 +718,7 @@ def _run_newspapers(config: dict, client) -> None:
 
 # --- Eastern Armenian news agencies (ex ea_news.py) ---
 
-from ingestion._shared.metadata import TextMetadata, Region
+from hytool.ingestion._shared.metadata import TextMetadata, Region
 
 _EA_DEFAULT_HEADERS = {
     "User-Agent": (
@@ -1678,7 +1678,7 @@ def _run_scrape_from_news_catalog(config: dict, client) -> None:
     Runs standard enrichment (insert_or_skip → metrics, drift, etc.). One document per article URL;
     catalog entries hold a meta link (document_id) to their representative document.
     """
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     catalog = getattr(client, "news_article_catalog", None)
     if catalog is None:
@@ -1768,7 +1768,7 @@ def _run_rss_news(config: dict, client) -> None:
         return
 
     # Legacy: fetch each feed and scrape full article per entry (no catalog)
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     request_delay = rss_cfg.get("request_delay", _REQUEST_DELAY)
     enabled_sources = rss_cfg.get("sources")
@@ -1839,7 +1839,7 @@ def run(config: dict) -> None:
     - config.scraping.eastern_armenian.enabled (default True) → EA news agencies
     - config.scraping.rss_news.enabled (default True) → RSS news feeds
     """
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(config) as client:
         if client is None:
@@ -1853,3 +1853,4 @@ def run(config: dict) -> None:
 
         if config.get("scraping", {}).get("rss_news", {}).get("enabled", True):
             _run_rss_news(config, client)
+

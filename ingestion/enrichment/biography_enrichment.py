@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 import requests
 
-from ingestion.discovery.author_research import AuthorProfile
+from hytool.ingestion.discovery.author_research import AuthorProfile
 
 logger = logging.getLogger(__name__)
 
@@ -310,7 +310,7 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
     
-    from ingestion.discovery.author_research import AuthorProfile
+    from hytool.ingestion.discovery.author_research import AuthorProfile
     
     # Example usage
     enricher = BiographyEnricher()
@@ -328,3 +328,4 @@ if __name__ == "__main__":
     print(f"  Birth: {profile.birth_year} in {profile.birth_place}")
     print(f"  Death: {profile.death_year}")
     print(f"  Writing period: {profile.writing_period_start}-{profile.writing_period_end}")
+

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Import Anki data into MongoDB via AnkiConnect.
 
 Connects to a running Anki desktop (AnkiConnect) and imports flashcard notes
@@ -14,8 +14,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import requests
 
-from ingestion._shared.helpers import open_mongodb_client
-from ingestion._shared.mappers import anki_card_row_to_lexicon_entry
+from hytool.ingestion._shared.helpers import open_mongodb_client
+from hytool.ingestion._shared.mappers import anki_card_row_to_lexicon_entry
 
 try:
     from pymongo.errors import DuplicateKeyError  # type: ignore[reportMissingModuleSource]
@@ -294,3 +294,4 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

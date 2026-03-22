@@ -1,6 +1,6 @@
-"""Tests for ingestion._shared.registry module."""
+﻿"""Tests for ingestion._shared.registry module."""
 
-from ingestion._shared.registry import (
+from hytool.ingestion._shared.registry import (
     ExtractionRegistry,
     ExtractionToolSpec,
     ToolStatus,
@@ -100,3 +100,4 @@ class TestGlobalRegistryFunctions:
         order = get_pipeline_execution_order()
         assert len(order) == 6
         assert order[0].batch == 1
+

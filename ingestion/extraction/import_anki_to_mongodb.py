@@ -18,9 +18,9 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import requests
 
-from ingestion._shared.helpers import open_mongodb_client
-from ingestion._shared.mappers import anki_card_row_to_lexicon_entry
-from ingestion._shared.schema import CARD_SCHEMA_KEYS, REQUIRED_CARD_FIELDS
+from hytool.ingestion._shared.helpers import open_mongodb_client
+from hytool.ingestion._shared.mappers import anki_card_row_to_lexicon_entry
+from hytool.ingestion._shared.schema import CARD_SCHEMA_KEYS, REQUIRED_CARD_FIELDS
 
 try:
     from pymongo.errors import DuplicateKeyError  # type: ignore[reportMissingModuleSource]
@@ -331,3 +331,4 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

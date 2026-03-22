@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     compute_wa_score,
     is_western_armenian,
     _CLASSICAL_ORTHO_MARKERS,
@@ -159,7 +159,7 @@ def validate_nayiri_dictionary(text: str) -> tuple[bool, list[str]]:
     """
     # TODO: Implement actual Nayiri dictionary validation
     # Steps for future implementation:
-    # 1. from cleaning.armenian_tokenizer import extract_words
+    # 1. from hytool.cleaning.armenian_tokenizer import extract_words
     # 2. words = extract_words(text)
     # 3. unknown = [w for w in words if not nayiri_db.contains(w)]
     # 4. return (len(unknown) == 0, unknown)
@@ -410,3 +410,4 @@ def generate_regeneration_prompt(
         ])
     
     return "\n".join(prompt_parts)
+

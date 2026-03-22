@@ -1,7 +1,7 @@
 """Tests for linguistics.loanword_tracker."""
 
 import pytest
-from linguistics.loanword_tracker import (
+from hytool.linguistics.loanword_tracker import (
     LoanwordReport,
     PossibleLoanwordReport,
     analyze_loanwords,
@@ -82,7 +82,7 @@ def test_get_loanword_lexicon():
 
 def test_loanwords_in_document_metrics():
     """Loanword report is included in _compute_document_metrics for ingestion."""
-    from ingestion._shared.helpers import _compute_document_metrics
+    from hytool.ingestion._shared.helpers import _compute_document_metrics
 
     text = "Sample text with some content for metrics."
     metrics = _compute_document_metrics(text, "ingest_test", "test_source")
@@ -139,3 +139,4 @@ def test_add_loanwords_normalizes():
     report = analyze_loanwords("նորբար եկաւ", text_id="n", source="test")
     assert report.total_loanwords >= 1
     assert "նորբար" in report.unique_loanwords
+

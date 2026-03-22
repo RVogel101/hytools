@@ -62,7 +62,7 @@ def _build_stages(cfg: dict) -> list[Stage]:
     """Build the complete ordered list of pipeline stages.
 
     Stages live under ingestion (acquisition, discovery, extraction, enrichment,
-    aggregation, validation). Config is read from ingestion.* or scraping.* for backward compatibility.
+    aggregation, validation). Config is read from hytool.ingestion.* or scraping.* for backward compatibility.
     """
     ing_cfg = {**cfg.get("scraping", {}), **cfg.get("ingestion", {})}
 
@@ -360,7 +360,7 @@ def _cmd_list() -> None:
 def _cmd_dashboard(cfg: dict, output: Path) -> None:
     """Generate static HTML dashboard with document counts per source and last run summary."""
     try:
-        from ingestion._shared.helpers import open_mongodb_client
+        from hytool.ingestion._shared.helpers import open_mongodb_client
     except ImportError:
         print("MongoDB helpers not available; dashboard requires ingestion._shared.helpers")
         return
@@ -508,3 +508,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

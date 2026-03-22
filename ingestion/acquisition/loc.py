@@ -31,7 +31,7 @@ from pathlib import Path
 
 import requests
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     insert_or_skip,
     load_catalog_from_mongodb,
     log_item,
@@ -759,3 +759,4 @@ if __name__ == "__main__":
     else:
         _parser.print_help()
         _sys.exit(1)
+

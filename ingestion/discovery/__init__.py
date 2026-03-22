@@ -1,6 +1,6 @@
-"""Discovery: catalog search (WorldCat), book inventory, author extraction and research."""
+﻿"""Discovery: catalog search (WorldCat), book inventory, author extraction and research."""
 
-from ingestion.discovery.book_inventory import (
+from hytool.ingestion.discovery.book_inventory import (
     BookAuthor,
     BookEdition,
     BookInventoryEntry,
@@ -10,13 +10,13 @@ from ingestion.discovery.book_inventory import (
     CoverageStatus,
     LanguageVariant,
 )
-from ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
-from ingestion.discovery.worldcat_searcher import (
+from hytool.ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
+from hytool.ingestion.discovery.worldcat_searcher import (
     FALLBACK_ARMENIAN_BOOKS,
     WorldCatError,
     WorldCatSearcher,
 )
-from ingestion.discovery.author_extraction import AuthorExtractor, extract_authors_from_corpus
+from hytool.ingestion.discovery.author_extraction import AuthorExtractor, extract_authors_from_corpus
 
 __all__ = [
     "AuthorProfile",
@@ -35,3 +35,4 @@ __all__ = [
     "WorldCatError",
     "WorldCatSearcher",
 ]
+

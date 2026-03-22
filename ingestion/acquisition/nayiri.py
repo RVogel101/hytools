@@ -161,7 +161,7 @@ def scrape_dictionary(config: dict, client) -> int:
 
     Inserts directly into MongoDB. Returns the number of new entries inserted.
     """
-    from ingestion._shared.helpers import insert_or_skip
+    from hytool.ingestion._shared.helpers import insert_or_skip
 
     nayiri_cfg = config.get("scraping", {}).get("nayiri", {})
     request_delay = float(nayiri_cfg.get("request_delay", _REQUEST_DELAY))
@@ -283,10 +283,11 @@ def scrape_dictionary(config: dict, client) -> int:
 
 def run(config: dict) -> None:
     """Entry-point: scrape Nayiri dictionary."""
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(config) as client:
         if client is None:
             raise RuntimeError("MongoDB connection required but unavailable")
         inserted = scrape_dictionary(config, client)
         logger.info("Nayiri MongoDB: %d new entries inserted", inserted)
+

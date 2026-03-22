@@ -1,4 +1,4 @@
-"""Tests for WorldCat Armenian book searcher integration (moved from WesternArmenianLLM).
+﻿"""Tests for WorldCat Armenian book searcher integration (moved from WesternArmenianLLM).
 
 Tests cover:
 - WorldCat API connectivity (if available)
@@ -13,13 +13,13 @@ import logging
 import unittest
 from unittest.mock import MagicMock, patch
 
-from ingestion.discovery.book_inventory import (
+from hytool.ingestion.discovery.book_inventory import (
     BookAuthor,
     BookInventoryEntry,
     BookInventoryManager,
     ContentType,
 )
-from ingestion.discovery.worldcat_searcher import (
+from hytool.ingestion.discovery.worldcat_searcher import (
     FALLBACK_ARMENIAN_BOOKS,
     WorldCatError,
     WorldCatSearcher,
@@ -330,3 +330,4 @@ class TestWorldCatIntegration(unittest.TestCase):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     unittest.main()
+

@@ -1,6 +1,6 @@
-"""Tests for Eastern Armenian news scraping helpers (moved from WesternArmenianLLM)."""
+﻿"""Tests for Eastern Armenian news scraping helpers (moved from WesternArmenianLLM)."""
 
-from ingestion.acquisition.news import (
+from hytool.ingestion.acquisition.news import (
     _ea_extract_article_page_metadata,
     _ea_extract_candidate_article_urls,
     _ea_extract_readable_text,
@@ -100,3 +100,4 @@ def test_extract_article_page_metadata_reads_title_and_published_time():
     assert meta["category"] == "Politics"
     assert meta["published"] is not None
     assert "2026-03-05" in meta["published"]
+

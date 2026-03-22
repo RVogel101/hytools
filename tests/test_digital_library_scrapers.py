@@ -14,7 +14,7 @@ import pytest
 
 def test_loc_is_valid_loc_id():
     """LOC item ID validator should accept valid LCCNs and reject malformed ones."""
-    from ingestion.acquisition.loc import _is_valid_loc_id
+    from hytool.ingestion.acquisition.loc import _is_valid_loc_id
 
     assert _is_valid_loc_id("2012345678") is True
     assert _is_valid_loc_id("sn-12345678") is True
@@ -31,7 +31,7 @@ def test_loc_is_valid_loc_id():
 @patch("ingestion.acquisition.loc._get_session")
 def test_loc_search_items_mock(mock_session):
     """LOC search_items returns catalog from mocked API response."""
-    from ingestion.acquisition.loc import search_items
+    from hytool.ingestion.acquisition.loc import search_items
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -58,7 +58,7 @@ def test_loc_search_items_mock(mock_session):
 @patch("ingestion.acquisition.archive_org.requests.get")
 def test_archive_org_search_items_mock(mock_get):
     """Archive.org search_items returns catalog from mocked API."""
-    from ingestion.acquisition.archive_org import search_items
+    from hytool.ingestion.acquisition.archive_org import search_items
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -86,7 +86,7 @@ def test_archive_org_search_items_mock(mock_get):
 
 def test_gallica_extract_ark():
     """Gallica ARK extractor should parse ark:/12148/ identifiers."""
-    from ingestion.acquisition.gallica import _extract_ark
+    from hytool.ingestion.acquisition.gallica import _extract_ark
 
     assert _extract_ark(["ark:/12148/bpt6k3228953"]) == "bpt6k3228953"
     assert _extract_ark(["other-id", "ark:/12148/btv1b8454675k"]) == "btv1b8454675k"
@@ -96,7 +96,7 @@ def test_gallica_extract_ark():
 
 def test_gallica_parse_sru_response():
     """Gallica SRU XML parser should extract records and total count."""
-    from ingestion.acquisition.gallica import _parse_sru_response
+    from hytool.ingestion.acquisition.gallica import _parse_sru_response
 
     xml = """<?xml version="1.0"?>
     <sru:searchRetrieveResponse xmlns:sru="http://www.loc.gov/zing/srw/">
@@ -123,7 +123,7 @@ def test_gallica_parse_sru_response():
 @patch("ingestion.acquisition.gallica.requests.get")
 def test_gallica_search_items_mock(mock_get):
     """Gallica search_items returns catalog from mocked SRU API."""
-    from ingestion.acquisition.gallica import search_items
+    from hytool.ingestion.acquisition.gallica import search_items
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -152,7 +152,7 @@ def test_gallica_search_items_mock(mock_get):
 
 def test_hathitrust_known_htids():
     """HathiTrust has a non-empty seed list of known Armenian HTIDs."""
-    from ingestion.acquisition.hathitrust import _KNOWN_ARMENIAN_HTIDS
+    from hytool.ingestion.acquisition.hathitrust import _KNOWN_ARMENIAN_HTIDS
 
     assert len(_KNOWN_ARMENIAN_HTIDS) > 0
     assert all(isinstance(htid, str) for htid in _KNOWN_ARMENIAN_HTIDS)
@@ -163,7 +163,7 @@ def test_hathitrust_known_htids():
 @patch("ingestion.acquisition.hathitrust.requests.Session")
 def test_hathitrust_search_items_mock(mock_session_class, mock_get_meta):
     """HathiTrust search_items returns catalog from mocked HTML and metadata API."""
-    from ingestion.acquisition.hathitrust import search_items
+    from hytool.ingestion.acquisition.hathitrust import search_items
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -189,7 +189,7 @@ def test_hathitrust_search_items_mock(mock_session_class, mock_get_meta):
 @patch("ingestion.acquisition.gomidas.requests.Session")
 def test_gomidas_discover_links_mock(mock_session_class):
     """Gomidas _discover_links parses HTML and extracts Armenian-related links."""
-    from ingestion.acquisition.gomidas import _discover_links
+    from hytool.ingestion.acquisition.gomidas import _discover_links
 
     mock_resp = MagicMock()
     mock_resp.status_code = 200
@@ -213,3 +213,4 @@ def test_gomidas_discover_links_mock(mock_session_class):
     for item in links:
         assert "url" in item
         assert "title" in item
+

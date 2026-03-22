@@ -1,4 +1,4 @@
-"""Annotate Anki `cards` collection with frequency/difficulty/composite metadata.
+﻿"""Annotate Anki `cards` collection with frequency/difficulty/composite metadata.
 
 Usage:
     python 07-tools/annotate_anki_with_frequency.py
@@ -9,7 +9,7 @@ by setting: `frequency_rank`, `frequency_total`, `difficulty`, `phonetic_score`,
 """
 from __future__ import annotations
 
-from ingestion._shared.helpers import open_mongodb_client
+from hytool.ingestion._shared.helpers import open_mongodb_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -63,3 +63,4 @@ def run(cfg: dict | None = None) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     run()
+

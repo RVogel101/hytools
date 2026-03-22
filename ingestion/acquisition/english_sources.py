@@ -1,4 +1,4 @@
-"""English-language scrapers for Armenian history and academic sources.
+﻿"""English-language scrapers for Armenian history and academic sources.
 
 Dynamically discovers Armenian-related articles from English Wikipedia
 categories, plus Hyestart.am and CSU Fresno Armenian Studies.
@@ -318,7 +318,7 @@ def run(config: dict) -> None:
             csu_fresno: false # off by default (site often unreachable)
             request_delay: 2.0
     """
-    from ingestion._shared.helpers import open_mongodb_client, insert_or_skip
+    from hytool.ingestion._shared.helpers import open_mongodb_client, insert_or_skip
 
     src_cfg = config.get("scraping", {}).get("english_sources", {})
 
@@ -380,3 +380,4 @@ def run(config: dict) -> None:
             "English sources: %d inserted, %d duplicates skipped",
             mongo_inserted, skipped,
         )
+

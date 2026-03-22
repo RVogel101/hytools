@@ -28,7 +28,7 @@ from pathlib import Path
 
 import requests
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     compute_wa_score,
     insert_or_skip,
     is_western_armenian,
@@ -321,3 +321,4 @@ if __name__ == "__main__":
     else:
         parser.print_help()
         sys.exit(1)
+

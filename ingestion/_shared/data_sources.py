@@ -1,4 +1,4 @@
-"""Interfaces for external projects to obtain pre-aggregated corpus data.
+﻿"""Interfaces for external projects to obtain pre-aggregated corpus data.
 
 This module is intended to become the "centralized database" mentioned by the
 Hyebot project.  Downstream applications can import from here to retrieve
@@ -13,8 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from core_contracts import DocumentRecord
-from core_contracts.hashing import sha256_normalized
+from hytool.core_contracts import DocumentRecord
+from hytool.core_contracts.hashing import sha256_normalized
 
 
 def get_news_documents(data_dir: Path | None = None) -> Iterable[DocumentRecord]:
@@ -72,7 +72,7 @@ def get_news_sources() -> list[dict]:
     sources: list[dict] = []
 
     try:
-        from ingestion.acquisition.news import _NEWSPAPER_ALL_SOURCES
+        from hytool.ingestion.acquisition.news import _NEWSPAPER_ALL_SOURCES
         for name, src in _NEWSPAPER_ALL_SOURCES.items():
             sources.append({
                 "name": name,
@@ -83,7 +83,7 @@ def get_news_sources() -> list[dict]:
         pass
 
     try:
-        from ingestion.acquisition.news import NEWS_AGENCIES
+        from hytool.ingestion.acquisition.news import NEWS_AGENCIES
         for name, cfg in NEWS_AGENCIES.items():
             sources.append({
                 "name": name,
@@ -94,7 +94,7 @@ def get_news_sources() -> list[dict]:
         pass
 
     try:
-        from ingestion.acquisition.news import ALL_RSS_SOURCES
+        from hytool.ingestion.acquisition.news import ALL_RSS_SOURCES
         for src in ALL_RSS_SOURCES:
             sources.append({
                 "name": src["name"],
@@ -105,3 +105,4 @@ def get_news_sources() -> list[dict]:
         pass
 
     return sources
+

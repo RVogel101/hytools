@@ -3,7 +3,7 @@
 import hashlib
 import unicodedata
 
-from core_contracts.hashing import (
+from hytool.core_contracts.hashing import (
     normalize_text_for_hash,
     sha256_normalized,
 )
@@ -75,3 +75,4 @@ class TestSha256Normalized:
 
     def test_different_text_different_hash(self):
         assert sha256_normalized("hello") != sha256_normalized("world")
+

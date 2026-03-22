@@ -1,4 +1,4 @@
-"""Orchestration runner for complete author research pipeline.
+﻿"""Orchestration runner for complete author research pipeline.
 
 Runs:
 1. Author extraction from corpus
@@ -14,13 +14,13 @@ import logging
 import time
 from pathlib import Path
 
-from ingestion.discovery.author_extraction import AuthorExtractor, extract_authors_from_corpus
-from ingestion.discovery.author_research import AuthorProfileManager
-from ingestion.discovery.book_inventory import BookInventoryManager
-from ingestion.enrichment.biography_enrichment import BiographyEnricher, ManualBiographyDatabase
-from ingestion.aggregation.coverage_analysis import CoverageAnalyzer
-from ingestion.aggregation.timeline_generation import TimelineGenerator
-from ingestion._shared.research_config import get_research_config
+from hytool.ingestion.discovery.author_extraction import AuthorExtractor, extract_authors_from_corpus
+from hytool.ingestion.discovery.author_research import AuthorProfileManager
+from hytool.ingestion.discovery.book_inventory import BookInventoryManager
+from hytool.ingestion.enrichment.biography_enrichment import BiographyEnricher, ManualBiographyDatabase
+from hytool.ingestion.aggregation.coverage_analysis import CoverageAnalyzer
+from hytool.ingestion.aggregation.timeline_generation import TimelineGenerator
+from hytool.ingestion._shared.research_config import get_research_config
 
 logger = logging.getLogger(__name__)
 
@@ -416,3 +416,4 @@ def main_with_logging() -> None:
 
 if __name__ == "__main__":
     main_with_logging()
+

@@ -733,7 +733,7 @@ class MongoDBCorpusClient:
             Dictionary with {"inserted": int, "duplicates": int, "errors": int}
         """
         try:
-            from ingestion._shared.helpers import insert_or_skip
+            from hytool.ingestion._shared.helpers import insert_or_skip
         except ImportError:
             insert_or_skip = None
         stats = {"inserted": 0, "duplicates": 0, "errors": 0}
@@ -813,3 +813,4 @@ if __name__ == "__main__":
         if doc is not None:
             client.documents.delete_one({"_id": doc["_id"]})
         print("Test document removed")
+

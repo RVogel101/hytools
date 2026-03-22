@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import unittest
 
-from linguistics.stemmer import (
+from hytool.linguistics.stemmer import (
     get_all_lemmas,
     get_root_alternants,
     match_word_with_stemming,
@@ -88,3 +88,4 @@ class TestMonosyllabicRootDataLoaded(unittest.TestCase):
                 alt_a = get_root_alternants(a)
                 self.assertIn(a, alt_a, f"Root {a} should be in its own alternant set")
                 self.assertIn(b, alt_a, f"Alternant {b} should be in set for {a}")
+

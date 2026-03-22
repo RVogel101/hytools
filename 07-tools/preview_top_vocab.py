@@ -1,4 +1,4 @@
-"""Preview top N vocabulary items from MongoDB `word_frequencies` with metadata.
+﻿"""Preview top N vocabulary items from MongoDB `word_frequencies` with metadata.
 
 Usage:
     python 07-tools/preview_top_vocab.py --limit 10
@@ -9,7 +9,7 @@ and card-side metadata if available (syllable_count, pos, translation).
 from __future__ import annotations
 
 import argparse
-from ingestion._shared.helpers import open_mongodb_client
+from hytool.ingestion._shared.helpers import open_mongodb_client
 
 
 def run(limit: int = 10, config: dict | None = None) -> None:
@@ -65,3 +65,4 @@ if __name__ == "__main__":
             cfg = yaml.safe_load(fh) or {}
 
     run(limit=args.limit, config=cfg)
+

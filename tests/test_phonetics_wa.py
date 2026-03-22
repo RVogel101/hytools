@@ -7,7 +7,7 @@ See docs/armenian_language_guids/WESTERN_ARMENIAN_PHONETICS_GUIDE.md.
 
 import unittest
 
-from linguistics.phonetics import (
+from hytool.linguistics.phonetics import (
     ARMENIAN_PHONEMES,
     get_phoneme_info,
     get_phonetic_transcription,
@@ -66,3 +66,4 @@ class TestWesternArmenianVerificationWords(unittest.TestCase):
         """ոչ → voch (ո before consonant = vo)."""
         info = get_phoneme_info("ո")
         self.assertIn("v", info["english"].lower())
+

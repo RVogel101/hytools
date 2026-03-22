@@ -1,12 +1,12 @@
-"""Helpers to map source rows into central core contracts."""
+﻿"""Helpers to map source rows into central core contracts."""
 
 from __future__ import annotations
 
 import json
 from typing import Any, Mapping, Optional
 
-from core_contracts import DialectTag, DocumentRecord, LexiconEntry
-from core_contracts.hashing import sha256_normalized
+from hytool.core_contracts import DialectTag, DocumentRecord, LexiconEntry
+from hytool.core_contracts.hashing import sha256_normalized
 
 
 def _parse_json_field(value: Any) -> dict[str, Any]:
@@ -126,3 +126,4 @@ def _nullable_int(value: Any) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return None
+

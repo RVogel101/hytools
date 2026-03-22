@@ -13,7 +13,7 @@ import logging
 import sys
 from pathlib import Path
 
-from ingestion.discovery.book_inventory import (
+from hytool.ingestion.discovery.book_inventory import (
     BookAuthor,
     BookInventoryEntry,
     BookInventoryManager,
@@ -21,7 +21,7 @@ from ingestion.discovery.book_inventory import (
     CoverageStatus,
     LanguageVariant,
 )
-from ingestion.discovery.worldcat_searcher import (
+from hytool.ingestion.discovery.worldcat_searcher import (
     FALLBACK_ARMENIAN_BOOKS,
     WorldCatSearcher,
     WorldCatError,
@@ -296,3 +296,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

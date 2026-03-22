@@ -25,7 +25,7 @@ from typing import Optional
 import numpy as np
 from scipy.stats import entropy as scipy_entropy
 
-from cleaning.armenian_tokenizer import extract_words
+from hytool.cleaning.armenian_tokenizer import extract_words
 
 
 @dataclass
@@ -402,7 +402,7 @@ class QuantitativeLinguisticsAnalyzer:
         # (linguistics.morphology.core.count_syllables), which handles the
         # ու digraph (one syllable) and Armenian-only characters correctly —
         # no English syllabification heuristics are used.
-        from linguistics.morphology.core import count_syllables as _count_syl
+        from hytool.linguistics.morphology.core import count_syllables as _count_syl
         total_syllables = sum(_count_syl(w) for w in words)
         avg_syllables_per_word = total_syllables / total_words if total_words > 0 else 2.0
         fk_grade = 0.39 * asl + 11.8 * avg_syllables_per_word - 15.59
@@ -777,3 +777,4 @@ if __name__ == "__main__":
 
     print(analyzer.to_json(metric_card))
     analyzer.save_metric_card(metric_card)
+

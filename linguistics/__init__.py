@@ -9,7 +9,7 @@ from . import lexicon
 from . import dialect
 from . import metrics
 
-# Backward-compat: register so "from linguistics.phonetics import ..." resolves
+# Backward-compat: register so "from hytool.linguistics.phonetics import ..." resolves
 phonetics = phonology.phonetics
 letter_data = phonology.letter_data
 dialect_classifier = dialect.dialect_classifier

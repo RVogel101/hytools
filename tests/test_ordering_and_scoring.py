@@ -1,6 +1,6 @@
 import pytest
 
-from linguistics.morphology import difficulty
+from hytool.linguistics.morphology import difficulty
 
 
 def test_phonetic_score_range():

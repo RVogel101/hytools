@@ -20,7 +20,7 @@ from typing import Optional
 
 import requests
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     clean_wikitext,
     compute_wa_score,
     download_dump,
@@ -412,3 +412,4 @@ def run_wikisource(config: dict) -> None:
             stats["duplicates"],
             stats["skipped"],
         )
+

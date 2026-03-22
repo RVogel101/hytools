@@ -23,7 +23,7 @@ Requires: Poppler in PATH (e.g. winget install oschwartz10612.Poppler). Tesserac
   If the script fails (e.g. "Is poppler installed and in PATH?"), install Poppler. If "tesseract is not installed", use: conda activate wa-llm (or conda install -n wa-llm -c conda-forge tesseract).
 
 Output:
-  - data/textbook_modern_wa_pages/  — per-page .txt (from ocr.pipeline)
+  - data/textbook_modern_wa_pages/  — per-page .txt (from hytool.ocr.pipeline)
   - data/textbook_modern_wa_extract.txt — single concatenated file (Armenian + English) for context/summarization, grammar docs, and coding logic
 """
 
@@ -64,8 +64,8 @@ def main() -> int:
         print("Or copy the PDF to data/raw/textbook-of-modern-western-armenian.pdf", file=sys.stderr)
         return 1
 
-    from ocr.pipeline import ocr_pdf
-    from ocr.tesseract_config import TESSERACT_LANG_MIXED, PSM_BLOCK
+    from hytool.ocr.pipeline import ocr_pdf
+    from hytool.ocr.tesseract_config import TESSERACT_LANG_MIXED, PSM_BLOCK
 
     PAGES_DIR.mkdir(parents=True, exist_ok=True)
     print(f"OCR: {pdf_path} -> {PAGES_DIR} (lang=hye+eng, PSM={PSM_BLOCK}, confidence>=50)")
@@ -103,3 +103,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

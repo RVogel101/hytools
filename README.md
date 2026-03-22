@@ -8,6 +8,21 @@ These scripts support corpus and research workflows.
 
 To monitor LOC background downloads, use: `python -m scraping.loc status`
 
+# Hytool
+
+`hytool` is the Python package namespace for this repository.
+
+Import examples:
+
+```python
+from hytool.ingestion._shared.helpers import compute_wa_score
+from hytool.cleaning.language_filter import analyse_document
+from hytool.linguistics.transliteration import to_latin
+```
+
+The repository folder should be named `hytool`; the installable package
+and import namespace are also `hytool`.
+
 # Armenian Corpus Core
 
 Central package for Armenian language corpus collection, extraction, and normalization. Scrapes all available Western Armenian text content from the internet and stores it in a local MongoDB database.
@@ -17,7 +32,7 @@ Central package for Armenian language corpus collection, extraction, and normali
 
 ## Overview
 
-`armenian-corpus-core` is a domain-neutral package that serves as the single source of truth for:
+This repository is a domain-neutral package that serves as the single source of truth for:
 
 - **Core Contracts**: `DocumentRecord`, `LexiconEntry`, `PhoneticResult` (frozen dataclasses)
 - **Extraction Pipeline**: 8 modular ETL tools (export, ingest, validate, merge, materialize)

@@ -1,8 +1,8 @@
-"""Tests for variant pairs helper (moved from WesternArmenianLLM)."""
+﻿"""Tests for variant pairs helper (moved from WesternArmenianLLM)."""
 
 import json
 
-from linguistics.dialect.variant_pairs_helper import (
+from hytool.linguistics.dialect.variant_pairs_helper import (
     build_starter_variant_pairs,
     save_variant_pairs_json,
 )
@@ -50,3 +50,4 @@ def test_save_variant_pairs_json_format(tmp_path):
 
     payload = json.loads(out_file.read_text(encoding="utf-8"))
     assert payload == [["wa1", "ea1"], ["wa2", "ea2"]]
+

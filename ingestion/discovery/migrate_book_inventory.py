@@ -1,4 +1,4 @@
-"""One-time migration: load book inventory and author profiles from JSONL, save to MongoDB.
+﻿"""One-time migration: load book inventory and author profiles from JSONL, save to MongoDB.
 
 Usage:
     python -m ingestion.discovery.migrate_book_inventory --config config/settings.yaml
@@ -17,8 +17,8 @@ from pathlib import Path
 # ingestion/discovery/migrate_book_inventory.py -> discovery -> ingestion -> repo
 _repo_root = Path(__file__).resolve().parents[3]
 
-from ingestion.discovery.book_inventory import BookInventoryManager
-from ingestion.discovery.author_research import AuthorProfileManager
+from hytool.ingestion.discovery.book_inventory import BookInventoryManager
+from hytool.ingestion.discovery.author_research import AuthorProfileManager
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
@@ -83,3 +83,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

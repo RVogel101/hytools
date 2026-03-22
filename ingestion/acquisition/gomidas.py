@@ -23,7 +23,7 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from ingestion._shared.helpers import (
+from hytool.ingestion._shared.helpers import (
     insert_or_skip,
     load_catalog_from_mongodb,
     log_item,
@@ -101,7 +101,7 @@ def _download_pdf_and_ocr(url: str, key: str) -> str | None:
         return None
 
     try:
-        from ocr.pipeline import ocr_pdf
+        from hytool.ocr.pipeline import ocr_pdf
     except ImportError:
         log_item(logger, "warning", _STAGE, key, "ocr", status="ocr_unavailable")
         return None
@@ -214,3 +214,4 @@ if __name__ == "__main__":
     else:
         parser.print_help()
         sys.exit(1)
+

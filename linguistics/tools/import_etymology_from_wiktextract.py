@@ -1,4 +1,4 @@
-"""Import Armenian etymology from Wiktextract/kaikki JSONL into MongoDB.
+﻿"""Import Armenian etymology from Wiktextract/kaikki JSONL into MongoDB.
 
 Usage:
     python -m linguistics.import_etymology_from_wiktextract --jsonl path/to/kaikki.jsonl [--config config/settings.yaml]
@@ -55,8 +55,8 @@ def main() -> int:
         logger.error("Config must have database.mongodb_uri")
         return 1
 
-    from linguistics.lexicon.etymology_db import import_etymology_from_wiktextract
-    from ingestion._shared.helpers import open_mongodb_client
+    from hytool.linguistics.lexicon.etymology_db import import_etymology_from_wiktextract
+    from hytool.ingestion._shared.helpers import open_mongodb_client
 
     with open_mongodb_client(cfg) as client:
         if client is None:
@@ -77,3 +77,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
