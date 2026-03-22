@@ -120,6 +120,7 @@ def run(config: dict) -> None:
 
         source_freqs: dict[str, Counter] = {}
         source_doc_counts: dict[str, int] = {}
+        source_wa_scores: dict[str, list[float]] = {}
         total_docs = 0
 
         query = _build_docs_query(config)
@@ -128,7 +129,7 @@ def run(config: dict) -> None:
 
         cursor = docs_col.find(
             query,
-            {"source": 1, "text": 1, "title": 1},
+            {"source": 1, "text": 1, "title": 1, "metadata.wa_score": 1},
         )
 
         for doc in cursor:
@@ -142,6 +143,9 @@ def run(config: dict) -> None:
                 source_freqs[source] = Counter()
             source_freqs[source].update(words)
 
+            wa_score = float(doc.get("metadata", {}).get("wa_score", 0.0) or 0.0)
+            source_wa_scores.setdefault(source, []).append(wa_score)
+
             if source == "nayiri":
                 title = doc.get("title", "").strip()
                 if title:
@@ -154,18 +158,34 @@ def run(config: dict) -> None:
 
         # Resolve weights: target-weighted if config has target_*_pct, else fixed SOURCE_WEIGHTS
         scrape_cfg = config.get("ingestion", {}).get("frequency_aggregator", {}) or config.get("scraping", {}).get("frequency_aggregator", {}) or {}
+        incremental = bool(scrape_cfg.get("incremental", False))
         target_pcts = {
             k.replace("target_", "").replace("_pct", ""): v
             for k, v in scrape_cfg.items()
             if k.startswith("target_") and k.endswith("_pct") and isinstance(v, (int, float))
         }
+        hybrid_enabled = bool(scrape_cfg.get("hybrid_profile", False))
+        source_weight_overrides = scrape_cfg.get("source_weights", {}) if isinstance(scrape_cfg.get("source_weights"), dict) else {}
+        wa_score_weight = float(scrape_cfg.get("wa_score_weight", 0.2))
+
         if target_pcts:
             # Normalize to fractions
             target_pcts = {k: float(v) / 100.0 if v > 1 else float(v) for k, v in target_pcts.items()}
             weight_map = _get_target_weights(source_doc_counts, target_pcts)
             logger.info("Using target-weighted weights for %d sources", len(weight_map))
         else:
-            weight_map = {s: _source_weight(s) for s in source_freqs}
+            weight_map = {}
+            for s in source_freqs:
+                base_w = source_weight_overrides.get(s, _source_weight(s))
+                if hybrid_enabled:
+                    scores = source_wa_scores.get(s, [])
+                    avg_wa = sum(scores) / len(scores) if scores else 0.0
+                    # WA score is typically around 5.0 threshold; scale around 5
+                    wa_factor = 1.0 + wa_score_weight * ((avg_wa - 5.0) / 5.0)
+                    wa_factor = max(0.5, min(2.0, wa_factor))
+                    weight_map[s] = base_w * wa_factor
+                else:
+                    weight_map[s] = base_w
 
         all_words: set[str] = set()
         for freq in source_freqs.values():
@@ -200,12 +220,34 @@ def run(config: dict) -> None:
 
         logger.info("Frequency list: %d entries (min_count=%d)", len(entries), MIN_COUNT)
 
-        freq_col.drop()
-        if entries:
-            freq_col.insert_many(entries)
+        if incremental:
+            # Merge entries into existing word_frequencies collection without drop/rebuild.
+            for entry in entries:
+                existing = freq_col.find_one({"word": entry["word"]})
+                if existing:
+                    updates = {"total_count": entry["total_count"]}
+                    source_increments = {}
+                    source_count_inc = 0
+                    for src, cnt in entry["source_counts"].items():
+                        if src not in (existing.get("source_counts") or {}):
+                            source_count_inc += 1
+                        source_increments[f"source_counts.{src}"] = cnt
+                    inc_kwargs = {**source_increments, **{"total_count": entry["total_count"]}}
+                    if source_count_inc:
+                        inc_kwargs["source_count"] = source_count_inc
+                    freq_col.update_one({"word": entry["word"]}, {"$inc": inc_kwargs})
+                else:
+                    freq_col.insert_one(entry)
             freq_col.create_index("word", unique=True)
             freq_col.create_index([("rank", 1)])
             freq_col.create_index([("total_count", -1)])
+        else:
+            freq_col.drop()
+            if entries:
+                freq_col.insert_many(entries)
+                freq_col.create_index("word", unique=True)
+                freq_col.create_index([("rank", 1)])
+                freq_col.create_index([("total_count", -1)])
 
         meta_doc = {
             "stage": "frequency_aggregator",
@@ -221,6 +263,12 @@ def run(config: dict) -> None:
             meta_doc["target_pcts"] = target_pcts
             meta_doc["source_doc_counts"] = source_doc_counts
             meta_doc["weights_used"] = weight_map
+
+        if hybrid_enabled:
+            meta_doc["hybrid_profile"] = True
+            meta_doc["wa_score_weight"] = wa_score_weight
+            meta_doc["weights_used"] = weight_map
+
         client.metadata.replace_one(
             {"stage": "frequency_aggregator"},
             meta_doc,

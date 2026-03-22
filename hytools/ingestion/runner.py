@@ -385,8 +385,12 @@ def _cmd_dashboard(cfg: dict, output: Path) -> None:
             logger.warning("Dashboard aggregate failed: %s", e)
         total_docs = sum(c for _, c in counts)
         meta = client.get_latest_metadata("frequency_aggregator") or {}
+        drift_meta = client.get_latest_metadata("drift_detection") or {}
         summary_ts = str(meta.get("timestamp", ""))
         entries_stored = meta.get("entries_stored", 0)
+        drift_max = drift_meta.get("max_drift", 0.0)
+        drift_mean = drift_meta.get("mean_drift", 0.0)
+        drift_warn = drift_max > float(cfg.get("drift_threshold", 0.05))
 
     output.parent.mkdir(parents=True, exist_ok=True)
     total_docs = total_docs or 1
@@ -404,6 +408,7 @@ def _cmd_dashboard(cfg: dict, output: Path) -> None:
 </head><body>
 <h1>Armenian corpus scraper dashboard</h1>
 <p>Generated: {summary_ts} — Total documents: <strong>{total_docs}</strong> — Word frequency entries: <strong>{entries_stored}</strong></p>
+<p>Drift detection: max {drift_max:.4f}, mean {drift_mean:.4f}. <strong style="color: {"red" if drift_warn else "green"};">{'ALERT' if drift_warn else 'normal'}</strong></p>
 <h2>Documents by source</h2>
 <table><thead><tr><th>Source</th><th>Count</th><th>%</th></tr></thead><tbody>
 {rows}
