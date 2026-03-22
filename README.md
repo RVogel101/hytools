@@ -179,6 +179,10 @@ cd /path/to/armenian-corpus-core
 pip install -e .
 ```
 
+### Quick start
+
+- Canonical quick start workflow is in `docs/QUICK_START_PHASE1.md`.
+
 ### Running Tests
 
 ```bash
@@ -202,9 +206,14 @@ mypy armenian_corpus_core/
 - ✅ Extraction tool registry
 - ✅ CI/CD workflow
 - ✅ Pipeline orchestration
-- ⏳ Move core contracts to central package
+- ✅ Move core contracts to central package
 
-### Phase 2: Enhancement
+### Phase 2: Enhancement (active)
+
+- [ ] Implement `hybrid` profile for statistical conflict resolution
+- [ ] Add incremental merge (only re-process changed records)
+- [ ] Create format exporters (parquet, HuggingFace datasets)
+- [ ] Add comprehensive test suite
 
 - Implement `hybrid` profile for statistical conflict resolution
 - Add incremental merge (only re-process changed records)

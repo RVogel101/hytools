@@ -8,6 +8,7 @@ Items tracked for data collection, scraping, corpus research, and related pipeli
 
 | Area / Project                                  | Status            | Priority      | Next steps                                                                                     |
 |-------------------------------------------------|-------------------|---------------|------------------------------------------------------------------------------------------------|
+| Phase 2 enhancement pipeline                    | In progress       | High          | Hybrid profile, incremental merge, exporters, robust tests (see docs/development/PHASE2_CHECKLIST.md) |
 | Western Armenian audio for voice-generation     | Research / planned| Medium        | Finalize audio metadata schema; add optional audio track + ingestion scripts; pick 1–2 pilot sources (ReRooted, MWA/Vatican). |
 | Loanword and etymology extensions               | Planned           | Medium        | Design minimal etymology/loanword schema; prototype stem catalog + transliteration helpers; wire into corpus metadata. |
 | Etymology DB, stem catalog, transliteration     | Research complete | Medium        | Implement recommended pipeline (Wiktextract + Nayiri headwords); add small `etymology` collection and stem storage. |
