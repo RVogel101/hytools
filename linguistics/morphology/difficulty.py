@@ -16,6 +16,17 @@ when present, ensuring learners encounter simpler morphological patterns first.
 from dataclasses import dataclass
 from typing import Optional
 
+# Tunable weights (can be exposed to config later)
+PHONETIC_WEIGHT = 1.5
+ORTHO_WEIGHT = 1.0
+
+
+def set_difficulty_weights(phonetic: float = 1.5, orthographic: float = 1.0) -> None:
+    """Override default difficulty weights at runtime."""
+    global PHONETIC_WEIGHT, ORTHO_WEIGHT
+    PHONETIC_WEIGHT = float(phonetic)
+    ORTHO_WEIGHT = float(orthographic)
+
 
 
 
@@ -184,6 +195,97 @@ def _score_rare_phonemes(word: str) -> float:
     return min(score, 2.0)  # Cap at 2.0
 
 
+def _score_phonetic_difficulty(word: str) -> float:
+    """Compute a phonetic difficulty score (0.0 - 5.0).
+
+    Uses per-phoneme base weights, a small rarity bump, cluster penalties,
+    and epenthesis penalties. Caps at 5.0.
+    """
+    if not word:
+        return 0.0
+
+    # Define phoneme sets using ARM mapping
+    stops = {ARM["p"], ARM["t"], ARM["k"], ARM["g"], ARM["b"], ARM["d"]}
+    aspirates = {ARM.get("t_asp"), ARM.get("p_asp"), ARM.get("k_asp"), ARM.get("ch_asp"), ARM.get("c_asp")}
+    affricates = {ARM.get("ts"), ARM.get("dz"), ARM.get("ch"), ARM.get("j")}
+    # fricatives with special handling for kh/gh
+    fricatives = {ARM.get("s"), ARM.get("sh"), ARM.get("zh"), ARM.get("f"), ARM.get("v"), ARM.get("kh"), ARM.get("gh")}
+    vowels = set(VOWELS)
+
+    # rarity bump set
+    rare_phonemes = {ARM.get("zh"), ARM.get("dz"), ARM.get("ts"), ARM.get("c_asp")}
+
+    raw = 0.0
+    for ch in word:
+        if ch in stops:
+            raw += 0.1
+        if ch in aspirates:
+            raw += 0.2
+        if ch in affricates:
+            raw += 0.35
+        if ch in fricatives:
+            # make kh/gh harder
+            if ch == ARM.get("kh") or ch == ARM.get("gh"):
+                raw += 0.45
+            else:
+                raw += 0.3
+        if ch in vowels:
+            raw += 0.02
+        # rarity bump
+        if ch in rare_phonemes:
+            raw += 0.1
+
+    # Cluster penalties
+    clusters = _get_consonant_clusters(word)
+    cluster_pen = 0.0
+    epenthesis_pen = 0.0
+    for _, _, cluster, position in clusters:
+        L = len(cluster)
+        if L >= 2:
+            pen = 0.15 * (L - 1)
+            if L >= 3:
+                pen += 0.3
+            # Reduce penalty if epenthesis would occur (Armenian implicit vowel eases cluster)
+            if _requires_epenthesis(cluster, position):
+                pen *= 0.5
+                # still add an epenthesis penalty representing orthographic unpredictability
+                epenthesis_pen += 0.25
+            cluster_pen += pen
+
+    raw += cluster_pen + epenthesis_pen
+
+    return min(5.0, raw)
+
+
+def _score_orthographic_mapping(word: str) -> float:
+    """Score orthographic-to-Latin mapping difficulty (0.0 - 3.0).
+
+    Uses existing transliteration utilities when available. If not present,
+    computes a simple heuristic based on multi-letter mappings.
+    """
+    if not word:
+        return 0.0
+
+    # Try to use transliteration module if available
+    try:
+        from linguistics.transliteration import to_latin
+        translit = to_latin(word, dialect="western")
+        # If transliteration returns empty, fallback to per-char guess
+        if not translit:
+            raise RuntimeError("empty transliteration")
+        # Compare lengths as proxy for complexity
+        avg_len = len(translit) / max(1, len(word))
+        multi = sum(1 for ch in word if len(to_latin(ch, dialect="western")) > 1) / max(1, len(word))
+    except Exception:
+        # Fallback heuristic: assume most Armenian letters transliterate 1-2 Latin chars
+        avg_len = 1.2
+        multi = 0.15
+
+    mapping_complexity = avg_len + (multi * 1.5)
+    ortho_score = max(0.0, min(3.0, (mapping_complexity - 1.0) * 1.5))
+    return ortho_score
+
+
 def _score_consonant_clusters(word: str) -> float:
     """Score presence of complex consonant clusters.
 
@@ -349,6 +451,9 @@ class WordDifficultyAnalysis:
     phonological_score: float
     cluster_score: float
     affix_count: float
+    phonetic_score: float = 0.0
+    orthographic_score: float = 0.0
+    composite_score: float = 0.0
     declension_class: Optional[str] = None
     verb_class: Optional[str] = None
     overall_difficulty: float = 0.0
@@ -356,17 +461,23 @@ class WordDifficultyAnalysis:
     def __post_init__(self):
         """Compute overall difficulty on construction."""
         if self.pos == "noun":
-            self.overall_difficulty = score_noun_difficulty(
-                self.word, self.declension_class
-            )
+            base = score_noun_difficulty(self.word, self.declension_class)
+            self.phonetic_score = _score_phonetic_difficulty(self.word)
+            self.orthographic_score = _score_orthographic_mapping(self.word)
+            self.overall_difficulty = min(10.0, base + PHONETIC_WEIGHT * self.phonetic_score + ORTHO_WEIGHT * self.orthographic_score)
         elif self.pos == "verb":
-            self.overall_difficulty = score_verb_difficulty(
-                self.word, self.verb_class
-            )
+            base = score_verb_difficulty(self.word, self.verb_class)
+            self.phonetic_score = _score_phonetic_difficulty(self.word)
+            self.orthographic_score = _score_orthographic_mapping(self.word)
+            self.overall_difficulty = min(10.0, base + PHONETIC_WEIGHT * self.phonetic_score + ORTHO_WEIGHT * self.orthographic_score)
         else:
-            self.overall_difficulty = score_word_difficulty(
-                self.word, self.pos, self.declension_class, self.verb_class
-            )
+            base = score_word_difficulty(self.word, self.pos, self.declension_class, self.verb_class)
+            self.phonetic_score = _score_phonetic_difficulty(self.word)
+            self.orthographic_score = _score_orthographic_mapping(self.word)
+            self.overall_difficulty = min(10.0, base + PHONETIC_WEIGHT * self.phonetic_score + ORTHO_WEIGHT * self.orthographic_score)
+
+        # composite_score normalized for ordering (1.0 best): computed later by ordering helper
+        self.composite_score = 0.0
 
     def summary(self) -> str:
         """Return a human-readable difficulty report."""
@@ -392,7 +503,7 @@ def analyze_word(
     cluster_score = _score_consonant_clusters(word)
     affix_count = _score_affix_count(word)
 
-    return WordDifficultyAnalysis(
+    analysis = WordDifficultyAnalysis(
         word=word,
         pos=pos,
         syllables_base=syl_base,
@@ -403,3 +514,6 @@ def analyze_word(
         declension_class=declension_class,
         verb_class=verb_class,
     )
+
+    # Populate phonetic/orthographic fields (already set in __post_init__)
+    return analysis
