@@ -6,12 +6,12 @@ import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-from ingestion.discovery.author_extraction import AuthorExtractor
-from ingestion.discovery.author_research import AuthorProfileManager
-from ingestion.discovery.book_inventory import BookInventoryManager
-from ingestion.enrichment.biography_enrichment import BiographyEnricher, ManualBiographyDatabase
-from ingestion.aggregation.coverage_analysis import CoverageAnalyzer
-from ingestion.aggregation.timeline_generation import TimelineGenerator
+from hytools.ingestion.discovery.author_extraction import AuthorExtractor
+from hytools.ingestion.discovery.author_research import AuthorProfileManager
+from hytools.ingestion.discovery.book_inventory import BookInventoryManager
+from hytools.ingestion.enrichment.biography_enrichment import BiographyEnricher, ManualBiographyDatabase
+from hytools.ingestion.aggregation.coverage_analysis import CoverageAnalyzer
+from hytools.ingestion.aggregation.timeline_generation import TimelineGenerator
 
 
 def main():

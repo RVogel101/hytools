@@ -6,14 +6,14 @@ import unicodedata
 
 import pytest
 
-from ocr.postprocessor import (
+from hytools.ocr.postprocessor import (
     decompose_ligatures,
     normalize_unicode,
     normalize_punctuation,
     postprocess,
     remove_garbage_lines,
 )
-from ocr.tesseract_config import ARMENIAN_LIGATURES
+from hytools.ocr.tesseract_config import ARMENIAN_LIGATURES
 
 
 class TestDecomposeLigatures:

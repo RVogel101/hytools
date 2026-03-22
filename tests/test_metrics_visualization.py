@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from augmentation.metrics_visualization import (
+from hytools.augmentation.metrics_visualization import (
     plot_metric_distribution,
     plot_metric_comparison,
     plot_quality_scores,
@@ -15,8 +15,8 @@ from augmentation.metrics_visualization import (
     generate_analysis_report,
     _extract_metric_values,
 )
-from augmentation.metrics_pipeline import MetricsComputationPipeline
-from augmentation.baseline_statistics import CorpusBaselineComputer
+from hytools.augmentation.metrics_pipeline import MetricsComputationPipeline
+from hytools.augmentation.baseline_statistics import CorpusBaselineComputer
 
 
 class TestMetricsVisualization(TestCase):

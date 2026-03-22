@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from linguistics.dialect.dialect_pair_metrics import (
+from hytools.linguistics.dialect.dialect_pair_metrics import (
     compute_dialect_pair_metrics,
     load_pairs,
     save_records_jsonl,

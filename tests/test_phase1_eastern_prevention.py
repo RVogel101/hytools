@@ -1,8 +1,8 @@
 """Tests for Phase 1: Eastern Armenian Prevention via Rejection Sampling (moved from WesternArmenianLLM)."""
 
 import pytest
-from linguistics.metrics import WesternArmenianVocabularyFilter
-from augmentation.safe_generation import SafeAugmentationWrapper
+from hytools.linguistics.metrics import WesternArmenianVocabularyFilter
+from hytools.augmentation.safe_generation import SafeAugmentationWrapper
 
 
 class TestVocabularyFilter:

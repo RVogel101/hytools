@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import unittest
 
-from linguistics.stemmer import (
+from hytools.linguistics.stemmer import (
     get_all_lemmas,
     get_root_alternants,
     match_word_with_stemming,

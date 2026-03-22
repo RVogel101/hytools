@@ -1,7 +1,7 @@
 """Tests for linguistics.loanword_tracker."""
 
 import pytest
-from linguistics.loanword_tracker import (
+from hytools.linguistics.loanword_tracker import (
     LoanwordReport,
     PossibleLoanwordReport,
     analyze_loanwords,
@@ -82,7 +82,7 @@ def test_get_loanword_lexicon():
 
 def test_loanwords_in_document_metrics():
     """Loanword report is included in _compute_document_metrics for ingestion."""
-    from ingestion._shared.helpers import _compute_document_metrics
+    from hytools.ingestion._shared.helpers import _compute_document_metrics
 
     text = "Sample text with some content for metrics."
     metrics = _compute_document_metrics(text, "ingest_test", "test_source")

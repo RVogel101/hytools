@@ -3,7 +3,7 @@
 import hashlib
 import unicodedata
 
-from core_contracts.hashing import (
+from hytools.core_contracts.hashing import (
     normalize_text_for_hash,
     sha256_normalized,
 )

@@ -3,7 +3,7 @@
 See docs/TEST_VALIDATION_ARMENIAN.md for translations, transliterations, and marker reference.
 """
 
-from linguistics.metrics import (
+from hytools.linguistics.metrics import (
     validate_augmentation_output,
     validate_classical_spelling,
     validate_nayiri_dictionary,

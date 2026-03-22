@@ -1,6 +1,6 @@
 """Tests for ingestion._shared.registry module."""
 
-from ingestion._shared.registry import (
+from hytools.ingestion._shared.registry import (
     ExtractionRegistry,
     ExtractionToolSpec,
     ToolStatus,

@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from ingestion.discovery.book_inventory import (
+from hytools.ingestion.discovery.book_inventory import (
     BookAuthor,
     BookInventoryEntry,
     BookInventoryManager,

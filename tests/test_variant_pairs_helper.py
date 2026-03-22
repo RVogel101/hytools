@@ -2,7 +2,7 @@
 
 import json
 
-from linguistics.dialect.variant_pairs_helper import (
+from hytools.linguistics.dialect.variant_pairs_helper import (
     build_starter_variant_pairs,
     save_variant_pairs_json,
 )

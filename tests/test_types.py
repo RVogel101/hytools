@@ -3,7 +3,7 @@
 import pytest
 from dataclasses import FrozenInstanceError
 
-from core_contracts.types import (
+from hytools.core_contracts.types import (
     DialectTag,
     DocumentRecord,
     LexiconEntry,

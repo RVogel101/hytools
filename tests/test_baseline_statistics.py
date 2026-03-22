@@ -7,12 +7,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from augmentation.baseline_statistics import (
+from hytools.augmentation.baseline_statistics import (
     CorpusBaselineComputer,
     CorpusBaselineStatistics,
     MetricStatistics,
 )
-from augmentation.metrics_pipeline import MetricsComputationPipeline
+from hytools.augmentation.metrics_pipeline import MetricsComputationPipeline
 
 
 class TestMetricStatistics(TestCase):

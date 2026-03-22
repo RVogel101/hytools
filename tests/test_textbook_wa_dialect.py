@@ -22,7 +22,7 @@ import json
 import unittest
 from pathlib import Path
 
-from linguistics.dialect_classifier import classify_text_dialect
+from hytools.linguistics.dialect_classifier import classify_text_dialect
 
 
 def _load_textbook_data():

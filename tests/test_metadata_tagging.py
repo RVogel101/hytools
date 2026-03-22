@@ -4,14 +4,14 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-from ingestion._shared.metadata import (
+from hytools.ingestion._shared.metadata import (
     TextMetadata,
     DialectSubcategory,
     Region,
     SourceType,
     ContentType,
 )
-from ingestion.enrichment.metadata_tagger import CorpusMetadataTagger
+from hytools.ingestion.enrichment.metadata_tagger import CorpusMetadataTagger
 
 
 def test_western_wikipedia_metadata():

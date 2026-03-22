@@ -13,7 +13,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from ingestion.discovery.author_research import (
+from hytools.ingestion.discovery.author_research import (
     AuthorChronology,
     AuthorProfile,
     AuthorProfileManager,

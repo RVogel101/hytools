@@ -1,7 +1,7 @@
 """Integration tests for package imports and top-level API."""
 
-from core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
-from ingestion._shared.registry import (
+from hytools.core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
+from hytools.ingestion._shared.registry import (
     get_registry,
     get_tool_spec,
     list_all_tools,
@@ -51,11 +51,11 @@ class TestTopLevelImports:
 
 class TestCoreContractSubpackage:
     def test_hashing_from_subpackage(self):
-        from core_contracts import normalize_text_for_hash, sha256_normalized
+        from hytools.core_contracts import normalize_text_for_hash, sha256_normalized
         h = sha256_normalized("test")
         assert len(h) == 64
 
     def test_types_from_subpackage(self):
-        from core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
+        from hytools.core_contracts import DialectTag, DocumentRecord, LexiconEntry, PhoneticResult
         entry = LexiconEntry(lemma="test")
         assert entry.lemma == "test"

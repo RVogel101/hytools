@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from augmentation.metrics_pipeline import (
+from hytools.augmentation.metrics_pipeline import (
     MetricsComputationPipeline,
     MetricComparison,
     BatchMetricsReport,

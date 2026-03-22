@@ -2,8 +2,8 @@
 
 import json
 
-from core_contracts import DialectTag, DocumentRecord, LexiconEntry
-from ingestion._shared.mappers import (
+from hytools.core_contracts import DialectTag, DocumentRecord, LexiconEntry
+from hytools.ingestion._shared.mappers import (
     _nullable_int,
     _nullable_text,
     _parse_json_field,

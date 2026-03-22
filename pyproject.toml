@@ -3,7 +3,7 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "armenian-corpus-core"
+name = "hytools"
 version = "0.1.0-alpha"
 description = "Central package for Armenian language corpus contracts, extraction, and normalization"
 readme = "README.md"
@@ -49,7 +49,7 @@ rss = [
     "feedparser>=6.0",
 ]
 all = [
-    "armenian-corpus-core[browser,huggingface,mongodb,rss]",
+    "hytools[browser,huggingface,mongodb,rss]",
 ]
 dev = [
     "pytest>=7.0",
@@ -59,20 +59,20 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/RVogel101/armenian-corpus-core"
-Documentation = "https://github.com/RVogel101/armenian-corpus-core/wiki"
+Repository = "https://github.com/RVogel101/hytools"
+Documentation = "https://github.com/RVogel101/hytools/wiki"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = [
+    "hytools*",
     "cleaning*",
     "ingestion*",
-    "research*",
     "augmentation*",
-    "core_contracts*",
     "integrations*",
     "linguistics*",
     "ocr*",
+    "core_contracts*",
 ]
 exclude = ["tests*", "docs*", "scripts*", "notebooks*", "migration_exports*"]
 

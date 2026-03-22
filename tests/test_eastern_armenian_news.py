@@ -1,6 +1,6 @@
 """Tests for Eastern Armenian news scraping helpers (moved from WesternArmenianLLM)."""
 
-from ingestion.acquisition.news import (
+from hytools.ingestion.acquisition.news import (
     _ea_extract_article_page_metadata,
     _ea_extract_candidate_article_urls,
     _ea_extract_readable_text,

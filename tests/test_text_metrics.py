@@ -8,7 +8,7 @@ See docs/TEST_VALIDATION_ARMENIAN.md for translations, transliterations, and mar
 import unittest
 from pathlib import Path
 
-from linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
+from hytools.linguistics.metrics.text_metrics import QuantitativeLinguisticsAnalyzer
 
 
 class TestQuantitativeLinguisticsMetrics(unittest.TestCase):

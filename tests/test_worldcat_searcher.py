@@ -13,13 +13,13 @@ import logging
 import unittest
 from unittest.mock import MagicMock, patch
 
-from ingestion.discovery.book_inventory import (
+from hytools.ingestion.discovery.book_inventory import (
     BookAuthor,
     BookInventoryEntry,
     BookInventoryManager,
     ContentType,
 )
-from ingestion.discovery.worldcat_searcher import (
+from hytools.ingestion.discovery.worldcat_searcher import (
     FALLBACK_ARMENIAN_BOOKS,
     WorldCatError,
     WorldCatSearcher,

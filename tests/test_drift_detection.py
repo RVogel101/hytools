@@ -7,14 +7,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from augmentation.drift_detection import (
+from hytools.augmentation.drift_detection import (
     AlertReporter,
     AlertSeverity,
     DriftDetector,
     MetricAlert,
 )
-from augmentation.baseline_statistics import CorpusBaselineComputer
-from augmentation.metrics_pipeline import MetricsComputationPipeline
+from hytools.augmentation.baseline_statistics import CorpusBaselineComputer
+from hytools.augmentation.metrics_pipeline import MetricsComputationPipeline
 
 
 class TestDriftDetector(TestCase):

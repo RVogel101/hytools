@@ -2,7 +2,7 @@
 
 from collections import Counter
 
-from linguistics.dialect.dialect_distance import (
+from hytools.linguistics.dialect.dialect_distance import (
     DistanceWeights,
     compute_component_distance,
     cosine_distance,

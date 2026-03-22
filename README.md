@@ -12,6 +12,8 @@ To monitor LOC background downloads, use: `python -m scraping.loc status`
 
 Central package for Armenian language corpus collection, extraction, and normalization. Scrapes all available Western Armenian text content from the internet and stores it in a local MongoDB database.
 
+> NOTE: The package namespace has been migrated to `hytools`. Use `import hytools` and `from hytools.xxx import ...` APIs. Original top-level package names are removed.
+
 **Version**: 0.1.0-alpha  
 **Status**: 🟡 Pilot (batch 7 of comprehensive migration)
 

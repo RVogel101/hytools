@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ingestion._shared.helpers import (
+from hytools.ingestion._shared.helpers import (
     ArticleChunk,
     split_issue_into_articles,
 )
