@@ -98,6 +98,12 @@ def _build_docs_query(config: dict) -> dict:
     branch = scrape_cfg.get("internal_language_branch")
     if branch:
         query["metadata.internal_language_branch"] = branch
+
+    # Allow overrides from other stages (e.g. incremental_merge)
+    override = scrape_cfg.get("_document_filter")
+    if isinstance(override, dict):
+        query = {**query, **override}
+
     return query
 
 

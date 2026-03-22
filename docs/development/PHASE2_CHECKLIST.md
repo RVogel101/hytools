@@ -4,7 +4,7 @@ This file is the concrete PR-ready checklist requested by the user.
 
 ## 1. Clarify hybrid profile (conflict resolution)
 
-- [ ] Definition: Hybrid profile is a configurable `ingestion` mode that combines: corpus-derived stats + external reference lexicons + quality signals (WA/EA score, source type). It resolves cross-source inconsistency by weighting documents and/or rules.
+- [ ] Definition: Hybrid profile is a configurable `ingestion` mode that combines: corpus-derived stats + external reference lexicons + quality signals (WA/EA score, source type). It resolves cross-source inconsistency by weighting documents and/or rules. Hybrid profile is useful to avoid brittle behavior when one parser or source is noisy, and enables gradual ensemble-based calibration in place of hard "east/west" decisions.
 - [ ] Useful because it enables stable dataset harmonization across different source reliability and dialect distribution. It can reduce noise from OCR-heavy sources and enforce Western Armenian priority.
 - [ ] Code reference: `hytools/ingestion/aggregation/frequency_aggregator.py`, `hytools/ingestion/_shared/helpers.py` (source weights), `hytools/ingestion/enrichment/metadata_tagger.py` (language branch classification).
 - [ ] Add config in `config/settings.yaml` section under `ingestion.frequency_aggregator.hybrid_profile`.

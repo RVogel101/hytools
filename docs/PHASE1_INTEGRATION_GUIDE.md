@@ -289,6 +289,8 @@ Based on testing:
 
 ## Next Steps After Phase 1
 
+**Status**: Phase 1 completed; moved to Phase 2 planning (hybrid profile, incremental merge, export formats, drift detection, improved documentation).
+
 After Phase 1 is working well (>85% success rate), proceed to:
 
 - **Phase 2 (Week 1)**: Add training-time markers and weighted loss functions

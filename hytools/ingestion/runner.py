@@ -104,8 +104,10 @@ def _build_stages(cfg: dict) -> list[Stage]:
         # ── Post-processing ──────────────────────────────────────────────
         Stage("cleaning",              "cleaning.run_mongodb",           enabled=_on("cleaning"), has_run=True, has_main=False),
         Stage("metadata_tagger",       "ingestion.enrichment.metadata_tagger",       enabled=_on("metadata_tagger")),
-        Stage("frequency_aggregator",  "ingestion.aggregation.frequency_aggregator",  enabled=_on("frequency_aggregator")),
-        Stage("word_frequency_facets", "ingestion.aggregation.word_frequency_facets", enabled=_on("word_frequency_facets")),
+        Stage("frequency_aggregator",      "ingestion.aggregation.frequency_aggregator",      enabled=_on("frequency_aggregator")),
+        Stage("incremental_merge",        "ingestion.aggregation.incremental_merge",        enabled=_on("incremental_merge")),
+        Stage("word_frequency_facets",   "ingestion.aggregation.word_frequency_facets",   enabled=_on("word_frequency_facets")),
+        Stage("drift_detection",          "ingestion.aggregation.drift_detection",          enabled=_on("drift_detection")),
         Stage("export_corpus_overlap_fingerprints", "ingestion.validation.export_corpus_overlap_fingerprints",
               enabled=_on("export_corpus_overlap_fingerprints"), has_run=True, has_main=True),
 
@@ -369,10 +371,16 @@ def _cmd_dashboard(cfg: dict, output: Path) -> None:
             print("MongoDB unavailable; cannot build dashboard")
             return
         counts: list[tuple[str, int]] = []
+        branch_counts: list[tuple[str, int]] = []
         try:
             pipeline = [{"$group": {"_id": "$source", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
             for doc in client.documents.aggregate(pipeline):
                 counts.append((doc["_id"], doc["count"]))
+
+            branch_pipeline = [{"$group": {"_id": "$metadata.internal_language_branch", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
+            for doc in client.documents.aggregate(branch_pipeline):
+                branch = doc.get("_id") or "unknown"
+                branch_counts.append((branch, doc["count"]))
         except Exception as e:
             logger.warning("Dashboard aggregate failed: %s", e)
         total_docs = sum(c for _, c in counts)
@@ -386,6 +394,10 @@ def _cmd_dashboard(cfg: dict, output: Path) -> None:
         f"<tr><td>{src}</td><td>{cnt}</td><td>{100*cnt/total_docs:.1f}%</td></tr>"
         for src, cnt in counts
     )
+    branch_rows = "".join(
+        f"<tr><td>{branch}</td><td>{cnt}</td><td>{100*cnt/total_docs:.1f}%</td></tr>"
+        for branch, cnt in branch_counts
+    )
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Scraper Dashboard</title>
 <style>body{{font-family:sans-serif;margin:1rem;}} table{{border-collapse:collapse;}} th,td{{border:1px solid #ccc;padding:6px 12px;text-align:left;}} th{{background:#eee;}}</style>
@@ -395,6 +407,10 @@ def _cmd_dashboard(cfg: dict, output: Path) -> None:
 <h2>Documents by source</h2>
 <table><thead><tr><th>Source</th><th>Count</th><th>%</th></tr></thead><tbody>
 {rows}
+</tbody></table>
+<h2>Documents by language branch</h2>
+<table><thead><tr><th>Language Branch</th><th>Count</th><th>%</th></tr></thead><tbody>
+{branch_rows}
 </tbody></table>
 <p><small>Run: python -m ingestion.runner dashboard --output {output}</small></p>
 </body></html>"""
