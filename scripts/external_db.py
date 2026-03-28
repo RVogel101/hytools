@@ -17,10 +17,7 @@ try:
 except Exception:
     yaml = None
 
-try:
-    from pymongo import MongoClient
-except Exception:
-    MongoClient = None
+from pymongo import MongoClient
 
 
 def _require_pymongo_suggestion():
