@@ -29,11 +29,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
+from typing import Tuple, Optional, Any
+
+# optional internetarchive client
+try:
+    import internetarchive as ia  # type: ignore
+    IA_AVAILABLE = True
+except Exception:
+    ia = None
+    IA_AVAILABLE = False
 
 from hytools.ingestion._shared.helpers import (
     compute_wa_score,
     insert_or_skip,
-    is_western_armenian,
     load_catalog_from_mongodb,
     log_item,
     log_stage,
@@ -42,12 +50,16 @@ from hytools.ingestion._shared.helpers import (
     WA_SCORE_THRESHOLD,
 )
 
+from hytools.ingestion._shared.helpers import classify_text_classification
+
 logger = logging.getLogger(__name__)
 _STAGE = "archive_org"
 
 _SEARCH_API = "https://archive.org/advancedsearch.php"
 _METADATA_API = "https://archive.org/metadata/{identifier}/files"
 _DOWNLOAD_BASE = "https://archive.org/download/{identifier}/{filename}"
+_MDAPI_BASE = "https://archive.org/metadata/{identifier}"
+_VIEWS_API = "https://be-api.us.archive.org/views/v1/short/{identifier}"
 _REQUEST_DELAY = 1.0
 _METADATA_DELAY = 0.5
 _USER_AGENT = "ArmenianCorpusCore/1.0 (Education/Research; armenian-corpus-building)"
@@ -60,6 +72,8 @@ _CATALOG_MAX_AGE_DAYS = 30
 _TEXT_FORMATS: list[str] = [
     "_djvu.txt",
     "_abbyy.gz",
+    "_hocr_searchtext.txt.gz",
+    "_hocr.html",
     ".txt",
 ]
 
@@ -130,6 +144,7 @@ DEFAULT_QUERIES: list[str] = [
 
     # ── 8. Historical / classical ──────────────────────────────────────
     '("Grabar" OR "classical Armenian" OR "Old Armenian") AND mediatype:texts',
+    '("Krapar" OR "classical Armenian") AND mediatype:texts',
     '("Armenian Church" OR "Armenian Apostolic") AND mediatype:texts',
     '(armenian AND (manuscript OR codex OR palimpsest)) AND mediatype:texts',
 ]
@@ -163,6 +178,7 @@ def clean_ocr_text(raw: str) -> str:
 def search_items(
     queries: list[str],
     max_per_query: int = 500,
+    session: Optional[requests.Session] = None,
 ) -> dict[str, dict]:
     """Query the IA Advanced Search API and return a catalog dict.
 
@@ -185,7 +201,8 @@ def search_items(
                 "fl[]": [
                     "identifier", "title", "language", "mediatype",
                     "date", "subject", "creator", "publisher",
-                    "description", "downloads",
+                    "description", "downloads", "collection", "files_count",
+                    "item_last_updated", "item_size",
                 ],
                 "sort[]": "downloads desc",
                 "rows": rows,
@@ -193,7 +210,8 @@ def search_items(
                 "output": "json",
             }
             try:
-                resp = requests.get(_SEARCH_API, params=params, timeout=30, headers={"User-Agent": _USER_AGENT})
+                sess = session or requests
+                resp = sess.get(_SEARCH_API, params=params, timeout=30, headers={"User-Agent": _USER_AGENT})
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as exc:
@@ -303,39 +321,66 @@ def discover_text_files(identifier: str) -> list[str]:
     Searches for DjVuTXT (preferred), ABBYY OCR output, and plain text
     uploads.  Returns filenames in preference order.
     """
-    url = _METADATA_API.format(identifier=identifier)
+    # Use the MDAPI record which contains a `files` list with rich metadata.
+    return discover_text_files_with_session(identifier, None)[0]
+
+
+def discover_text_files_with_session(identifier: str, session: Optional[requests.Session]) -> Tuple[list[str], dict]:
+    """Return (filenames_in_preference_order, mdapi_record). Uses provided session if given."""
+    url = _MDAPI_BASE.format(identifier=identifier)
     try:
-        resp = requests.get(url, timeout=30, headers={"User-Agent": _USER_AGENT})
+        sess = session or requests
+        resp = sess.get(url, timeout=30, headers={"User-Agent": _USER_AGENT})
         resp.raise_for_status()
-        files = resp.json().get("result", [])
+        record = resp.json()
+        files = record.get("files", [])
     except Exception as exc:
         logger.warning("Metadata API error for %s: %s", identifier, exc)
-        return []
+        return [], {}
 
-    by_priority: dict[int, list[str]] = {}
+    # Prioritize by known useful OCR/derived text formats.
+    priority_map: dict[int, list[str]] = {}
     for f in files:
         name = f.get("name", "")
-        fmt = f.get("format", "").lower()
-        name_lower = name.lower()
+        fmt = (f.get("format") or "").lower()
+        n = name.lower()
 
-        if name_lower.endswith("_djvu.txt") or fmt == "djvutxt":
-            by_priority.setdefault(0, []).append(name)
-        elif name_lower.endswith(".txt") and not name_lower.endswith("_djvu.txt"):
-            by_priority.setdefault(1, []).append(name)
+        # hOCR-derived searchable text
+        if n.endswith("_hocr_searchtext.txt.gz") or fmt.startswith("hocr") or "hocr" in n:
+            priority_map.setdefault(0, []).append(name)
+        # hOCR html output
+        elif n.endswith("_hocr.html") or n.endswith("_hocr.html.gz") or fmt == "hocr html":
+            priority_map.setdefault(1, []).append(name)
+        # DjVu TXT
+        elif n.endswith("_djvu.txt") or fmt == "djvutxt":
+            priority_map.setdefault(2, []).append(name)
+        # ABBYY
+        elif n.endswith(".abbyy.gz") or "abbyy" in fmt:
+            priority_map.setdefault(3, []).append(name)
+        # Plain text uploads
+        elif n.endswith(".txt"):
+            priority_map.setdefault(4, []).append(name)
 
-    if not by_priority:
-        return []
+    if not priority_map:
+        return [], record
 
-    best = min(by_priority.keys())
-    return by_priority[best]
+    best = min(priority_map.keys())
+    return priority_map[best], record
 
 
-def _fetch_file_content(identifier: str, filename: str) -> str | None:
+def _fetch_file_content(identifier: str, filename: str, session: Optional[requests.Session] = None, headers: Optional[dict] = None) -> str | None:
     """Download a single file from the IA. Returns text content or None. No file writes."""
     url = _DOWNLOAD_BASE.format(identifier=identifier, filename=filename)
-    headers = {"User-Agent": _USER_AGENT}
+    sess = session or requests
+    hdrs = dict(headers or {})
+    hdrs.setdefault("User-Agent", _USER_AGENT)
     try:
-        resp = requests.get(url, headers=headers, stream=True, timeout=120)
+        # use internetarchive library if available and configured for robust auth
+        if IA_AVAILABLE and isinstance(sess, requests.Session) and hasattr(sess, "headers") and sess.headers.get("Authorization"):
+            # fall back to requests with session headers
+            resp = sess.get(url, headers=hdrs, stream=True, timeout=120)
+        else:
+            resp = sess.get(url, headers=hdrs, stream=True, timeout=120)
         # 401/403: item or file is access-restricted (e.g. borrow-only, private)
         if resp.status_code in (401, 403):
             log_item(
@@ -354,37 +399,79 @@ def _fetch_file_content(identifier: str, filename: str) -> str | None:
         return None
 
 
-def _download_item_text(ident: str) -> tuple[str | None, list[str]]:
-    """Download and combine text files for one item. Returns (combined_text, filenames). No file writes."""
-    text_names = discover_text_files(ident)
+def _download_item_text(ident: str, session: Optional[requests.Session] = None, headers: Optional[dict] = None) -> tuple[str | None, list[str], dict]:
+    """Download and combine text files for one item. Returns (combined_text, filenames, mdapi_record)."""
+    text_names, record = discover_text_files_with_session(ident, session)
     time.sleep(_METADATA_DELAY)
     if not text_names:
-        return None, []
+        return None, [], record
 
     parts: list[str] = []
     for fname in sorted(text_names):
-        content = _fetch_file_content(ident, fname)
+        content = _fetch_file_content(ident, fname, session=session, headers=headers)
         if content:
             parts.append(content)
         time.sleep(_REQUEST_DELAY)
     combined = "\n\n".join(parts) if parts else None
-    return combined, text_names
+    return combined, text_names, record
 
 
 def _classify_dialect(text: str) -> str:
-    """Return 'western_armenian' or 'eastern_armenian' based on WA score."""
-    return "western_armenian" if is_western_armenian(text) else "eastern_armenian"
+    """Return 'western_armenian' or 'eastern_armenian' based on consolidated classifier."""
+    cls = classify_text_classification(text)
+    return "western_armenian" if cls.get("label") == "likely_western" else "eastern_armenian"
+
+
+def _make_session(config: dict | None = None) -> requests.Session:
+    """Create a requests.Session with optional IA LOW auth header from config."""
+    session = requests.Session()
+    session.headers.update({"User-Agent": _USER_AGENT})
+    ia_cfg = (config or {}).get("internet_archive", {})
+    s3_access = ia_cfg.get("s3_access")
+    s3_secret = ia_cfg.get("s3_secret")
+    if s3_access and s3_secret:
+        session.headers["Authorization"] = f"LOW {s3_access}:{s3_secret}"
+    return session
+
+
+def get_views(session: requests.Session, identifier: str) -> dict[str, int]:
+    """Query IA Views API and return a dict with keys `all_time`, `last_30day`, `last_7day` when available."""
+    url = _VIEWS_API.format(identifier=identifier)
+    try:
+        resp = session.get(url, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+        # Views API formats vary; try common paths
+        counts = {}
+        if isinstance(data, dict):
+            # short endpoint may return {'all_time': n, 'last_30day': n, 'last_7day': n}
+            for k in ("all_time", "last_30day", "last_7day"):
+                v = data.get(k)
+                if isinstance(v, (int, float)):
+                    counts[k] = int(v)
+            # fallback to nested result
+            if not counts:
+                for k in ("all_time", "last_30day", "last_7day"):
+                    v = data.get("result", {}).get(k) if data.get("result") else None
+                    if isinstance(v, (int, float)):
+                        counts[k] = int(v)
+        return counts
+    except Exception:
+        return {}
 
 
 def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None = None) -> dict:
     """Download text and insert directly to MongoDB. No file writes."""
     stats = {"inserted": 0, "duplicates": 0, "skipped": 0}
 
+    session = _make_session(config)
+
     for i, (ident, item) in enumerate(catalog.items(), 1):
         if item.get("downloaded") and item.get("ingested") is not None:
             continue
 
-        text, file_list = _download_item_text(ident)
+        # Download using a session that may carry LOW auth for restricted items.
+        text, file_list, mdapi_record = _download_item_text(ident, session=session, headers=session.headers)
         item["downloaded"] = True
         item["text_files"] = file_list
 
@@ -419,20 +506,48 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
         dialect = _classify_dialect(text)
         lang_code = "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy"
 
+        # Enrich metadata with MDAPI-record fields (OCR metadata, PDF metadata) and Views API
+        metadata_extra: dict[str, Any] = {}
+        try:
+            # capture ocr-related fields from mdapi_record.files or top-level record
+            if mdapi_record:
+                metadata_extra["mdapi_record"] = {k: mdapi_record.get(k) for k in ("metadata", "collection", "created", "uploader") if k in mdapi_record}
+                # collect ocr detection fields if present
+                for f in mdapi_record.get("files", []) or []:
+                    if f.get("name", "").lower().endswith("_hocr_searchtext.txt.gz"):
+                        metadata_extra.setdefault("ocr_files", []).append(f.get("name"))
+                    # capture per-file ocr meta
+                    if any(x in (f.get("name") or "").lower() for x in ("_djvu.txt", "_hocr", "abbyy")):
+                        metadata_extra.setdefault("file_metadata", []).append({"name": f.get("name"), "format": f.get("format"), "ocr_detected_lang": f.get("ocr_detected_lang")})
+
+        except Exception:
+            pass
+
+        try:
+            views = get_views(session, ident)
+            if views:
+                metadata_extra["views"] = views
+        except Exception:
+            pass
+
+        meta = {
+            "source_type": "book",
+            "identifier": ident,
+            "source_language_code": lang_code,
+            "publication_date": item.get("date") or None,
+            "ia_date": item.get("date", ""),
+            "ia_language": item.get("language", ""),
+        }
+        # merge extra metadata
+        meta.update(metadata_extra)
+
         ok = insert_or_skip(
             client,
             source="archive_org",
             title=item.get("title", ident),
             text=text,
             url=f"https://archive.org/details/{ident}",
-            metadata={
-                "source_type": "book",
-                "identifier": ident,
-                "source_language_code": lang_code,
-                "publication_date": item.get("date") or None,
-                "ia_date": item.get("date", ""),
-                "ia_language": item.get("language", ""),
-            },
+            metadata=meta,
             config=config,
         )
         item["ingested"] = ok
@@ -471,6 +586,29 @@ def run(config: dict) -> None:
 
         stats = _download_and_ingest(client, catalog, config)
         log_stage(logger, _STAGE, "run_complete", inserted=stats["inserted"], duplicates=stats["duplicates"], skipped=stats["skipped"])
+
+
+def run_integration(config: dict, identifiers: Optional[list[str]] = None, max_items: int = 10) -> dict:
+    """Simple integration runner for testing IA credentials and download pipeline.
+
+    If `identifiers` is provided, runs only for those items. Otherwise builds a small catalog
+    from `DEFAULT_QUERIES` and runs up to `max_items` downloads/ingests. Requires MongoDB in config.
+    """
+    cfg = config or {}
+    with open_mongodb_client(cfg) as client:
+        if client is None:
+            raise RuntimeError("MongoDB is required for integration run")
+        session = _make_session(cfg)
+        if identifiers:
+            catalog = {ident: {"identifier": ident, "title": ident, "downloaded": False} for ident in identifiers}
+        else:
+            catalog = search_items(DEFAULT_QUERIES, max_per_query=max_items, session=session)
+            # trim to max_items
+            keys = list(catalog.keys())[:max_items]
+            catalog = {k: catalog[k] for k in keys}
+
+        stats = _download_and_ingest(client, catalog, cfg)
+        return stats
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────

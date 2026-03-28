@@ -146,3 +146,5 @@ data/raw/wikipedia_ea/
 
 # Editor/assistant state
 .cursor/
+*.png
+*.csv

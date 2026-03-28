@@ -40,19 +40,19 @@ After scraping, the extraction pipeline processes MongoDB data through these sta
 Imports vocabulary data into MongoDB.
 
 ### 2. Validate Contract Alignment
-Validates data integrity: required fields, dialect tags, source distribution.
+Validates data integrity: required fields, internal_language_code and internal_language_branch tags, source distribution.
 
 ### 3. Detect Near-Duplicates
 Analyzes `normalized_content_hash` fields to find near-duplicate documents across sources.
 
-### 4. Materialize Dialect Views
-Tags each document with `dialect_view` (wa/ea/mixed/unknown) for fast filtered queries.
+### 4. Materialize Language Branch Views
+Tags each document with `internal_language_branch` (western_armenian/eastern_armenian/mixed/unknown) for fast filtered queries.
 
 ### 5. Build Frequency List
 Aggregates per-source word frequencies, applies source weights, stores in MongoDB `word_frequencies` collection.
 
 ### 6. Summarize Corpus
-Generates summary statistics (counts by source, dialect, text size) stored in MongoDB `metadata` collection.
+Generates summary statistics (counts by source, internal_language_branch, text size) stored in MongoDB `metadata` collection.
 
 All stages read from and write to MongoDB — no intermediate CSV, JSONL, or file-based I/O.
 
@@ -119,7 +119,8 @@ class LexiconEntry:
     pronunciation: str            # IPA or phonetic annotation
     frequency_rank: int           # Rank in corpus
     syllable_count: int           # Syllable count
-    dialect_tag: DialectTag       # Dialect
+    internal_language_code: str | None  # Internal language code (e.g., 'hyw' or 'hye')
+    internal_language_branch: str | None  # Internal language branch (e.g., 'western_armenian' or 'eastern_armenian')
     metadata: dict[str, Any]      # Flexible metadata
 ```
 

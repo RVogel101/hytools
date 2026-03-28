@@ -207,7 +207,10 @@ def _classify(text: str) -> tuple[str, float]:
     language_code is 'hyw' if score meets WA threshold, 'hye' otherwise.
     """
     try:
-        from hytools.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytools.linguistics.dialect.branch_dialect_classifier import (
+            compute_wa_score,
+            WA_SCORE_THRESHOLD,
+        )
         score = compute_wa_score(text[:4000])
         lc = "hyw" if score >= WA_SCORE_THRESHOLD else "hye"
         return lc, score

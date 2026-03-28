@@ -16,9 +16,13 @@ logger = logging.getLogger(__name__)
 def run(config: dict) -> None:
     """Normalize and filter MongoDB corpus documents in place."""
     try:
-        from hytools.ingestion._shared.helpers import open_mongodb_client, compute_wa_score, WA_SCORE_THRESHOLD
+        from hytools.ingestion._shared.helpers import open_mongodb_client
+        from hytools.linguistics.dialect.branch_dialect_classifier import (
+            compute_wa_score,
+            WA_SCORE_THRESHOLD,
+        )
     except ImportError:
-        logger.error("ingestion._shared.helpers not available")
+        logger.error("required helpers not available")
         raise
 
     from .normalizer import normalize

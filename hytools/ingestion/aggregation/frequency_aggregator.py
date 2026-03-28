@@ -84,11 +84,27 @@ def _get_target_weights(
 
 MIN_COUNT = 2
 
-_ARMENIAN_WORD_RE = re.compile(r"[\u0530-\u058F\u0560-\u058F]+")
+# Exclude Armenian punctuation marks (not words). Included character forms:
+#   ։  (U+0589 Armenian full stop)
+#   ՝  (U+055D Armenian comma)
+#   ՛  (U+055B Armenian apostrophe-like mark)
+#   ՞  (U+055E Armenian question mark)
+#   « »  (U+00AB U+00BB Armenian ŁQP quotation marks)
+#   և  (U+0568 U+0575 Armenian conjunction, treated as stopword here)
+#   punctuation-like ASCII runes also excluded by script token regex
+# Token regex only matches Armenian letters, excluding the above punctuation.
+_ARMENIAN_WORD_RE = re.compile(r"[\u0531-\u0556\u0561-\u0586]+")
+
+# Armenian tokens that are not considered lexical lemma words in this WA definition.
+# Includes particles or punctuation-like tokens we exclude from frequencies.
+# (Western Armenian-specific rule; 'և' is excluded by project requirement.)
+_EXCLUDED_TOKENS = {"և"}
 
 
 def _tokenize_armenian(text: str) -> list[str]:
-    return _ARMENIAN_WORD_RE.findall(text.lower())
+    tokens = _ARMENIAN_WORD_RE.findall(text.lower())
+    # Skip one-character tokens (punctuation/isolated marks) and explicitly excluded tokens.
+    return [t for t in tokens if len(t) > 1 and t not in _EXCLUDED_TOKENS]
 
 
 def _build_docs_query(config: dict) -> dict:

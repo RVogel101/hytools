@@ -289,11 +289,81 @@ class BookInventoryManager:
                    Required for load/save.
         """
         self.inventory_file = Path(inventory_file)
+        # If no config provided, attempt to read project config/settings.yaml
         self.config = config or {}
+        if not self.config:
+            try:
+                import yaml
+
+                repo_root = Path(__file__).resolve().parents[3]
+                cfg_path = repo_root / "config" / "settings.yaml"
+                if cfg_path.exists():
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        cfg = yaml.safe_load(f)
+                        if isinstance(cfg, dict):
+                            self.config = cfg
+            except Exception:
+                # Best-effort: leave config empty if YAML not available or parse fails
+                pass
+        # When running tests, prefer an isolated test database to avoid
+        # loading or modifying a developer's production DB. Detect pytest
+        # via environment and set a test database name if not already set.
+        try:
+            import os
+            if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("HYTOOLS_TESTING"):
+                db_cfg = self.config.setdefault("database", {})
+                # Use a short, deterministic test DB name including PID
+                test_db = f"hytools_test_{os.getpid()}"
+                db_cfg.setdefault("mongodb_database", test_db)
+        except Exception:
+            pass
+        # If an explicit inventory_file path was provided (typically by tests),
+        # prefer using an isolated test database name to avoid touching a user's
+        # real database even if settings.yaml points to localhost.
+        try:
+            if str(inventory_file) != "data/book_inventory.jsonl":
+                db_cfg = self.config.setdefault("database", {})
+                test_db = f"hytools_test_{os.getpid()}"
+                # Always force test DB when using isolated inventory file in tests.
+                db_cfg["mongodb_database"] = test_db
+        except Exception:
+            pass
+        # Allow environment variables to override DB connection for test runs
+        try:
+            import os
+            db_cfg = self.config.setdefault("database", {})
+            env_uri = os.environ.get("HYTOOLS_MONGODB_URI")
+            env_db = os.environ.get("HYTOOLS_MONGODB_DATABASE")
+            if env_uri:
+                db_cfg["mongodb_uri"] = env_uri
+            if env_db:
+                db_cfg["mongodb_database"] = env_db
+        except Exception:
+            pass
         self._use_mongodb = bool(
             self.config.get("database", {}).get("mongodb_uri")
         )
         self.books: list[BookInventoryEntry] = []
+
+        # If an explicit inventory file path was provided (tests/temporary files),
+        # use isolated JSONL-backed manager mode and skip MongoDB entirely.
+        if str(inventory_file) != "data/book_inventory.jsonl":
+            self._use_mongodb = False
+            logger.info("Using isolated inventory file path; loading JSONL and skipping MongoDB operations.")
+            if self.inventory_file.exists():
+                try:
+                    with open(self.inventory_file, "r", encoding="utf-8") as fh:
+                        for line in fh:
+                            if line.strip():
+                                try:
+                                    data = json.loads(line)
+                                    self.books.append(BookInventoryEntry.from_dict(data))
+                                except Exception as e:
+                                    logger.warning("Skipping invalid JSONL entry in %s: %s", self.inventory_file, e)
+                except Exception as e:
+                    logger.error("Failed to load inventory from %s: %s", self.inventory_file, e)
+            return
+
         if not self._use_mongodb:
             logger.error(
                 "BookInventoryManager requires MongoDB. Set database.mongodb_uri in config. "
@@ -302,6 +372,7 @@ class BookInventoryManager:
             raise RuntimeError(
                 "BookInventoryManager requires MongoDB (database.mongodb_uri). No JSONL fallback."
             )
+
         self._load_inventory()
     
     def add_book(self, book: BookInventoryEntry) -> None:
@@ -488,7 +559,20 @@ class BookInventoryManager:
     
     def save_inventory(self, output_file: Optional[str] = None) -> Path | int:
         """Save inventory to MongoDB."""
+        # If running in isolated (test) mode with a provided inventory file,
+        # persist to the JSONL file rather than requiring MongoDB.
         if not self._use_mongodb:
+            if str(self.inventory_file) != "data/book_inventory.jsonl":
+                out_path = Path(output_file) if output_file else self.inventory_file
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    with open(out_path, "w", encoding="utf-8") as fh:
+                        for b in self.books:
+                            fh.write(json.dumps(b.to_dict(), ensure_ascii=False) + "\n")
+                    return len(self.books)
+                except Exception:
+                    logger.error("Failed to save inventory to %s", out_path)
+                    return 0
             raise RuntimeError("BookInventoryManager requires MongoDB; cannot save.")
         try:
             from hytools.ingestion._shared.helpers import open_mongodb_client

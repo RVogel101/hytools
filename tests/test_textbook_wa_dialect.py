@@ -22,7 +22,7 @@ import json
 import unittest
 from pathlib import Path
 
-from hytools.linguistics.dialect_classifier import classify_text_dialect
+from hytools.ingestion._shared.helpers import classify_text_classification
 
 
 def _load_textbook_data():
@@ -49,11 +49,11 @@ class TestTextbookWesternSentences(unittest.TestCase):
             self.skipTest("No textbook data")
         for text in self.data.get("sentences_western", []):
             with self.subTest(text=text[:50]):
-                result = classify_text_dialect(text)
+                result = classify_text_classification(text)
                 self.assertNotEqual(
-                    result.label,
+                    result.get("label"),
                     "likely_eastern",
-                    f"Western example must not be Eastern: {text!r} -> {result.label}",
+                    f"Western example must not be Eastern: {text!r} -> {result.get('label')}",
                 )
 
     def test_western_sentences_with_markers_classify_as_western(self):
@@ -71,11 +71,11 @@ class TestTextbookWesternSentences(unittest.TestCase):
         ]
         for text in with_markers:
             with self.subTest(text=text[:50]):
-                result = classify_text_dialect(text)
+                result = classify_text_classification(text)
                 self.assertEqual(
-                    result.label,
+                    result.get("label"),
                     "likely_western",
-                    f"Expected likely_western (has WA markers): {text!r} -> {result.label} (W={result.western_score} E={result.eastern_score})",
+                    f"Expected likely_western (has WA markers): {text!r} -> {result.get('label')} (W={result.get('western_score')} E={result.get('eastern_score')})",
                 )
 
     def test_eastern_sentences_not_western(self):
@@ -84,11 +84,11 @@ class TestTextbookWesternSentences(unittest.TestCase):
             self.skipTest("No textbook data")
         for text in self.data.get("sentences_eastern", []):
             with self.subTest(text=text[:50]):
-                result = classify_text_dialect(text)
+                result = classify_text_classification(text)
                 self.assertNotEqual(
-                    result.label,
+                    result.get("label"),
                     "likely_western",
-                    f"Eastern example must not be Western: {text!r} -> {result.label}",
+                    f"Eastern example must not be Western: {text!r} -> {result.get('label')}",
                 )
 
     def test_eastern_sentences_with_markers_classify_as_eastern(self):
@@ -101,11 +101,11 @@ class TestTextbookWesternSentences(unittest.TestCase):
         ]
         for text in with_markers:
             with self.subTest(text=text[:50]):
-                result = classify_text_dialect(text)
+                result = classify_text_classification(text)
                 self.assertEqual(
-                    result.label,
+                    result.get("label"),
                     "likely_eastern",
-                    f"Expected likely_eastern (has EA markers): {text!r} -> {result.label} (W={result.western_score} E={result.eastern_score})",
+                    f"Expected likely_eastern (has EA markers): {text!r} -> {result.get('label')} (W={result.get('western_score')} E={result.get('eastern_score')})",
                 )
 
     def test_vocabulary_has_no_eastern_markers(self):
@@ -115,11 +115,11 @@ class TestTextbookWesternSentences(unittest.TestCase):
         vocab = self.data.get("vocabulary", [])
         for word in vocab:
             with self.subTest(word=word):
-                result = classify_text_dialect(word)
+                result = classify_text_classification(word)
                 self.assertNotEqual(
-                    result.label,
+                    result.get("label"),
                     "likely_eastern",
-                    f"WA vocabulary should not be Eastern: {word!r} -> {result.label}",
+                    f"WA vocabulary should not be Eastern: {word!r} -> {result.get('label')}",
                 )
 
 
@@ -133,3 +133,38 @@ class TestTextbookDataStructure(unittest.TestCase):
         for key in ("vocabulary", "sentences_western", "sentences_eastern"):
             self.assertIn(key, data, f"Missing key: {key}")
             self.assertIsInstance(data[key], list, f"{key} should be a list")
+
+
+class TestWaScoreUnitExtras(unittest.TestCase):
+    """Additional WA scoring tests originally added from WesternArmenianLLM."""
+
+    def test_wa_present_onset_gu(self):
+        # ԱՆ ԿՈՒ ԳԱՅ ԵՎ ՄԵՑ ՇՏԱՊՈՒՄ ՈՒՆԻ
+        text = "\u0531\u0576 \u056f\u0578\u0582 \u0563\u0561\u0575 \u0587 \u0574\u0565\u056e \u0577\u057f\u0561\u057a\u0578\u0582\u0574 \u0578\u0582\u0576\u056b"
+        result = classify_text_classification(text)
+        self.assertEqual(result.get("label"), "likely_western")
+
+    def test_wa_case_dative_within(self):
+        # ՄԵԶԻ ՄԵՑ ՏՈՒՆԸ ՃԱՄԲԱՌԸ ՍԿՍԱՒ
+        text = "\u0544\u0565\u0566\u056b \u0574\u0567\u057b \u057f\u0578\u0582\u0576\u0568 \u0573\u0561\u0574\u0562\u0561\u0580\u0568 \u057d\u056f\u057d\u0561\u0582"
+        result = classify_text_classification(text)
+        self.assertEqual(result.get("label"), "likely_western")
+
+    def test_wa_neg_conjunction_ayl(self):
+        # ՆԱ ԱՅԼԵՒՍ ՉԸՍԵՐ ԱՅՍ ՈՃԸ
+        text = "\u0546\u0561 \u0561\u0575\u056c\u0565\u0582\u057d \u0579\u0568\u057d\u0565\u0580 \u0561\u0575\u057d \u0578\u0573\u0568"
+        result = classify_text_classification(text)
+        self.assertEqual(result.get("label"), "likely_western")
+
+    def test_wa_verb_participle_u(self):
+        # ԽԱՂԱԼՈՒ ԺԱՄԱՆԱԿԸ ՄԻՇՏ ՈՒՐԱԽ Է
+        text = "\u053d\u0561\u0572\u0561\u056c\u0578\u0582 \u056a\u0561\u0574\u0561\u056f\u0568 \u0574\u056b\u0577\u057f \u0578\u0582\u0580\u0561\u0563 \u0565"
+        result = classify_text_classification(text)
+        self.assertEqual(result.get("label"), "likely_western")
+
+    def test_wa_vocabulary_core_words(self):
+        # ՇԱՏ ԼԱՒ ՄԵՑ ՄԱՐԴԸ ՊԱՏՄԵՑ
+        text = "\u0547\u0561\u0570 \u056c\u0561\u057e \u0574\u0565\u056e \u0574\u0561\u0572\u0564\u056b\u0578\u057e \u057a\u0561\u057f\u0561\u0574\u0565\u0574"
+        result = classify_text_classification(text)
+        self.assertEqual(result.get("label"), "likely_western")
+

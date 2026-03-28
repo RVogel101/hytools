@@ -32,14 +32,6 @@ from enum import Enum
 from typing import Literal
 
 
-class Dialect(Enum):
-    """Armenian dialect classification."""
-    WESTERN_ARMENIAN = "western_armenian"
-    EASTERN_ARMENIAN = "eastern_armenian"
-    MIXED = "mixed"  # Authors who write in both or transition
-    UNKNOWN = "unknown"
-
-
 class GeographicRegion(Enum):
     """Historical geographic regions that determined Armenian dialect."""
     # Western Armenian (Ottoman sphere)
@@ -61,40 +53,7 @@ class GeographicRegion(Enum):
     UNKNOWN = "unknown"
 
 
-def infer_dialect_from_region(region: GeographicRegion | list[GeographicRegion]) -> Dialect:
-    """Infer Armenian dialect from geographic region(s).
-    
-    If multiple regions are given (mixed origin), returns MIXED.
-    """
-    if isinstance(region, list):
-        if len(region) > 1:
-            return Dialect.MIXED
-        region = region[0] if region else GeographicRegion.UNKNOWN
-    
-    western_regions = {
-        GeographicRegion.OTTOMAN_ANATOLIA,
-        GeographicRegion.LEVANT,
-        GeographicRegion.EGYPT,
-        GeographicRegion.BALKANS,
-        GeographicRegion.WESTERN_EUROPE,
-        GeographicRegion.AMERICAS,
-    }
-    
-    eastern_regions = {
-        GeographicRegion.PERSIA,
-        GeographicRegion.RUSSIA,
-        GeographicRegion.CAUCASIA,
-        GeographicRegion.CENTRAL_ASIA,
-    }
-    
-    if region in western_regions:
-        return Dialect.WESTERN_ARMENIAN
-    elif region in eastern_regions:
-        return Dialect.EASTERN_ARMENIAN
-    elif region == GeographicRegion.MIXED:
-        return Dialect.MIXED
-    else:
-        return Dialect.UNKNOWN
+
 
 
 @dataclass
@@ -110,8 +69,10 @@ class AuthorRecord:
     # Geographic center of literary/intellectual work (may differ from birthplace)
     work_region: GeographicRegion | None = None
     
-    # Inferred dialect (calculated from geographic regions)
-    dialect: Dialect | None = None
+    # NOTE: dialect field removed. Use `internal_language_code` and
+    # `internal_language_branch` derived from writing samples only.
+    internal_language_code: str | None = None
+    internal_language_branch: str | None = None
     
     # Period (years active, approximately)
     period_start: int | None = None
@@ -134,12 +95,13 @@ class AuthorRecord:
     # Internal note for research/verification
     notes: str | None = None
     
-    def __post_init__(self):
-        """Auto-compute dialect from geographic regions if not provided."""
-        if self.dialect is None:
-            # Use work_region if available (more important than birthplace)
-            primary_region = self.work_region or self.birthplace_region
-            self.dialect = infer_dialect_from_region(primary_region)
+    # NOTE: Dialect is NOT auto-inferred from geographic regions anymore.
+    # The project's canonical metadata fields are `internal_language_code`
+    # and `internal_language_branch`, which must be derived from an
+    # author's actual writings or textual samples. If no writing samples
+    # exist for the author, these fields (and `dialect`) should remain
+    # unset/None rather than being inferred from birthplace/work region.
+    # This avoids incorrect classification based solely on geography.
 
 
 
@@ -286,58 +248,40 @@ MIXED_DIALECT_AUTHORS: dict[str, AuthorRecord] = {
 }
 
 
-def lookup_author(name: str, dialect: Dialect | None = None) -> AuthorRecord | None:
-    """Look up an author by name in Western or Eastern Armenian tradition.
-    
-    Parameters
-    ----------
-    name:
-        Author name (Armenian script preferred, transliteration acceptable)
-    dialect:
-        If specified, only search that dialect's database. If None, search all.
-    
-    Returns
-    -------
-    AuthorRecord if found, else None
+def lookup_author(name: str) -> AuthorRecord | None:
+    """Look up an author by name across all author collections.
+
+    This function no longer accepts a dialect parameter; authors are
+    organized into collections for convenience but lookups search them all.
     """
-    search_dbs = []
-    
-    if dialect is None or dialect == Dialect.WESTERN_ARMENIAN:
-        search_dbs.append(WESTERN_ARMENIAN_AUTHORS)
-    if dialect is None or dialect == Dialect.EASTERN_ARMENIAN:
-        search_dbs.append(EASTERN_ARMENIAN_AUTHORS)
-    if dialect is None or dialect == Dialect.MIXED:
-        search_dbs.append(MIXED_DIALECT_AUTHORS)
-    
-    for db in search_dbs:
+    for db in [WESTERN_ARMENIAN_AUTHORS, EASTERN_ARMENIAN_AUTHORS, MIXED_DIALECT_AUTHORS]:
         if name in db:
             return db[name]
         # Also check alternate names
         for record in db.values():
             if record.alternate_names and name in record.alternate_names:
                 return record
-    
+
     return None
 
 
-def get_authors_by_dialect(dialect: Dialect) -> dict[str, AuthorRecord]:
-    """Get all authors in a specific dialect tradition.
-    
-    Parameters
-    ----------
-    dialect:
-        Dialect to filter by
-    
-    Returns
-    -------
-    Dictionary mapping author names to AuthorRecord objects
-    """
-    if dialect == Dialect.WESTERN_ARMENIAN:
-        return WESTERN_ARMENIAN_AUTHORS.copy()
-    elif dialect == Dialect.EASTERN_ARMENIAN:
-        return EASTERN_ARMENIAN_AUTHORS.copy()
-    elif dialect == Dialect.MIXED:
-        return MIXED_DIALECT_AUTHORS.copy()
+def get_all_authors() -> dict[str, AuthorRecord]:
+    """Return a merged mapping of all known authors across collections."""
+    merged: dict[str, AuthorRecord] = {}
+    merged.update(WESTERN_ARMENIAN_AUTHORS)
+    merged.update(EASTERN_ARMENIAN_AUTHORS)
+    merged.update(MIXED_DIALECT_AUTHORS)
+    return merged
+
+
+def get_authors_by_dialect(dialect: str) -> dict[str, AuthorRecord]:
+    """Return authors grouped by a simplified dialect key. """
+    if dialect.lower() in ('western', 'western_armenian'):
+        return WESTERN_ARMENIAN_AUTHORS
+    if dialect.lower() in ('eastern', 'eastern_armenian'):
+        return EASTERN_ARMENIAN_AUTHORS
+    if dialect.lower() in ('mixed',):
+        return MIXED_DIALECT_AUTHORS
     return {}
 
 

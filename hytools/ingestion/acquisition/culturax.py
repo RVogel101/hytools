@@ -18,7 +18,10 @@ _CULTURAX_STAGE = "culturax"
 def _classify_dialect(text: str) -> str:
     """Classify text as western_armenian or eastern_armenian."""
     try:
-        from hytools.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytools.linguistics.dialect.branch_dialect_classifier import (
+            compute_wa_score,
+            WA_SCORE_THRESHOLD,
+        )
         score = compute_wa_score(text[:5000])
         return "western_armenian" if score >= WA_SCORE_THRESHOLD else "eastern_armenian"
     except ImportError:

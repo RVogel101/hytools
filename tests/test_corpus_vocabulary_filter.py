@@ -156,10 +156,11 @@ class TestIntegrationWithLanguageFilter(unittest.TestCase):
         """Should be able to import and use is_western_armenian.
 
         Text: "This is a good house." """
-        from hytools.cleaning.language_filter import is_western_armenian
+        from hytools.ingestion._shared.helpers import classify_text_classification
 
         text = "Սա լավ տուն է։"
-        is_wa = is_western_armenian(text)
+        result = classify_text_classification(text)
+        is_wa = result.get("label") == "likely_western"
 
         self.assertIsInstance(is_wa, bool)
 

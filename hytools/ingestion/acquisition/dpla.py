@@ -29,6 +29,25 @@ import time
 from urllib.parse import quote_plus, urlencode
 
 import requests
+from pathlib import Path
+from typing import Optional
+
+# Optional DPyLA client (third-party wrapper). If available, we can use it
+# as an alternative to raw HTTP calls for convenience.
+try:
+    from dpyla import DPLA  # type: ignore
+    DPLYA_AVAILABLE = True
+except Exception:
+    DPLA = None
+    DPLYA_AVAILABLE = False
+
+# Optional boto3 for bulk S3 downloads
+try:
+    import boto3  # type: ignore
+    BOTO3_AVAILABLE = True
+except Exception:
+    boto3 = None
+    BOTO3_AVAILABLE = False
 
 from hytools.ingestion._shared.helpers import (
     compute_wa_score,
@@ -49,6 +68,16 @@ _PAGE_SIZE = 500
 _API_MAX_PAGE = 100
 _REQUEST_DELAY = 0.5
 _USER_AGENT = "ArmenianCorpusCore/1.0 (Education/Research; armenian-corpus-building)"
+
+# Default fields to request from DPLA to get rich metadata while keeping responses
+# reasonably small. Callers may override by passing `fields` in the query params.
+_DEFAULT_FIELDS = (
+    "id,@id,ingestDate,ingestType,score,dataProvider,provider,"
+    "isShownAt,object,originalRecord,sourceResource.title,sourceResource.description,"
+    "sourceResource.format,sourceResource.type,sourceResource.identifier,sourceResource.language,"
+    "sourceResource.creator,sourceResource.contributor,sourceResource.date,sourceResource.subject,"
+    "sourceResource.rights,hasView"
+)
 
 # English-language query: books about Armenians, Armenia, Armenian language, biographies, Armenian authors
 _ENGLISH_ARMENIA_QUERY = "Armenia OR Armenian OR Armenians OR Armenian language OR Armenian history OR Armenian literature OR Armenian genocide OR Armenian diaspora OR biography Armenian"
@@ -196,17 +225,37 @@ def _fetch_page(
     params: dict,
     session: requests.Session,
 ) -> tuple[list[dict], int]:
-    """Fetch one page of DPLA items. Returns (docs, total_count)."""
+    """Fetch one page of DPLA items. Returns (docs, total_count).
+
+    Uses `session.get(..., params=...)` so requests handles encoding, and
+    requests a conservative default `fields` list to reduce payload size while
+    retaining useful metadata. Includes a small retry/backoff loop for
+    transient errors.
+    """
     params = dict(params)
-    params["api_key"] = api_key
     params.setdefault("page_size", _PAGE_SIZE)
-    url = _API_BASE + "?" + urlencode(params, quote_via=quote_plus)
-    resp = session.get(url, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
-    docs = data.get("docs") or []
-    count = data.get("count", 0)
-    return docs, count
+    # Ensure api key is included
+    params["api_key"] = api_key
+    # If caller did not request specific fields, ask for useful defaults
+    if "fields" not in params:
+        params["fields"] = _DEFAULT_FIELDS
+
+    attempts = 0
+    while True:
+        attempts += 1
+        try:
+            resp = session.get(_API_BASE, params=params, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            docs = data.get("docs") or []
+            count = data.get("count", 0)
+            return docs, count
+        except requests.RequestException as e:
+            if attempts >= 3:
+                raise
+            sleep_for = 1 + attempts * 1
+            logger.warning("DPLA fetch failed (attempt %s): %s — retrying in %ss", attempts, e, sleep_for)
+            time.sleep(sleep_for)
 
 
 def _run_query(
@@ -321,6 +370,51 @@ def run(config: dict) -> None:
             "DPLA: Armenian inserted=%s skipped=%s; English-Armenia inserted=%s skipped=%s",
             ins_a, skip_a, ins_e, skip_e,
         )
+
+
+def fetch_with_dpyla(api_key: str, params: dict, page: int = 1) -> tuple[list[dict], int]:
+    """Attempt to fetch a page using DPyLA if available. Returns (docs, count).
+
+    Falls back to raising RuntimeError if DPyLA is not installed.
+    """
+    if not DPLYA_AVAILABLE:
+        raise RuntimeError("DPyLA client not available")
+    client = DPLA(api_key=api_key)
+    # client.search returns an iterator or list depending on implementation; use raw request
+    resp = client.search(params=params)
+    # Try to normalize: expect resp to be dict-like
+    if isinstance(resp, dict):
+        docs = resp.get("docs", [])
+        count = resp.get("count", 0)
+    else:
+        docs = list(resp)
+        count = len(docs)
+    return docs, count
+
+
+def download_bulk_s3(dest: Path, bucket: str = "dpla-provider-export", prefix: Optional[str] = None, max_files: int = 10) -> list[Path]:
+    """Download a small set of bulk export files from DPLA S3 bucket for research.
+
+    Requires boto3 and appropriate AWS credentials with access to the bucket.
+    This helper is intentionally conservative (max_files) to avoid huge downloads.
+    Returns list of local file Paths downloaded.
+    """
+    if not BOTO3_AVAILABLE:
+        raise RuntimeError("boto3 is required for bulk S3 download but is not installed")
+    s3 = boto3.client("s3")
+    kwargs = {"Bucket": bucket}
+    if prefix:
+        kwargs["Prefix"] = prefix
+    objs = s3.list_objects_v2(**kwargs)
+    items = objs.get("Contents", [])[:max_files]
+    downloaded = []
+    dest.mkdir(parents=True, exist_ok=True)
+    for o in items:
+        key = o["Key"]
+        local = dest / Path(key).name
+        s3.download_file(bucket, key, str(local))
+        downloaded.append(local)
+    return downloaded
 
 
 if __name__ == "__main__":

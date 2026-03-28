@@ -31,7 +31,8 @@ class DocumentRecord:
     source_url: Optional[str] = None
     content_hash: Optional[str] = None
     char_count: Optional[int] = None
-    dialect_tag: DialectTag = DialectTag.UNKNOWN
+    internal_language_code: Optional[str] = None
+    internal_language_branch: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -45,7 +46,8 @@ class LexiconEntry:
     pronunciation: Optional[str] = None
     frequency_rank: Optional[int] = None
     syllable_count: Optional[int] = None
-    dialect_tag: DialectTag = DialectTag.WESTERN_ARMENIAN
+    internal_language_code: Optional[str] = None
+    internal_language_branch: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

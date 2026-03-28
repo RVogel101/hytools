@@ -12,15 +12,20 @@ from . import metrics
 # Backward-compat: register so "from hytools.linguistics.phonetics import ..." resolves
 phonetics = phonology.phonetics
 letter_data = phonology.letter_data
-dialect_classifier = dialect.dialect_classifier
-loanword_tracker = lexicon.loanword_tracker
-etymology_db = lexicon.etymology_db
+dialect_classifier = dialect.branch_dialect_classifier
 for _name, _mod in [
     ("linguistics.phonetics", phonetics),
     ("linguistics.letter_data", letter_data),
     ("linguistics.dialect_classifier", dialect_classifier),
-    ("linguistics.loanword_tracker", loanword_tracker),
-    ("linguistics.etymology_db", etymology_db),
+]:
+    if _name not in sys.modules:
+        sys.modules[_name] = _mod
+
+# Also register fully-qualified names for backwards compatibility (hytools package importers)
+for _name, _mod in [
+    ("hytools.linguistics.phonetics", phonetics),
+    ("hytools.linguistics.letter_data", letter_data),
+    ("hytools.linguistics.dialect_classifier", dialect_classifier),
 ]:
     if _name not in sys.modules:
         sys.modules[_name] = _mod
@@ -39,14 +44,10 @@ from .phonology.phonetics import (
     calculate_phonetic_difficulty,
     get_pronunciation_guide,
 )
-from .fsrs import DEFAULT_WEIGHTS, CardState, FSRSScheduler
-from .dialect.dialect_classifier import (
+from .dialect.branch_dialect_classifier import (
     DialectClassification,
-    classify_text_dialect,
-    classify_batch_texts,
-    classify_vocab_and_sentences,
 )
-from .stemmer import get_all_lemmas, get_root_alternants, match_word_with_stemming
+from .morphology.stemmer import get_all_lemmas, get_root_alternants, match_word_with_stemming
 from .lexicon.loanword_tracker import (
     LoanwordReport,
     PossibleLoanwordReport,
@@ -55,7 +56,15 @@ from .lexicon.loanword_tracker import (
     analyze_batch,
     get_loanword_lexicon,
 )
-from .transliteration import (
+
+# Backwards-compat: expose the loanword_tracker module object as
+# `hytools.linguistics.loanword_tracker` so imports like
+# `from hytools.linguistics.loanword_tracker import ...` continue to work.
+from .lexicon import loanword_tracker as _loanword_tracker_mod
+if "hytools.linguistics.loanword_tracker" not in sys.modules:
+    sys.modules["hytools.linguistics.loanword_tracker"] = _loanword_tracker_mod
+loanword_tracker = _loanword_tracker_mod
+from .tools.transliteration import (
     Dialect,
     ASPIRATE,
     to_latin,
@@ -79,15 +88,8 @@ __all__ = [
     "get_phonetic_transcription",
     "calculate_phonetic_difficulty",
     "get_pronunciation_guide",
-    # FSRS
-    "DEFAULT_WEIGHTS",
-    "CardState",
-    "FSRSScheduler",
-    # Dialect classification
+    # Dialect classification (datatypes only; functions moved to ingestion helpers)
     "DialectClassification",
-    "classify_text_dialect",
-    "classify_batch_texts",
-    "classify_vocab_and_sentences",
     # Stemmer
     "get_all_lemmas",
     "get_root_alternants",

@@ -1,0 +1,628 @@
+{
+  "tags": [
+    "hye-w",
+    "ext:wa_textbook"
+  ],
+  "results": {
+    "hye-w__vs__hye-w": {
+      "a": "hye-w",
+      "b": "hye-w",
+      "n_pairs": 5,
+      "phonetic_mean": 0.0,
+      "orthographic_mean": 0.9059740259740259,
+      "lexical_mean": 0.0,
+      "pairs": [
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.8,
+            "median": 0.8,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.8,
+            0.8
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 1.0,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 1.0,
+            "median": 1.0,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            1.0,
+            1.0
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 0.9999999999999999,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9333333333333333,
+            "median": 0.9333333333333333,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.9333333333333333,
+            0.9333333333333333
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 0.9999999999999999,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.8571428571428571,
+            "median": 0.8571428571428571,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.8571428571428571,
+            0.8571428571428571
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 0.9999999999999998,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9393939393939394,
+            "median": 0.9393939393939394,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.9393939393939394,
+            0.9393939393939394
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 1.0000000000000002,
+            "phonetic_edit_distance": 0
+          }
+        }
+      ]
+    },
+    "hye-w__vs__ext:wa_textbook": {
+      "a": "hye-w",
+      "b": "ext:wa_textbook",
+      "n_pairs": 5,
+      "phonetic_mean": 0.7273298292131911,
+      "orthographic_mean": 0.8635752482811307,
+      "lexical_mean": 0.8196291022617996,
+      "pairs": [
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.8064516129032258,
+            "median": 0.8064516129032258,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.8064516129032258
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.65,
+            "median": 0.65,
+            "std": 0.21213203435596428
+          },
+          "orthographic_list": [
+            0.8,
+            0.5
+          ],
+          "lexical_full": {
+            "char_edit_distance": 153,
+            "normalized_edit_distance": 0.8693181818181818,
+            "token_jaccard": 0.0,
+            "js_divergence": 0.6931471805599453,
+            "cosine_similarity": 0.0,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.7346491228070176,
+            "median": 0.7346491228070176,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.7346491228070176
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 1.0,
+            "median": 1.0,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            1.0,
+            1.0
+          ],
+          "lexical_full": {
+            "char_edit_distance": 266,
+            "normalized_edit_distance": 0.8159509202453987,
+            "token_jaccard": 0.022727272727272728,
+            "js_divergence": 0.6503725073557665,
+            "cosine_similarity": 0.09200874124564722,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.6389351081530782,
+            "median": 0.6389351081530782,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.6389351081530782
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9166666666666667,
+            "median": 0.9166666666666667,
+            "std": 0.02357022603955158
+          },
+          "orthographic_list": [
+            0.9333333333333333,
+            0.9
+          ],
+          "lexical_full": {
+            "char_edit_distance": 398,
+            "normalized_edit_distance": 0.8172484599589322,
+            "token_jaccard": 0.013888888888888888,
+            "js_divergence": 0.6766017478383382,
+            "cosine_similarity": 0.018569533817705184,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.708838821490468,
+            "median": 0.708838821490468,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.708838821490468
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9285714285714286,
+            "median": 0.9285714285714286,
+            "std": 0.10101525445522111
+          },
+          "orthographic_list": [
+            0.8571428571428571,
+            1.0
+          ],
+          "lexical_full": {
+            "char_edit_distance": 334,
+            "normalized_edit_distance": 0.7785547785547785,
+            "token_jaccard": 0.0,
+            "js_divergence": 0.6931471805599455,
+            "cosine_similarity": 0.0,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.7477744807121661,
+            "median": 0.7477744807121661,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.7477744807121661
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.822638146167558,
+            "median": 0.822638146167558,
+            "std": 0.1651176262663774
+          },
+          "orthographic_list": [
+            0.9393939393939394,
+            0.7058823529411765
+          ],
+          "lexical_full": {
+            "char_edit_distance": 402,
+            "normalized_edit_distance": 0.8170731707317073,
+            "token_jaccard": 0.019417475728155338,
+            "js_divergence": 0.6450438225895766,
+            "cosine_similarity": 0.1380294091008437,
+            "phonetic_edit_distance": 0
+          }
+        }
+      ]
+    },
+    "ext:wa_textbook__vs__hye-w": {
+      "a": "ext:wa_textbook",
+      "b": "hye-w",
+      "n_pairs": 5,
+      "phonetic_mean": 0.707045980653918,
+      "orthographic_mean": 0.906136051640417,
+      "lexical_mean": 0.7798498200804181,
+      "pairs": [
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.7144540455616654,
+            "median": 0.7144540455616654,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.7144540455616654
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9337406015037594,
+            "median": 0.9337406015037594,
+            "std": 0.017943499146651106
+          },
+          "orthographic_list": [
+            0.9464285714285714,
+            0.9210526315789473
+          ],
+          "lexical_full": {
+            "char_edit_distance": 2791,
+            "normalized_edit_distance": 0.7761401557285873,
+            "token_jaccard": 0.037894736842105266,
+            "js_divergence": 0.6109196178349114,
+            "cosine_similarity": 0.20400954146703612,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.7393019726858877,
+            "median": 0.7393019726858877,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.7393019726858877
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9466130884041333,
+            "median": 0.9466130884041333,
+            "std": 0.033285164211995906
+          },
+          "orthographic_list": [
+            0.9701492537313433,
+            0.9230769230769231
+          ],
+          "lexical_full": {
+            "char_edit_distance": 3412,
+            "normalized_edit_distance": 0.7717710925130061,
+            "token_jaccard": 0.03885135135135135,
+            "js_divergence": 0.5685439578974386,
+            "cosine_similarity": 0.42420832807745407,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.6726546906187625,
+            "median": 0.6726546906187625,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.6726546906187625
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.913336326897171,
+            "median": 0.913336326897171,
+            "std": 0.039371908786318736
+          },
+          "orthographic_list": [
+            0.9411764705882353,
+            0.8854961832061069
+          ],
+          "lexical_full": {
+            "char_edit_distance": 2116,
+            "normalized_edit_distance": 0.7928062944923192,
+            "token_jaccard": 0.0398936170212766,
+            "js_divergence": 0.611284458593207,
+            "cosine_similarity": 0.1746902064657517,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.7017707362534948,
+            "median": 0.7017707362534948,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.7017707362534948
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.8830508474576271,
+            "median": 0.8830508474576271,
+            "std": 0.11745163484115531
+          },
+          "orthographic_list": [
+            0.8,
+            0.9661016949152542
+          ],
+          "lexical_full": {
+            "char_edit_distance": 1737,
+            "normalized_edit_distance": 0.7685840707964602,
+            "token_jaccard": 0.02631578947368421,
+            "js_divergence": 0.6383430055750271,
+            "cosine_similarity": 0.1306099600773676,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.7070484581497798,
+            "median": 0.7070484581497798,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.7070484581497798
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.853939393939394,
+            "median": 0.853939393939394,
+            "std": 0.09342380502949542
+          },
+          "orthographic_list": [
+            0.7878787878787878,
+            0.92
+          ],
+          "lexical_full": {
+            "char_edit_distance": 1053,
+            "normalized_edit_distance": 0.7899474868717179,
+            "token_jaccard": 0.012195121951219513,
+            "js_divergence": 0.6646178418719468,
+            "cosine_similarity": 0.08413570630120498,
+            "phonetic_edit_distance": 0
+          }
+        }
+      ]
+    },
+    "ext:wa_textbook__vs__ext:wa_textbook": {
+      "a": "ext:wa_textbook",
+      "b": "ext:wa_textbook",
+      "n_pairs": 5,
+      "phonetic_mean": 0.0,
+      "orthographic_mean": 0.8917152730973926,
+      "lexical_mean": 0.0,
+      "pairs": [
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9478260869565217,
+            "median": 0.9478260869565217,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.9478260869565217,
+            0.9478260869565217
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 1.0,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9701492537313433,
+            "median": 0.9701492537313433,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.9701492537313433,
+            0.9701492537313433
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 1.0,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.9508196721311475,
+            "median": 0.9508196721311475,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.9508196721311475,
+            0.9508196721311475
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 1.0000000000000002,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.8681318681318682,
+            "median": 0.8681318681318682,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.8681318681318682,
+            0.8681318681318682
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 0.9999999999999999,
+            "phonetic_edit_distance": 0
+          }
+        },
+        {
+          "phonetic": {
+            "count": 1,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0
+          },
+          "phonetic_list": [
+            0.0
+          ],
+          "orthographic": {
+            "count": 2,
+            "mean": 0.7216494845360825,
+            "median": 0.7216494845360825,
+            "std": 0.0
+          },
+          "orthographic_list": [
+            0.7216494845360825,
+            0.7216494845360825
+          ],
+          "lexical_full": {
+            "char_edit_distance": 0,
+            "normalized_edit_distance": 0.0,
+            "token_jaccard": 1.0,
+            "js_divergence": 0.0,
+            "cosine_similarity": 0.9999999999999999,
+            "phonetic_edit_distance": 0
+          }
+        }
+      ]
+    }
+  }
+}

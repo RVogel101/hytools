@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Materialize dialect-specific views from MongoDB corpus.
+"""Materialize language branch views from MongoDB corpus.
 
-Tags each document with a canonical ``dialect_view`` field based on the
-text-derived ``internal_language_branch`` metadata (preferred) or the
-source-provided ``source_language_code`` (fallback), enabling fast filtered
-queries for WA-only training datasets, EA reference data, etc.
+Policy: Corpus dialect is derived strictly from text model results
+(`internal_language_branch`), no source-language fallback for the final
+corpus-side `dialect_view` label.
 
-Also stores dialect distribution stats in the ``metadata`` collection.
+We still preserve source-language metadata as-is (`metadata.source_language_code`) for
+audit and provenance, but we do not auto-assign `dialect_view` from it.
+
+Also stores distribution stats in the ``metadata`` collection.
 """
 
 from __future__ import annotations
@@ -17,20 +19,14 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 
 # internal_language_branch → dialect_view tag  (primary — text-derived)
+from hytools.ingestion._shared.metadata import InternalLanguageBranch
+
 _BRANCH_TO_VIEW = {
-    "hye-w": "wa",
-    "hye-e": "ea",
-    "eng": "eng",
+    InternalLanguageBranch.WESTERN_ARMENIAN.value: "wa",
+    InternalLanguageBranch.EASTERN_ARMENIAN.value: "ea",
+    InternalLanguageBranch.ENGLISH.value: "eng",
 }
 
-# source_language_code → dialect_view tag  (fallback — source-declared)
-_SOURCE_LANG_TO_VIEW = {
-    "hyw": "wa",
-    "hye": "ea",
-    "hy": "ea",     # legacy undetermined Armenian → treat as EA for safety
-    "hyc": "ea",    # Classical Armenian
-    "en": "eng",
-}
 
 
 def run(config: dict) -> None:
@@ -54,16 +50,8 @@ def run(config: dict) -> None:
             ).modified_count
             stats[view_tag] += count
 
-        # Fallback: documents without internal branch → use source_language_code
-        for lang_code, view_tag in _SOURCE_LANG_TO_VIEW.items():
-            count = docs.update_many(
-                {
-                    "dialect_view": {"$exists": False},
-                    "metadata.source_language_code": lang_code,
-                },
-                {"$set": {"dialect_view": view_tag}},
-            ).modified_count
-            stats[view_tag] += count
+        # No fallback to source_language_code.  We keep this strict to avoid coercing
+        # data from external source metadata when text classification is unavailable.
 
         # Last resort: anything still untagged → unknown
         remaining = docs.update_many(

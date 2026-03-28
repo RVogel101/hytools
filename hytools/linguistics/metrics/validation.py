@@ -17,18 +17,17 @@ specific issues in regeneration attempts.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Literal
 
 from hytools.ingestion._shared.helpers import (
+    get_classical_markers,
+    get_wa_vocabulary_markers,
+    get_eastern_markers,
+)
+from hytools.linguistics.dialect.branch_dialect_classifier import (
     compute_wa_score,
-    is_western_armenian,
-    _CLASSICAL_ORTHO_MARKERS,
-    _LEXICAL_MARKERS,
-    _WA_VOCABULARY,
-    _EASTERN_ARMENIAN_REFORM_MARKERS,
-    _EASTERN_INDEFINITE_ARTICLE,
-    _EASTERN_VOCABULARY,
     WA_SCORE_THRESHOLD,
 )
 
@@ -78,7 +77,7 @@ def _compute_armenian_ratio(text: str) -> float:
 
 def _detect_eastern_armenian_markers(text: str) -> tuple[int, list[str]]:
     """Count Eastern Armenian markers (reform, indefinite article, vocabulary).
-    
+
     Returns
     -------
     tuple[int, list[str]]
@@ -86,17 +85,12 @@ def _detect_eastern_armenian_markers(text: str) -> tuple[int, list[str]]:
     """
     ea_count = 0
     examples = []
-    all_ea_markers = (
-        _EASTERN_ARMENIAN_REFORM_MARKERS
-        + _EASTERN_INDEFINITE_ARTICLE
-        + _EASTERN_VOCABULARY
-    )
-    for marker, weight in all_ea_markers:
-        count = text.count(marker)
+    for pattern, weight in get_eastern_markers():
+        count = sum(1 for _ in re.finditer(pattern, text, flags=re.IGNORECASE))
         if count > 0 and weight > 0:
             ea_count += count
             if len(examples) < 5:
-                examples.append(f"Found EA marker '{marker}' ({count}x)")
+                examples.append(f"Found EA marker pattern '{pattern}' ({count}x)")
     return ea_count, examples
 
 
@@ -109,28 +103,28 @@ def _detect_classical_markers(text: str) -> tuple[int, int]:
         (count_of_classical_markers, expected_minimum_for_length)
     """
     classical_count = 0
-    
-    for marker, weight in _CLASSICAL_ORTHO_MARKERS:
-        count = text.count(marker)
+
+    for pattern, weight in get_classical_markers():
+        count = sum(1 for _ in re.finditer(pattern, text, flags=re.IGNORECASE))
         if count > 0:
             classical_count += count
-    
+
     # Estimate expected minimum: ~1 classical marker per 50 characters in WA text
     text_length = len(text)
     expected_min = max(2, text_length // 50)
-    
+
     return classical_count, expected_min
 
 
 def _detect_wa_vocabulary(text: str) -> int:
     """Count Western Armenian specific vocabulary markers."""
     wa_vocab_count = 0
-    
-    for word, weight in _WA_VOCABULARY:
-        count = text.count(word)
+
+    for pattern, weight in get_wa_vocabulary_markers():
+        count = sum(1 for _ in re.finditer(pattern, text, flags=re.IGNORECASE))
         if count > 0:
             wa_vocab_count += count
-    
+
     return wa_vocab_count
 
 

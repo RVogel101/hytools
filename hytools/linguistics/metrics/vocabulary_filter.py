@@ -18,7 +18,11 @@ import logging
 import re
 from pathlib import Path
 
-from hytools.ingestion._shared.helpers import compute_wa_score, is_western_armenian, WA_SCORE_THRESHOLD
+from hytools.linguistics.dialect.branch_dialect_classifier import (
+    compute_wa_score,
+    classify_text_classification,
+    WA_SCORE_THRESHOLD,
+)
 from hytools.cleaning.language_filter import detect_dialect_mixing_with_author
 
 logger = logging.getLogger(__name__)
@@ -300,9 +304,10 @@ class WesternArmenianVocabularyFilter:
         if wa_score < min_wa_score:
             return False, f"WA score too low: {wa_score:.3f} (threshold: {min_wa_score:.3f})"
         
-        # Check 3: Overall Western Armenian judgment
-        if not is_western_armenian(text):
-            return False, "Failed is_western_armenian() check"
+        # Check 3: Overall Western Armenian judgment (use detailed classifier)
+        cls = classify_text_classification(text)
+        if cls.get("label") != "likely_western":
+            return False, f"Failed classification (label={cls.get('label')})"
         
         # Check 4: Dialect mixing with author (if author context provided)
         if author_context:

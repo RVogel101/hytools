@@ -596,7 +596,10 @@ def _scrape_newspaper_source(
     _wa_threshold = 5.0
     if validate_wa:
         try:
-            from hytools.ingestion._shared.helpers import compute_wa_score as _cws, WA_SCORE_THRESHOLD as _thresh
+            from hytools.linguistics.dialect.branch_dialect_classifier import (
+                compute_wa_score as _cws,
+                WA_SCORE_THRESHOLD as _thresh,
+            )
             _compute_wa_score = _cws
             _wa_threshold = _thresh
         except ImportError:

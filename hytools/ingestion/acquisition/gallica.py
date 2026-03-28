@@ -31,7 +31,7 @@ import requests
 from hytools.ingestion._shared.helpers import (
     compute_wa_score,
     insert_or_skip,
-    is_western_armenian,
+    classify_text_classification,
     load_catalog_from_mongodb,
     log_item,
     log_stage,
@@ -187,7 +187,8 @@ def _fetch_ocr_text(ark: str) -> str | None:
 
 
 def _classify_dialect(text: str) -> str:
-    return "western_armenian" if is_western_armenian(text) else "eastern_armenian"
+    cls = classify_text_classification(text)
+    return "western_armenian" if cls.get("label") == "likely_western" else "eastern_armenian"
 
 
 def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None = None) -> dict:

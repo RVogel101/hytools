@@ -160,14 +160,14 @@ class TestAuthorProfileManager(unittest.TestCase):
         manager_with_mongo = AuthorProfileManager(profiles_file=self.profiles_file, config=config)
         manager_with_mongo.add_profile(profile)
 
-        with patch("ingestion._shared.helpers.open_mongodb_client") as open_mongo:
+        with patch("hytools.ingestion._shared.helpers.open_mongodb_client") as open_mongo:
             open_mongo.return_value.__enter__.return_value = fake_client
             open_mongo.return_value.__exit__.return_value = None
             manager_with_mongo.save_profiles()
             self.assertEqual(len(stored), 1)
             self.assertEqual(stored[0]["author_id"], "test001")
 
-        with patch("ingestion._shared.helpers.open_mongodb_client") as open_mongo:
+        with patch("hytools.ingestion._shared.helpers.open_mongodb_client") as open_mongo:
             open_mongo.return_value.__enter__.return_value = fake_client
             open_mongo.return_value.__exit__.return_value = None
             new_manager = AuthorProfileManager(profiles_file=self.profiles_file, config=config)

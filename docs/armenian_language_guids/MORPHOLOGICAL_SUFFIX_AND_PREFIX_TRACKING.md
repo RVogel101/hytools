@@ -15,7 +15,7 @@ The `linguistics.metrics.text_metrics` module tracks suffixes in `MorphologicalM
 
 **Dialect notes:**
 - In **Eastern** Armenian, "I bring" = բերում եմ (berum yem).
-- In **Western** Armenian, "I bring" = բերեմ (berem).
+- In **Western** Armenian, "I bring" = բերեմ (perem).
 - -իմ in Western means "my" (possessive, can be dropped when implied); not a 1st singular verb ending.
 - -ում is distinctively EA as a verbal inflection; WA uses կոր (gor) for present progressive. -ում does appear in WA as part of verbal nouns and certain lexical roots, so its presence alone is a signal, not proof, of EA influence.
 - -իլ is Western-only infinitive; -ել is shared.

@@ -1,0 +1,53 @@
+# WA <-> EA orthography rules scaffold
+version: 1.1
+generated_by: wa_ea_scaffold
+description: "Orthography rules derived from CLASSICAL_ORTHOGRAPHY_GUIDE.md and WA/EA distinctions.
+Use these mappings to detect and convert common classical <-> reformed differences."
+rules:
+  - id: diphthong_merges
+    description: "Classical 'իւ' vs reformed 'ու' and related ւ↔վ differences"
+    mappings:
+      - wa: 'իւ'
+        ea: 'յու'
+      - wa: 'ու'
+        ea: 'ու'  # note: context-sensitive; keep explicit mapping for clarity
+      - wa: 'ւ'
+        ea: 'վ'
+
+  - id: ending_variants
+    description: "Common suffix differences between classical and reformed spellings"
+    mappings:
+      - wa: 'եան'
+        ea: 'յան'
+      - wa: 'ութիւն'
+        ea: 'ություն'
+      - wa: 'եւ'  # classical ligature usage
+        ea: 'և'
+
+  - id: word_initial_voicing_and_letters
+    description: "Word-initial orthography distinctions (ո vs ու) and related cases"
+    mappings:
+      - wa: '^ո'
+        ea: '^ո'
+      - wa: 'ոյ'
+        ea: 'ու'  # context-sensitive mapping; review per-dictionary
+
+  - id: morphological_markers
+    description: "Orthographic markers used as features for scoring"
+    markers:
+      - name: WA_WORD_ENDING_AY
+        pattern: 'այ'
+      - name: WA_FUTURE_PARTICLE_BIDI
+        pattern: 'պիտի'
+      - name: WA_PRESENT_GU
+        pattern: 'կը|կ՚'
+      - name: WA_DIPHTHONG_IU
+        pattern: 'իւ'
+
+notes: |
+  These mappings are a starting point derived from the project's classical orthography
+  guide. Some mappings are context-sensitive (e.g., 'իւ' vs 'յու', 'ույ' vs 'ոյ' at word boundaries)
+  and should be validated against dictionary lookups (Nayiri) and the Anki export. Extend
+  this YAML with more fine-grained rules and exceptions before performing large-scale
+  automatic conversion. Always prefer storing and displaying classical orthography.
+

@@ -4,26 +4,13 @@ import pytest
 from dataclasses import FrozenInstanceError
 
 from hytools.core_contracts.types import (
-    DialectTag,
     DocumentRecord,
     LexiconEntry,
     PhoneticResult,
 )
 
 
-class TestDialectTag:
-    def test_values(self):
-        assert DialectTag.WESTERN_ARMENIAN.value == "western_armenian"
-        assert DialectTag.EASTERN_ARMENIAN.value == "eastern_armenian"
-        assert DialectTag.MIXED.value == "mixed"
-        assert DialectTag.UNKNOWN.value == "unknown"
-
-    def test_is_str(self):
-        assert isinstance(DialectTag.WESTERN_ARMENIAN, str)
-        assert DialectTag.WESTERN_ARMENIAN == "western_armenian"
-
-    def test_all_members(self):
-        assert len(DialectTag) == 4
+# DialectTag removed — use internal_language_code and internal_language_branch on records.
 
 
 class TestDocumentRecord:
@@ -47,7 +34,8 @@ class TestDocumentRecord:
         assert doc.source_url is None
         assert doc.content_hash is None
         assert doc.char_count is None
-        assert doc.dialect_tag == DialectTag.UNKNOWN
+        assert doc.internal_language_code is None
+        assert doc.internal_language_branch is None
         assert doc.metadata == {}
 
     def test_all_fields(self):
@@ -59,11 +47,13 @@ class TestDocumentRecord:
             source_url="http://example.com",
             content_hash="abc123",
             char_count=11,
-            dialect_tag=DialectTag.WESTERN_ARMENIAN,
+            internal_language_code="hyw",
+            internal_language_branch="hye-w",
             metadata={"key": "value"},
         )
         assert doc.title == "Test Title"
-        assert doc.dialect_tag == DialectTag.WESTERN_ARMENIAN
+        assert doc.internal_language_code == "hyw"
+        assert doc.internal_language_branch == "hye-w"
         assert doc.metadata == {"key": "value"}
 
     def test_frozen(self):
@@ -98,7 +88,8 @@ class TestLexiconEntry:
         assert entry.pronunciation is None
         assert entry.frequency_rank is None
         assert entry.syllable_count is None
-        assert entry.dialect_tag == DialectTag.WESTERN_ARMENIAN
+        assert entry.internal_language_code is None
+        assert entry.internal_language_branch is None
         assert entry.metadata == {}
 
     def test_all_fields(self):
@@ -109,11 +100,13 @@ class TestLexiconEntry:
             pronunciation="/wɜːrd/",
             frequency_rank=42,
             syllable_count=1,
-            dialect_tag=DialectTag.EASTERN_ARMENIAN,
+            internal_language_code="hye",
+            internal_language_branch="hye-e",
             metadata={"source": "test"},
         )
         assert entry.frequency_rank == 42
-        assert entry.dialect_tag == DialectTag.EASTERN_ARMENIAN
+        assert entry.internal_language_code == "hye"
+        assert entry.internal_language_branch == "hye-e"
 
     def test_frozen(self):
         entry = LexiconEntry(lemma="test")

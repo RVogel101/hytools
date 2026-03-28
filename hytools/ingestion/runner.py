@@ -71,54 +71,54 @@ def _build_stages(cfg: dict) -> list[Stage]:
 
     return [
         # ── Acquisition: Wikimedia ────────────────────────────────────────
-        Stage("wikipedia",       "ingestion.acquisition.wiki",            enabled=_on("wikipedia"),         supports_mongodb=True, entry_point="run_wikipedia"),
-        Stage("wikisource",      "ingestion.acquisition.wiki",            enabled=_on("wikisource"),        supports_mongodb=True, entry_point="run_wikisource"),
+        Stage("wikipedia",       "hytools.ingestion.acquisition.wiki",            enabled=_on("wikipedia"),         supports_mongodb=True, entry_point="run_wikipedia"),
+        Stage("wikisource",      "hytools.ingestion.acquisition.wiki",            enabled=_on("wikisource"),        supports_mongodb=True, entry_point="run_wikisource"),
 
         # ── Acquisition: Digital libraries ───────────────────────────────
-        Stage("archive_org",     "ingestion.acquisition.archive_org",     enabled=_on("archive_org"),       supports_mongodb=True),
-        Stage("hathitrust",      "ingestion.acquisition.hathitrust",      enabled=_on("hathitrust"),        supports_mongodb=True),
-        Stage("gallica",         "ingestion.acquisition.gallica",         enabled=_on("gallica"),           supports_mongodb=True),
-        Stage("loc",             "ingestion.acquisition.loc",             enabled=_on("loc"),               supports_mongodb=True),
-        Stage("dpla",            "ingestion.acquisition.dpla",            enabled=_on("dpla"),              supports_mongodb=True),
+        Stage("archive_org",     "hytools.ingestion.acquisition.archive_org",     enabled=_on("archive_org"),       supports_mongodb=True),
+        Stage("hathitrust",      "hytools.ingestion.acquisition.hathitrust",      enabled=_on("hathitrust"),        supports_mongodb=True),
+        Stage("gallica",         "hytools.ingestion.acquisition.gallica",         enabled=_on("gallica"),           supports_mongodb=True),
+        Stage("loc",             "hytools.ingestion.acquisition.loc",             enabled=_on("loc"),               supports_mongodb=True),
+        Stage("dpla",            "hytools.ingestion.acquisition.dpla",            enabled=_on("dpla"),              supports_mongodb=True),
 
         # ── Acquisition: News (diaspora newspapers + EA agencies + RSS) ───
-        Stage("news",            "ingestion.acquisition.news",            enabled=_on("newspapers") or _on("eastern_armenian") or _on("rss_news"), supports_mongodb=True),
+        Stage("news",            "hytools.ingestion.acquisition.news",            enabled=_on("newspapers") or _on("eastern_armenian") or _on("rss_news"), supports_mongodb=True),
 
         # ── Acquisition: Datasets ────────────────────────────────────────
-        Stage("culturax",        "ingestion.acquisition.culturax",        enabled=_on("culturax"),          supports_mongodb=True),
-        Stage("opus",            "ingestion.acquisition.opus",            enabled=_on("opus"),              supports_mongodb=True),
-        Stage("jw",              "ingestion.acquisition.jw",              enabled=_on("jw"),                supports_mongodb=True),
-        Stage("english_sources", "ingestion.acquisition.english_sources",  enabled=_on("english_sources"),  supports_mongodb=True),
+        Stage("culturax",        "hytools.ingestion.acquisition.culturax",        enabled=_on("culturax"),          supports_mongodb=True),
+        Stage("opus",            "hytools.ingestion.acquisition.opus",            enabled=_on("opus"),              supports_mongodb=True),
+        Stage("jw",              "hytools.ingestion.acquisition.jw",              enabled=_on("jw"),                supports_mongodb=True),
+        Stage("english_sources", "hytools.ingestion.acquisition.english_sources",  enabled=_on("english_sources"),  supports_mongodb=True),
 
         # ── Acquisition: Reference ───────────────────────────────────────
-        Stage("nayiri",          "ingestion.acquisition.nayiri",          enabled=_on("nayiri"),            supports_mongodb=True),
-        Stage("gomidas",         "ingestion.acquisition.gomidas",         enabled=_on("gomidas"),         supports_mongodb=True),
-        Stage("mechitarist",    "ingestion.acquisition.mechitarist",     enabled=_on("mechitarist"),    supports_mongodb=True),
-        Stage("agbu",           "ingestion.acquisition.agbu",            enabled=_on("agbu"),           supports_mongodb=True),
-        Stage("hamazkayin",     "ingestion.acquisition.hamazkayin",      enabled=_on("hamazkayin"),     supports_mongodb=True),
-        Stage("agos",           "ingestion.acquisition.agos",            enabled=_on("agos"),           supports_mongodb=True),
-        Stage("ocr_ingest",      "ingestion.acquisition.ocr_ingest",      enabled=_on("ocr_ingest"),      supports_mongodb=True),
-        Stage("mss_nkr",         "ingestion.acquisition.mss_nkr",         enabled=_on("mss_nkr"),          supports_mongodb=True),
-        Stage("worldcat_searcher", "ingestion.discovery.worldcat_searcher", enabled=_on("worldcat"),      has_run=True, has_main=True),
+        Stage("nayiri",          "hytools.ingestion.acquisition.nayiri",          enabled=_on("nayiri"),            supports_mongodb=True),
+        Stage("gomidas",         "hytools.ingestion.acquisition.gomidas",         enabled=_on("gomidas"),         supports_mongodb=True),
+        Stage("mechitarist",    "hytools.ingestion.acquisition.mechitarist",     enabled=_on("mechitarist"),    supports_mongodb=True),
+        Stage("agbu",           "hytools.ingestion.acquisition.agbu",            enabled=_on("agbu"),           supports_mongodb=True),
+        Stage("hamazkayin",     "hytools.ingestion.acquisition.hamazkayin",      enabled=_on("hamazkayin"),     supports_mongodb=True),
+        Stage("agos",           "hytools.ingestion.acquisition.agos",            enabled=_on("agos"),           supports_mongodb=True),
+        Stage("ocr_ingest",      "hytools.ingestion.acquisition.ocr_ingest",      enabled=_on("ocr_ingest"),      supports_mongodb=True),
+        Stage("mss_nkr",         "hytools.ingestion.acquisition.mss_nkr",         enabled=_on("mss_nkr"),          supports_mongodb=True),
+        Stage("worldcat_searcher", "hytools.ingestion.discovery.worldcat_searcher", enabled=_on("worldcat"),      has_run=True, has_main=True),
 
         # ── Post-processing ──────────────────────────────────────────────
-        Stage("cleaning",              "cleaning.run_mongodb",           enabled=_on("cleaning"), has_run=True, has_main=False),
-        Stage("metadata_tagger",       "ingestion.enrichment.metadata_tagger",       enabled=_on("metadata_tagger")),
-        Stage("frequency_aggregator",      "ingestion.aggregation.frequency_aggregator",      enabled=_on("frequency_aggregator")),
-        Stage("incremental_merge",        "ingestion.aggregation.incremental_merge",        enabled=_on("incremental_merge")),
-        Stage("word_frequency_facets",   "ingestion.aggregation.word_frequency_facets",   enabled=_on("word_frequency_facets")),
-        Stage("drift_detection",          "ingestion.aggregation.drift_detection",          enabled=_on("drift_detection")),
-        Stage("export_corpus_overlap_fingerprints", "ingestion.validation.export_corpus_overlap_fingerprints",
+          Stage("cleaning",              "hytools.cleaning.run_mongodb",           enabled=_on("cleaning"), has_run=True, has_main=False),
+          Stage("metadata_tagger",       "hytools.ingestion.enrichment.metadata_tagger",       enabled=_on("metadata_tagger")),
+          Stage("frequency_aggregator",      "hytools.ingestion.aggregation.frequency_aggregator",      enabled=_on("frequency_aggregator")),
+          Stage("incremental_merge",        "hytools.ingestion.aggregation.incremental_merge",        enabled=_on("incremental_merge")),
+          Stage("word_frequency_facets",   "hytools.ingestion.aggregation.word_frequency_facets",   enabled=_on("word_frequency_facets")),
+          Stage("drift_detection",          "hytools.ingestion.aggregation.drift_detection",          enabled=_on("drift_detection")),
+          Stage("export_corpus_overlap_fingerprints", "hytools.ingestion.validation.export_corpus_overlap_fingerprints",
               enabled=_on("export_corpus_overlap_fingerprints"), has_run=True, has_main=True),
 
         # ── Extraction pipeline (all MongoDB-native) ────────────────────
-        Stage("import_anki_to_mongodb",                "ingestion.extraction.import_anki_to_mongodb",
+          Stage("import_anki_to_mongodb",                "hytools.ingestion.extraction.import_anki_to_mongodb",
               enabled=_on("extraction"), has_run=True, has_main=True),
-        Stage("validate_contract_alignment",           "ingestion.validation.validate_contract_alignment",
+          Stage("validate_contract_alignment",           "hytools.ingestion.validation.validate_contract_alignment",
               enabled=_on("extraction"), has_run=True, has_main=True),
-        Stage("materialize_dialect_views",             "ingestion.enrichment.materialize_dialect_views",
+          Stage("materialize_dialect_views",             "hytools.ingestion.enrichment.materialize_dialect_views",
               enabled=_on("extraction"), has_run=True, has_main=False),
-        Stage("summarize_unified_documents",           "ingestion.aggregation.summarize_unified_documents",
+          Stage("summarize_unified_documents",           "hytools.ingestion.aggregation.summarize_unified_documents",
               enabled=_on("extraction"), has_run=True, has_main=False),
     ]
 
@@ -473,7 +473,7 @@ def main() -> None:
     log_dir = _resolve_log_dir(cfg)
 
     if args.background:
-        cmd = [sys.executable, "-m", "ingestion.runner", "run"]
+        cmd = [sys.executable, "-m", "hytools.ingestion.runner", "run"]
         if args.only:
             cmd.extend(["--only", *args.only])
         if args.skip:
@@ -495,7 +495,7 @@ def main() -> None:
 
         print(f"Launched pipeline runner in background (PID {proc.pid})")
         print(f"Log: {log_file}")
-        print("Status: python -m ingestion.runner status")
+        print("Status: python -m hytools.ingestion.runner status")
         return
 
     only = list(args.only)

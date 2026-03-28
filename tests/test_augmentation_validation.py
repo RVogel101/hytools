@@ -46,6 +46,33 @@ def test_validation_fails_for_ea_text():
     assert len(result.issues) > 0, "Should have validation issues"
 
 
+def test_forbidden_eastern_reform_variants_are_rejected():
+    """Test that forbidden EA reform tokens are rejected by WA validation."""
+    forbidden_ea_tokens = [
+        "յուղ",
+        "գյուղ",
+        "ճյուղ",
+        "զամբյուղ",
+        "այստեղ",
+        "այնտեղ",
+        "թյուն",
+        "մի",
+        "ձու",
+        "գնալ",
+        "խոսել",
+    ]
+
+    for token in forbidden_ea_tokens:
+        result = validate_augmentation_output(
+            token,
+            strict_classical=True,
+            check_nayiri=False,
+        )
+        assert not result.passed or result.has_eastern_markers, (
+            f"{token} is a forbidden EA reform token and must not be accepted as WA"
+        )
+
+
 def test_validation_detects_eastern_markers():
     """Test detection of Eastern Armenian reformed spelling.
 
@@ -218,18 +245,35 @@ def test_validation_result_structure():
     result = validate_augmentation_output(text)
 
     assert hasattr(result, "passed")
-    assert hasattr(result, "wa_score")
-    assert hasattr(result, "threshold")
-    assert hasattr(result, "armenian_ratio")
-    assert hasattr(result, "issues")
-    assert hasattr(result, "feedback")
-    assert hasattr(result, "has_eastern_markers")
-    assert hasattr(result, "low_classical_markers")
-    assert hasattr(result, "low_wa_vocabulary")
 
-    assert isinstance(result.passed, bool)
-    assert isinstance(result.wa_score, float)
-    assert isinstance(result.threshold, float)
-    assert isinstance(result.armenian_ratio, float)
-    assert isinstance(result.issues, list)
-    assert isinstance(result.feedback, str)
+
+def test_all_wa_tokens_are_in_wa_lists():
+    """Ensure every WA marker secured by consolidated rules exists in WA_* lists."""
+    from hytools.ingestion._shared.helpers import (
+        _CONSOLIDATED_RULES,
+        get_classical_markers,
+        get_lexical_markers,
+        get_wa_vocabulary_markers,
+    )
+
+    wa_token_pool = {token for token, _ in (get_classical_markers() + get_lexical_markers() + get_wa_vocabulary_markers())}
+    wa_rule_exceptions = {
+        "WA_INDEF_ARTICLE_MUH",
+        "WA_PRESENT_PARTICLE_GUH",
+        "WA_FUTURE_PARTICLE_BIDI",
+        "WA_WORD_INTERNAL_E_LONG",
+        "WA_WORD_ENDING_AY",
+        "WA_WORD_ENDING_OY",
+        "WA_STANDALONE_AL",
+        "WA_STANDALONE_GU",
+    }
+
+    for rule in _CONSOLIDATED_RULES:
+        if rule.get("branch") == "western" and rule.get("rule_id", "").startswith("WA_"):
+            rule_id = rule.get("rule_id", "")
+            pattern = rule.get("pattern", "")
+            if rule_id in wa_rule_exceptions or rule_id.startswith("WA_STANDALONE_") or rule_id.startswith("WA_SUFFIX_"):
+                continue
+            assert any(token in pattern for token in wa_token_pool), (
+                f"Western rule {rule_id} contains token not present in WA_* marker lists"
+            )

@@ -58,7 +58,7 @@ class ExtractionRegistry:
         self._tools["import_anki_to_mongodb"] = ExtractionToolSpec(
             name="import_anki_to_mongodb",
             description="Import Anki cards from AnkiConnect into MongoDB",
-            module="ingestion.extraction.import_anki_to_mongodb",
+            module="hytools.ingestion.extraction.import_anki_to_mongodb",
             function="main",
             inputs=["AnkiConnect (HTTP)"],
             outputs=["MongoDB cards collection"],
@@ -71,7 +71,7 @@ class ExtractionRegistry:
         self._tools["validate_contract_alignment"] = ExtractionToolSpec(
             name="validate_contract_alignment",
             description="Validate corpus data integrity in MongoDB",
-            module="ingestion.validation.validate_contract_alignment",
+            module="hytools.ingestion.validation.validate_contract_alignment",
             function="run",
             inputs=["MongoDB documents collection"],
             outputs=["MongoDB metadata collection (validation report)"],
@@ -84,7 +84,7 @@ class ExtractionRegistry:
         self._tools["export_corpus_overlap_fingerprints"] = ExtractionToolSpec(
             name="export_corpus_overlap_fingerprints",
             description="Detect near-duplicate documents using normalized content hashes",
-            module="ingestion.validation.export_corpus_overlap_fingerprints",
+            module="hytools.ingestion.validation.export_corpus_overlap_fingerprints",
             function="run",
             inputs=["MongoDB documents collection"],
             outputs=["MongoDB metadata collection (dedup report)"],
@@ -97,7 +97,7 @@ class ExtractionRegistry:
         self._tools["materialize_dialect_views"] = ExtractionToolSpec(
             name="materialize_dialect_views",
             description="Tag documents with canonical dialect_view field for fast filtered queries",
-            module="ingestion.enrichment.materialize_dialect_views",
+            module="hytools.ingestion.enrichment.materialize_dialect_views",
             function="run",
             inputs=["MongoDB documents collection"],
             outputs=["MongoDB documents (dialect_view field added)"],
@@ -110,7 +110,7 @@ class ExtractionRegistry:
         self._tools["frequency_aggregator"] = ExtractionToolSpec(
             name="frequency_aggregator",
             description="Build word frequency list from MongoDB corpus",
-            module="ingestion.aggregation.frequency_aggregator",
+            module="hytools.ingestion.aggregation.frequency_aggregator",
             function="run",
             inputs=["MongoDB documents collection"],
             outputs=["MongoDB word_frequencies collection"],
@@ -123,7 +123,7 @@ class ExtractionRegistry:
         self._tools["summarize_unified_documents"] = ExtractionToolSpec(
             name="summarize_unified_documents",
             description="Summarize corpus by source, dialect, and size",
-            module="ingestion.aggregation.summarize_unified_documents",
+            module="hytools.ingestion.aggregation.summarize_unified_documents",
             function="run",
             inputs=["MongoDB documents collection"],
             outputs=["MongoDB metadata collection (summary)"],

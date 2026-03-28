@@ -28,7 +28,7 @@ def test_loc_is_valid_loc_id():
     assert _is_valid_loc_id("cgi-bin/foo") is False
 
 
-@patch("ingestion.acquisition.loc._get_session")
+@patch("hytools.ingestion.acquisition.loc._get_session")
 def test_loc_search_items_mock(mock_session):
     """LOC search_items returns catalog from mocked API response."""
     from hytools.ingestion.acquisition.loc import search_items
@@ -55,7 +55,7 @@ def test_loc_search_items_mock(mock_session):
 
 # ── Archive.org ──────────────────────────────────────────────────────────────
 
-@patch("ingestion.acquisition.archive_org.requests.get")
+@patch("hytools.ingestion.acquisition.archive_org.requests.get")
 def test_archive_org_search_items_mock(mock_get):
     """Archive.org search_items returns catalog from mocked API."""
     from hytools.ingestion.acquisition.archive_org import search_items
@@ -120,7 +120,7 @@ def test_gallica_parse_sru_response():
     assert records[0]["title"] == "Armenian Manuscript"
 
 
-@patch("ingestion.acquisition.gallica.requests.get")
+@patch("hytools.ingestion.acquisition.gallica.requests.get")
 def test_gallica_search_items_mock(mock_get):
     """Gallica search_items returns catalog from mocked SRU API."""
     from hytools.ingestion.acquisition.gallica import search_items
@@ -159,8 +159,8 @@ def test_hathitrust_known_htids():
     assert "mdp.39015005476548" in _KNOWN_ARMENIAN_HTIDS
 
 
-@patch("ingestion.acquisition.hathitrust.get_volume_metadata")
-@patch("ingestion.acquisition.hathitrust.requests.Session")
+@patch("hytools.ingestion.acquisition.hathitrust.get_volume_metadata")
+@patch("hytools.ingestion.acquisition.hathitrust.requests.Session")
 def test_hathitrust_search_items_mock(mock_session_class, mock_get_meta):
     """HathiTrust search_items returns catalog from mocked HTML and metadata API."""
     from hytools.ingestion.acquisition.hathitrust import search_items
@@ -186,7 +186,7 @@ def test_hathitrust_search_items_mock(mock_session_class, mock_get_meta):
 
 # ── Gomidas ──────────────────────────────────────────────────────────────────
 
-@patch("ingestion.acquisition.gomidas.requests.Session")
+@patch("hytools.ingestion.acquisition.gomidas.requests.Session")
 def test_gomidas_discover_links_mock(mock_session_class):
     """Gomidas _discover_links parses HTML and extracts Armenian-related links."""
     from hytools.ingestion.acquisition.gomidas import _discover_links

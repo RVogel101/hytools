@@ -22,6 +22,8 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup, Tag
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +43,11 @@ _HEADERS = {
 # Sites to scrape — order: pakine first (higher-value literary content)
 _SITES = [
     {
-        "name": "pakine",
-        "base_url": "https://pakine.net",
-        "wp_api": "https://pakine.net/wp-json/wp/v2/posts",
+        "name": "pakin",
+        "base_url": "https://pakin.net",
+        "wp_api": "https://pakin.net/wp-json/wp/v2/posts",
         "wp_endpoints": ["posts"],  # pages API broken, authors have 0 content
-        "source_tag": "hamazkayin:pakine",
+        "source_tag": "hamazkayin:pakin",
         "writing_category": "literary",
         "content_type": "article",
     },
@@ -70,7 +72,10 @@ def _make_session() -> requests.Session:
 def _classify(text: str) -> tuple[str, float]:
     """Classify text dialect. Returns (language_code, wa_score)."""
     try:
-        from hytools.ingestion._shared.helpers import compute_wa_score, WA_SCORE_THRESHOLD
+        from hytools.linguistics.dialect.branch_dialect_classifier import (
+            compute_wa_score,
+            WA_SCORE_THRESHOLD,
+        )
         score = compute_wa_score(text[:6000])
         lc = "hyw" if score >= WA_SCORE_THRESHOLD else "hye"
         return lc, score
@@ -179,6 +184,16 @@ def _scrape_via_wp_api(
                     (post.get("title") or {}).get("rendered", ""), "html.parser"
                 ).get_text(strip=True) or url.split("/")[-2] or url
 
+                # Discover attached PDF links in rendered content and ingest them
+                try:
+                    for a in BeautifulSoup(content_html or "", "lxml").select("a[href$='.pdf']"):
+                        href = a.get("href")
+                        if href:
+                            pdf_url = urljoin(site["base_url"], href)
+                            _ingest_pdf(session, pdf_url, client, site["source_tag"], config)
+                except Exception:
+                    pass
+
                 detected_lc, wa_score = _classify(body)
                 if detected_lc == "hyw":
                     stats["wa"] += 1
@@ -220,6 +235,60 @@ def _scrape_via_wp_api(
             time.sleep(_REQUEST_DELAY)
 
     return stats
+
+
+def _pdf_download_path(config: dict | None, source_tag: str, filename: str) -> Path:
+    base = (config or {}).get("storage", {}).get("pdf_dir") or Path("data/raw/pdfs")
+    base = Path(base)
+    dest = base / source_tag
+    dest.mkdir(parents=True, exist_ok=True)
+    return dest / filename
+
+
+def _ingest_pdf(session: requests.Session, pdf_url: str, client, source_tag: str, config: dict) -> None:
+    """Download PDF, save to disk, and insert a document record with OCR pending.
+
+    Uses `insert_or_skip` to avoid duplicates by URL/title.
+    """
+    from hytools.ingestion._shared.helpers import insert_or_skip
+
+    try:
+        # simple duplicate check via Mongo (insert_or_skip will also dedupe)
+        fname = pdf_url.split("/")[-1].split("?")[0]
+        local_path = _pdf_download_path(config, source_tag, fname)
+        if local_path.exists():
+            # Already downloaded; still ensure record exists
+            insert_or_skip(
+                client,
+                source=source_tag,
+                title=fname,
+                text=None,
+                url=pdf_url,
+                author=None,
+                metadata={"file_path": str(local_path), "ocr_status": "pending", "source_type": "pdf"},
+                config=config,
+            )
+            return
+
+        resp = session.get(pdf_url, stream=True, timeout=60)
+        resp.raise_for_status()
+        with open(local_path, "wb") as fh:
+            for chunk in resp.iter_content(8192):
+                if chunk:
+                    fh.write(chunk)
+
+        insert_or_skip(
+            client,
+            source=source_tag,
+            title=fname,
+            text=None,
+            url=pdf_url,
+            author=None,
+            metadata={"file_path": str(local_path), "ocr_status": "pending", "source_type": "pdf"},
+            config=config,
+        )
+    except Exception as exc:
+        logger.warning("Failed to ingest PDF %s: %s", pdf_url, exc)
 
 
 def _scrape_via_html_fallback(

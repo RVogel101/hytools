@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from hytools.linguistics.transliteration import to_armenian, to_latin
+from hytools.linguistics.tools.transliteration import to_armenian, to_latin
 
 
 class TestWesternOysUy(unittest.TestCase):

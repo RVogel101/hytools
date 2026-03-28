@@ -287,6 +287,7 @@ class QuantitativeLinguisticsAnalyzer:
                 yule_k=0.0,
                 unique_words=0,
                 total_words=0,
+                unique_word_rate=0.0,
                 vocabulary_breadth=0.0,
             )
 
@@ -378,7 +379,7 @@ class QuantitativeLinguisticsAnalyzer:
         # subordinating conjunction adds one more clause.
         _ARMEN_SUBORD = {
             'որ',   # that / which / who
-            'ինч',  # what / whatever (ինչ)
+            'ինչ',  # what / whatever (ինչ)
             'ինչ',  # what
             'եթե',  # if (reformed / EA spelling)
             'եթէ',  # if (classical / WA spelling)
@@ -508,7 +509,7 @@ class QuantitativeLinguisticsAnalyzer:
             r'աւ',  # Classical spelling variant
         ]
 
-        # Reformed markers (Eastern orthography).
+        # Reformed markers (Eastern orthography)
         # Includes word-final 'ա' and common reformed endings.
         # Note: Python's ``\b`` word boundary does not treat Armenian letters as
         # word characters, so we use an explicit negative lookahead for Armenian
@@ -761,6 +762,52 @@ class QuantitativeLinguisticsAnalyzer:
         filepath = output_path / f"{metric_card.text_id}_metrics.json"
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(self.to_json(metric_card))
+
+
+def compute_orthographic_metrics(text: str) -> OrthographicMetrics:
+    """Top-level wrapper to compute orthographic metrics for a text.
+
+    This duplicates the logic in `QuantitativeLinguisticsAnalyzer._compute_orthographic_metrics`
+    so callers can import a simple function without instantiating the analyzer.
+    """
+    # Classical Armenian markers (Western retains, Eastern removed)
+    classical_patterns = [
+        r'ո',
+        r'իւ',
+        r'եա',
+        r'եօ',
+        r'էա',
+        r'էյ',
+        r'իա',
+        r'ոյ',
+        r'այ',
+        r'աւ',
+    ]
+
+    # Reformed markers (Eastern orthography)
+    armenian_letter = r"[\u0530-\u058F]"
+    reformed_patterns = [
+        r'ա(?!' + armenian_letter + r')',
+        r'թյուն(?!' + armenian_letter + r')',
+        r'յան(?!' + armenian_letter + r')',
+        r'ե',
+    ]
+
+    classical_count = sum(len(re.findall(p, text)) for p in classical_patterns)
+    reformed_count = sum(len(re.findall(p, text)) for p in reformed_patterns)
+
+    total = len(text)
+    classical_freq = classical_count / total if total > 0 else 0
+    reformed_freq = reformed_count / total if total > 0 else 0
+    ratio = classical_count / max(1, reformed_count)
+
+    return OrthographicMetrics(
+        classical_markers_count=classical_count,
+        classical_markers_frequency=round(classical_freq, 6),
+        reformed_markers_count=reformed_count,
+        reformed_markers_frequency=round(reformed_freq, 6),
+        classical_to_reformed_ratio=round(ratio, 2),
+    )
 
 
 if __name__ == "__main__":

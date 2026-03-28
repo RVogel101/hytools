@@ -36,7 +36,7 @@ Policy alignment:
 ### 1.2 Articles And Determination
 - Definite article selection is phonetic (final sound driven), not gender-based.
 - Western indefinite article marker: postposed `մը`.
-- Dialect classifier treats `մը` as a Western signal (`WA_INDEF_ARTICLE_MEH`).
+- Dialect classifier treats `մը` as a Western signal (`WA_INDEF_ARTICLE_MUH`).
 
 ### 1.3 Verbal Particles (Dialect-Critical)
 - Western present particle marker: `կը`.

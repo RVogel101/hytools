@@ -1,0 +1,8 @@
+[
+  {
+    "tag": "ext:wa_textbook",
+    "id": "wa_textbook_local",
+    "source_type": "file",
+    "path": "data/textbook_modern_wa_extract.txt"
+  }
+]

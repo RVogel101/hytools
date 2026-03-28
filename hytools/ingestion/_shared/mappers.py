@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping, Optional
 
-from hytools.core_contracts import DialectTag, DocumentRecord, LexiconEntry
+from hytools.core_contracts import DocumentRecord, LexiconEntry
+from hytools.linguistics.tools.language_tagging import classify_text_to_internal_tags
+from hytools.ingestion._shared.helpers import normalize_internal_language_branch
 from hytools.core_contracts.hashing import sha256_normalized
 
 
@@ -32,7 +34,8 @@ def anki_card_row_to_lexicon_entry(row: Mapping[str, Any]) -> LexiconEntry:
         pronunciation=_nullable_text(row.get("pronunciation")),
         frequency_rank=_nullable_int(row.get("frequency_rank")),
         syllable_count=_nullable_int(row.get("syllable_count")),
-        dialect_tag=DialectTag.WESTERN_ARMENIAN,
+        internal_language_code=classify_text_to_internal_tags(str(row.get("word", "")))[0],
+        internal_language_branch=classify_text_to_internal_tags(str(row.get("word", "")))[1],
         metadata={
             "anki_note_id": row.get("anki_note_id"),
             "deck_name": row.get("deck_name"),
@@ -59,7 +62,8 @@ def sentence_row_to_document_record(row: Mapping[str, Any]) -> DocumentRecord:
         source_url=source_url,
         content_hash=sha256_normalized(text),
         char_count=len(text),
-        dialect_tag=DialectTag.WESTERN_ARMENIAN,
+        internal_language_code=classify_text_to_internal_tags(text)[0],
+        internal_language_branch=classify_text_to_internal_tags(text)[1],
         metadata={
             "card_id": row.get("card_id"),
             "english_text": row.get("english_text"),
@@ -87,13 +91,13 @@ def wa_fingerprint_row_to_document_record(row: Mapping[str, Any]) -> DocumentRec
 
     raw_dialect = str(row.get("dialect_tag", "")).strip().lower()
     if raw_dialect in {"western_armenian", "wa", "hyw"}:
-        dialect = DialectTag.WESTERN_ARMENIAN
+        internal_code, internal_branch = "hyw", normalize_internal_language_branch("hye-w")
     elif raw_dialect in {"eastern_armenian", "ea", "hy"}:
-        dialect = DialectTag.EASTERN_ARMENIAN
+        internal_code, internal_branch = "hye", normalize_internal_language_branch("hye-e")
     elif raw_dialect == "mixed":
-        dialect = DialectTag.MIXED
+        internal_code, internal_branch = None, None
     else:
-        dialect = DialectTag.UNKNOWN
+        internal_code, internal_branch = None, None
 
     source = _nullable_text(row.get("source")) or "wa_export"
     path_id = _nullable_text(row.get("id/path")) or _nullable_text(row.get("id"))
@@ -111,7 +115,8 @@ def wa_fingerprint_row_to_document_record(row: Mapping[str, Any]) -> DocumentRec
         source_url=path_id,
         content_hash=content_hash,
         char_count=char_count,
-        dialect_tag=dialect,
+        internal_language_code=internal_code,
+        internal_language_branch=internal_branch,
         metadata={
             "source_path": path_id,
             "fingerprint_only": True,

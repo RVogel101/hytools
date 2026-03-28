@@ -1,0 +1,176 @@
+{
+  "corpora": [
+    {
+      "source": "opus_nllb_hy",
+      "count": 602444
+    },
+    {
+      "source": "wikipedia_ea",
+      "count": 330346
+    },
+    {
+      "source": "opus_multiccaligned_hy",
+      "count": 34933
+    },
+    {
+      "source": "opus_ccaligned_hy",
+      "count": 24814
+    },
+    {
+      "source": "wikipedia",
+      "count": 13619
+    },
+    {
+      "source": "jw_org:hyw",
+      "count": 4553
+    },
+    {
+      "source": "opus_ted2020_hy",
+      "count": 1663
+    },
+    {
+      "source": "opus_qed_hy",
+      "count": 1546
+    },
+    {
+      "source": "opus_wikimedia_hy",
+      "count": 866
+    },
+    {
+      "source": "opus_bible_hy",
+      "count": 646
+    },
+    {
+      "source": "nayiri_wa_corpus",
+      "count": 397
+    },
+    {
+      "source": "opus_opensubtitles_hy",
+      "count": 205
+    },
+    {
+      "source": "eastern_armenian_news:armtimes",
+      "count": 163
+    },
+    {
+      "source": "eastern_armenian_news:a1plus",
+      "count": 162
+    },
+    {
+      "source": "eastern_armenian_news:aravot",
+      "count": 135
+    },
+    {
+      "source": "eastern_armenian_news:armenpress",
+      "count": 67
+    },
+    {
+      "source": "rss_news:Hetq",
+      "count": 50
+    },
+    {
+      "source": "rss_news:Agos",
+      "count": 50
+    },
+    {
+      "source": "rss_news:Google News - Armenia",
+      "count": 48
+    },
+    {
+      "source": "rss_news:EVN Report",
+      "count": 44
+    },
+    {
+      "source": "rss_news:Massis Post",
+      "count": 25
+    },
+    {
+      "source": "opus_tatoeba_hy",
+      "count": 22
+    },
+    {
+      "source": "rss_news:Aztag",
+      "count": 20
+    },
+    {
+      "source": "opus_kde4_hy",
+      "count": 18
+    },
+    {
+      "source": "rss_news:OC Media",
+      "count": 16
+    },
+    {
+      "source": "opus_wikimedia_hyw",
+      "count": 14
+    },
+    {
+      "source": "opus_ubuntu_hy",
+      "count": 12
+    },
+    {
+      "source": "rss_news:Civilnet",
+      "count": 10
+    },
+    {
+      "source": "rss_news:Armenian Weekly",
+      "count": 10
+    },
+    {
+      "source": "rss_news:Armenian Mirror-Spectator",
+      "count": 10
+    },
+    {
+      "source": "rss_news:Horizon Weekly",
+      "count": 5
+    },
+    {
+      "source": "opus_gnome_hy",
+      "count": 2
+    }
+  ],
+  "summary": {
+    "total_documents": 1021653,
+    "language_branch_counts": {
+      "unknown": 1021653
+    },
+    "source_counts": {
+      "opus_nllb_hy": 602444,
+      "wikipedia_ea": 330346,
+      "opus_multiccaligned_hy": 34933,
+      "opus_ccaligned_hy": 24814,
+      "wikipedia": 13619,
+      "jw_org:hyw": 4553,
+      "dpla": 1815,
+      "archive_org": 1795,
+      "opus_ted2020_hy": 1663,
+      "opus_qed_hy": 1546,
+      "hamazkayin:pakine": 965,
+      "opus_wikimedia_hy": 866,
+      "opus_bible_hy": 646,
+      "nayiri_wa_corpus": 397,
+      "opus_opensubtitles_hy": 205,
+      "eastern_armenian_news:armtimes": 163,
+      "hamazkayin:main": 163,
+      "eastern_armenian_news:a1plus": 162,
+      "eastern_armenian_news:aravot": 135,
+      "eastern_armenian_news:armenpress": 67,
+      "rss_news:Hetq": 50,
+      "rss_news:Agos": 50,
+      "rss_news:Google News - Armenia": 48,
+      "rss_news:EVN Report": 44,
+      "rss_news:Massis Post": 25,
+      "opus_tatoeba_hy": 22,
+      "rss_news:Aztag": 20,
+      "opus_kde4_hy": 18,
+      "rss_news:OC Media": 16,
+      "opus_wikimedia_hyw": 14,
+      "opus_ubuntu_hy": 12,
+      "rss_news:Civilnet": 10,
+      "rss_news:Armenian Weekly": 10,
+      "rss_news:Armenian Mirror-Spectator": 10,
+      "rss_news:Horizon Weekly": 5,
+      "opus_gnome_hy": 2
+    }
+  }
+}

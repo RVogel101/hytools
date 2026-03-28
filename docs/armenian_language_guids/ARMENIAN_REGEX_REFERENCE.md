@@ -44,7 +44,7 @@ Complete inventory of every regex and Armenian string pattern used in armenian-c
 | `\u0574\u0567\u057B`                                                 | մէջ         | mej                | "in" (postposition)            | ✅ Yes       |
 | `\u056B\u0582\u0580\u0561\u0584\u0561\u0576\u0579\u056B\u0582\u0580` | իւրաքանչիւր | yoorakanchyoor     | "each/every" (classical spelling)              | ✅ Yes       |
 | `\u056C\u0565\u0566\u0578\u0582`                                     | լեզու       | lezou              | "language" (classical spelling)                 | ✅ Yes       |
-| `\u0578\u0575`                                                       | ոյ          | oy                 | Diphthong (classical)                          | ✅ Yes       |
+| `\u0578\u0575`                                                       | ոյ          | uy                 | Diphthong (classical)                          | ✅ Yes       |
 
 
 ### 1.2 WESTERN ARMENIAN — Lexical Markers
@@ -74,12 +74,12 @@ Complete inventory of every regex and Armenian string pattern used in armenian-c
 
 | Pattern (Unicode)                            | Armenian | Romanization | Purpose                           | WA Correct? |
 | -------------------------------------------- | -------- | ------------ | --------------------------------- | ----------- |
-| `\u0573\u0565\u0580\u0574\u0561\u056f`       | ճերմակ   | chermag      | "white" (EA: սպիտակ)              | ✅ Yes       |
+| `\u0573\u0565\u0580\u0574\u0561\u056f`       | ճերմակ   | jermag      | "white" (EA: սպիտակ)              | ✅ Yes       |
 | `\u056d\u0578\u0570\u0561\u0576\u0578\u0581` | խոհանոց  | khohanots    | "kitchen"                         | ✅ Yes       |
-| `\u0573\u0578\u0582\u0580`                   | ջուր     | jour         | "water" (EA: ջուր, same)          | ✅ Yes       |
+| `\u0573\u0578\u0582\u0580`                   | ջուր     | chour         | "water" (EA: ջուր, same)          | ✅ Yes       |
 | `\u0577\u0561\u057a\u056b\u056f`             | շապիկ    | shabig       | "shirt" (EA: շապիկ)               | ✅ Yes       |
-| `\u0574\u0561\u0576\u0578\u0582\u056f`       | մանուկ   | manook       | "child" (EA: մանկիկ)              | ✅ Yes       |
-| `\u057f\u0572\u0561\u0575`                   | տղայ     | dgha         | "boy" (WA with silent յ; EA: տղա) | ✅ Yes       |
+| `\u0574\u0561\u0576\u0578\u0582\u056f`       | մանուկ   | manoog       | "child" (EA: մանկիկ)              | ✅ Yes       |
+| `\u057f\u0572\u0561\u0575`                   | տղայ     | d'gha         | "boy" (WA with silent յ; EA: տղա) | ✅ Yes       |
 | `\u056d\u0585\u057d\u056b\u056c`             | խօսիլ    | khosil       | "to speak" (EA: խոսել)            | ✅ Yes       |
 | `\u0565\u0580\u0569\u0561\u056c`             | երթալ    | yertal       | "to go" (EA: գնալ)                | ✅ Yes       |
 | `\u0568\u0576\u0565\u056c`                   | ընել     | unel         | "to do" (EA: անել)                | ✅ Yes       |

@@ -78,7 +78,7 @@ These are the Western Armenian grammar rules currently implemented; use them as 
 - **Indefinite article:** **մը** after noun; **մըն** before verb forms (եմ, է, etc.) and **ալ**.
 - **Plural:** One-syllable → **-եր**; multi-syllable → **-ներ**; silent **յ** dropped before **-ներ**.
 - **Cases:** Nominative, accusative, genitive, dative, ablative, instrumental (with exemplars: տուն, մարդ, աչք, գրիչ, դաշտ).
-- **Verb classes:** Class I (**-ել**, thematic **-ե-**), Class II (**-ալ**, **-ա-**), Class III (**-ի**, **-ի-**); irregulars in `irregular_verbs.py`.
+- **Verb classes:** Class I (**-ել**, thematic **-ե-**), Class II (**-ալ**, **-ա-**), Class III (**-իլ**, **-ի-**); irregulars in `irregular_verbs.py`.
 - **Tenses:** Present, imperfect, aorist, subjunctive, conditional, perfect.
 - **Ըլլալ (to be):** Present (եմ, ես, է, ենք, էք, են), imperfect (էի, …), past definite (եղայ, …); negatives with **չ**.
 
@@ -87,7 +87,7 @@ These are the Western Armenian grammar rules currently implemented; use them as 
 - Indefinite: WA **noun + մը/մըն**, EA **մի + noun**.
 - Present: WA **կը/կ՚ + verb**, EA verb-**ում** + auxiliary.
 - Future: WA **պիտի**.
-- Vocabulary: egg WA **հավկիթ**, EA **ձու**; verb “to speak” WA **խօսիլ**, EA **խոսել**.
+- Vocabulary: egg WA **հաւկիթ**, EA **ձու**; verb “to speak” WA **խօսիլ**, EA **խոսել**.
 - Orthography: WA classical **իւ**, **ու**; EA reformed **յու**, **գյ** etc.
 
 ### 2.4 Transliteration & phonetics
@@ -149,7 +149,7 @@ Example sentences and vocabulary already used in tests (from `TEST_VALIDATION_AR
 ## 6. References
 
 - **Textbook PDF:** `c:\Users\litni\OneDrive\Documents\anki\books\textbook-of-modern-western-armenian.pdf`
-- **Codebase grammar:** `linguistics/morphology/grammar_rules.py`, `linguistics/dialect_classifier.py`
+- **Codebase grammar:** `linguistics/morphology/grammar_rules.py`, `linguistics/dialect_branch_classifier.py`
 - **WA vs EA:** `docs/armenian_language_guids/WA_EA_LINGUISTIC_DISTINCTIONS.md`
 - **Test reference:** `docs/armenian_language_guids/TEST_VALIDATION_ARMENIAN.md`
 - **Phonetics:** `docs/armenian_language_guids/WESTERN_ARMENIAN_PHONETICS_GUIDE.md`, `ARMENIAN_QUICK_REFERENCE.md`

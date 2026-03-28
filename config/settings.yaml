@@ -1,4 +1,4 @@
-# armenian-corpus-core configuration
+# hytools configuration
 # Copy to settings.yaml and adjust as needed.
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -9,6 +9,7 @@ paths:
   filtered_dir: "data/filtered"
   log_dir: "data/logs"
   metadata_dir: "data/metadata"
+  cache_dir: "cache"
   # Set to true for zero local storage: delete bz2/PDFs/images after ingest
   delete_after_ingest: false
 
@@ -58,6 +59,18 @@ cleaning:
   target_language: "hyw"
   min_chars_per_doc: 100
 
+# ── ANN dedupe (optional) ─────────────────────────────────────────────────────
+ann_dedup:
+  enabled: true
+  backend: "annoy"  # annoy, faiss, brute
+  metric: "euclidean"  # euclidean or angular
+  distance_threshold: 0.90
+  n_trees: 20
+  n_neighbors: 32
+  vectors_path: "data/ann_vectors.npz"
+  index_path: "data/ann_index.ann"
+  force_rebuild: false
+
 # ── Scraping ───────────────────────────────────────────────────────────────────
 scraping:
   # Compute per-document metrics (word_counts, TextMetricCard, loanwords) on each ingest. Default True.
@@ -102,7 +115,14 @@ scraping:
     # sites: null  # null = scrape all (pakine, hamazkayin). Example: ["pakine"]
   nayiri:
     enabled: true
+    lexicon_url: "https://www.nayiri.com/nayiri-armenian-lexicon-2026-02-15-v1.json.zip"
+    corpus_url: "https://www.nayiri.com/nayiri-corpus-of-western-armenian-2026-02-25-v2.zip"
+    lexicon_path: "cache\\nayiri-armenian-lexicon-2026-02-15-v1.json.zip"
+    corpus_path: "cache\\nayiri-corpus-of-western-armenian-2026-02-25-v2.zip"
+    lexicon_keep_zip: false
+    corpus_keep_zip: false
   eastern_armenian:
+
     enabled: true
     # Historical crawler (Republic / EA agencies: Armenpress, A1+, Armtimes, Aravot).
     # max_articles_per_agency: 0  # 0 = no cap; crawler stops when feeds + fallback listing pages are exhausted
@@ -120,3 +140,10 @@ scraping:
     # output_csv: "data/logs/metadata_tagger_report.csv"
   frequency_aggregator:
     enabled: true
+
+ingestion:
+  frequency_aggregator:
+    internal_language_branch: hye-w
+    hybrid_profile: false        # optional, if you want hybrid weighting
+    wa_score_weight: 0.5        # optional
+    incremental: true           # optional, use delta update

@@ -29,10 +29,27 @@ class DialectSubcategory(str, Enum):
     UNKNOWN = "unknown"
     ARMENO_TURKISH = "armeno_turkish"
     WESTERN_DIASPORA_GENERAL = "western_diaspora_general"
+    WESTERN_LEBANON = "western_lebanon"
+    WESTERN_CALIFORNIA = "western_california"
+    WESTERN_FRANCE = "western_france"
+    WESTERN_CANADA = "western_canada"
+    WESTERN_ARGENTINA = "western_argentina"
+    WESTERN_GREECE = "western_greece"
+    WESTERN_AUSTRALIA = "western_australia"
+    WESTERN_IRAQ = "western_iraq"
+    WESTERN_SYRIA = "western_syria"
+    WESTERN_BOLIS = "western_bolis"
+    WESTERN_EGYPT = "western_egypt"
+    WESTERN_SUDAN = "western_sudan"
+    WESTERN_KALKUTA = "western_kalkuta"
+    WESTERN_JERUSALEM = "western_jerusalem"
     CLASSICAL_LITURGICAL = "classical_liturgical"  # Grabar / liturgical
-    EASTERN_HAYASTAN = "eastern_hayastan"
-    EASTERN_RUSSIAN_INFLUENCE = "eastern_russian_influence"
+    EASTERN_YEREVAN = "eastern_yerevan"
+    EASTERN_GYUMRI = "eastern_gyumri"
+    EASTERN_MOSCOW = "eastern_moscow"
+    EASTERN_TBILISI = "eastern_tbilisi"
     EASTERN_IRAN = "eastern_iran"
+    EASTERN_HAYASTAN = "eastern_hayastan"
     EASTERN_OTHER = "eastern_other"
 
 
@@ -47,14 +64,14 @@ class Region(str, Enum):
     GREECE = "greece"
     AUSTRALIA = "australia"
     WESTERN_OTHER = "western_other"
+    IRAQ = "iraq"
 
     # Eastern Armenian (Soviet and post-Soviet)
     ARMENIA = "armenia"
-    NAGORNO_KARABAKH = "nagorno_karabakh"
-    GEORGIA_EA = "georgia_ea"
+    ARTZAH = "artzah"
+    GEORGIA = "georgia"
     IRAN = "iran"
     SYRIA = "syria"
-    EASTERN_OTHER = "eastern_other"
 
     # Unspecified or multi-region
     UNCERTAIN = "uncertain"

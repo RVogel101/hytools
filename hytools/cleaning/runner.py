@@ -109,12 +109,28 @@ def _extract_culturax_jsonl(raw_dir: Path, stage_dir: Path) -> int:
 
 
 def _collect_raw_text(raw_dir: Path, stage_dir: Path) -> dict:
-    """Aggregate all scrape outputs into one staging text directory."""
+    """Aggregate all corpus text from MongoDB-exported raw files into staging.
+
+    This path is strict: we expect raw text to come from MongoDB export only.
+    ``raw_dir`` must contain documents, and no fallback to alternate sources is permitted.
+    """
+    if not raw_dir.exists() or not any(raw_dir.rglob("*.txt")):
+        raise FileNotFoundError(
+            f"No raw text files found in {raw_dir}. "
+            "MongoDB export pipeline must provide raw data. No fallback allowed."
+        )
+
     _safe_clear_dir(stage_dir)
     stats = {"txt_copied": 0, "culturax_docs": 0}
 
     stats["txt_copied"] = _copy_tree(raw_dir, stage_dir)
     stats["culturax_docs"] = _extract_culturax_jsonl(raw_dir, stage_dir)
+
+    if stats["txt_copied"] == 0 and stats["culturax_docs"] == 0:
+        raise RuntimeError(
+            f"Collected zero documents from raw_dir {raw_dir}. "
+            "MongoDB source is required and must be available."
+        )
 
     return stats
 
@@ -176,12 +192,33 @@ def run_pipeline(promote_filtered: bool = True) -> dict:
         # 3) Deduplicate
         t = time.monotonic()
         _safe_clear_dir(dedup_dir)
-        total, kept = deduplicate_files(cleaned_dir, dedup_dir, threshold=threshold, num_perm=num_perm)
+
+        ann_cfg = cfg.get("ann_dedup", {})
+        if ann_cfg.get("enabled", False):
+            from .dedup_ann import deduplicate_directory
+
+            total, kept = deduplicate_directory(
+                cleaned_dir,
+                dedup_dir,
+                distance_threshold=float(ann_cfg.get("distance_threshold", 1.0)),
+                backend=str(ann_cfg.get("backend", "annoy")),
+                metric=str(ann_cfg.get("metric", "euclidean")),
+                n_trees=int(ann_cfg.get("n_trees", 10)),
+                n_neighbors=int(ann_cfg.get("n_neighbors", 32)),
+                vectors_path=Path(ann_cfg["vectors_path"]) if ann_cfg.get("vectors_path") else None,
+                index_path=Path(ann_cfg["index_path"]) if ann_cfg.get("index_path") else None,
+                force_rebuild=bool(ann_cfg.get("force_rebuild", False)),
+            )
+        else:
+            from .dedup import deduplicate_files
+            total, kept = deduplicate_files(cleaned_dir, dedup_dir, threshold=threshold, num_perm=num_perm)
+
         summary["steps"]["dedup"] = {
             "status": "ok",
             "duration_seconds": round(time.monotonic() - t, 3),
             "total": total,
             "kept": kept,
+            "ann_enabled": bool(ann_cfg.get("enabled", False)),
         }
 
         # 4) Western Armenian filter

@@ -1,0 +1,8 @@
+{
+  "manifest_version": "1.0",
+  "generated_by": "wa_ea_scaffold",
+  "description": "Corpus manifest for WA vs EA analysis. Fill with real corpus sources and token counts.",
+  "sources": [],
+  "token_counts": {},
+  "notes": "Populate with domain breakdown: textbooks, newspapers, wiki, retrieval"
+}

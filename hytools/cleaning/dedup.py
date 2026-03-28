@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import time
 from pathlib import Path
 
 import yaml  # type: ignore[reportMissingModuleSource]
@@ -31,6 +33,16 @@ _SETTINGS_PATH = Path(__file__).parents[2] / "config" / "settings.yaml"
 def _load_config() -> dict:
     with open(_SETTINGS_PATH) as f:
         return yaml.safe_load(f)
+
+
+def _sha256_text(text: str) -> str:
+    """Return SHA256 hash for a piece of text."""
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _sha256_file(txt_file: Path) -> str:
+    text = txt_file.read_text(encoding="utf-8")
+    return _sha256_text(text)
 
 
 def _shingles(text: str, k: int = 5) -> set[bytes]:
@@ -80,23 +92,43 @@ def deduplicate_files(
     output_dir.mkdir(parents=True, exist_ok=True)
     files = sorted(input_dir.rglob("*.txt"))
     total = len(files)
-    kept = 0
+
+    # Step 0: exact-hash dedup (fast, exact match)
+    t0 = time.perf_counter()
+    sha2file: dict[str, Path] = {}
+    duplicates = 0
+    for txt_file in files:
+        doc_hash = _sha256_file(txt_file)
+        if doc_hash in sha2file:
+            duplicates += 1
+            continue
+        sha2file[doc_hash] = txt_file
+
+    exact_dedup_duration = time.perf_counter() - t0
+    remaining = list(sha2file.values())
+    logger.info(
+        "Exact dedupe: %d / %d duplicates removed in %.2fs, remaining=%d",
+        duplicates, total, exact_dedup_duration, len(remaining),
+    )
 
     if not _DATASKETCH_AVAILABLE:
-        logger.warning("datasketch unavailable: skipping dedup and copying %d files", total)
-        for txt_file in files:
+        logger.warning("datasketch unavailable: skipping MinHash dedup and copying %d files", len(remaining))
+        for txt_file in remaining:
             rel = txt_file.relative_to(input_dir)
             out = output_dir / rel
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(txt_file.read_text(encoding="utf-8"), encoding="utf-8")
-            kept += 1
-        return total, kept
+        return total, len(remaining)
 
     if MinHashLSH is None:
         raise RuntimeError("datasketch is not installed; install with pip install datasketch")
     lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
 
-    for idx, txt_file in enumerate(files):
+    t1 = time.perf_counter()
+    logger.info("Phase 1: MinHash indexing and query on %d files", len(remaining))
+    kept = 0
+
+    for idx, txt_file in enumerate(remaining):
         text = txt_file.read_text(encoding="utf-8")
         key = hashlib.md5(str(txt_file).encode()).hexdigest()
         mh = build_minhash(text, num_perm=num_perm)
@@ -113,9 +145,13 @@ def deduplicate_files(
         kept += 1
 
         if (idx + 1) % 500 == 0:
-            logger.info("  Processed %d / %d files, kept %d", idx + 1, total, kept)
+            logger.info("  Processed %d / %d files, kept %d", idx + 1, len(remaining), kept)
 
-    logger.info("Deduplication complete: %d / %d documents kept", kept, total)
+    phase1_duration = time.perf_counter() - t1
+    logger.info("Phase 1 complete: %d kept %d after MinHash dedup in %.2fs", len(remaining), kept, phase1_duration)
+
+    total_remain = len(remaining)
+    logger.info("Deduplication complete: %d / %d documents kept (total input %d, exact duplicates %d)", kept, total_remain, total, duplicates)
     return total, kept
 
 

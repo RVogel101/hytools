@@ -1,10 +1,7 @@
 """Dialect: rule-based WA/EA/classical classification and quantitative dialect metrics."""
 
-from .dialect_classifier import (
+from .branch_dialect_classifier import (
     DialectClassification,
-    classify_text_dialect,
-    classify_batch_texts,
-    classify_vocab_and_sentences,
 )
 from .dialect_distance import (
     DistanceWeights,
@@ -30,9 +27,6 @@ from .dialect_pair_metrics import (
 
 __all__ = [
     "DialectClassification",
-    "classify_text_dialect",
-    "classify_batch_texts",
-    "classify_vocab_and_sentences",
     "DistanceWeights",
     "DistanceReport",
     "compute_component_distance",

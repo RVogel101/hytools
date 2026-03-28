@@ -371,11 +371,15 @@ def _enrich_document(doc: dict, source: str, text: str = "", analyzer: object | 
         if existing.get(key) is None:
             updates[f"metadata.{key}"] = value
 
-    # Derive internal language classification from actual text content
+    # Derive internal language classification from actual text content.
+    # Normalize and enforce canonical branch values.
     if text.strip() and existing.get("internal_language_branch") is None:
         lang_code, lang_branch = classify_language(text)
+        from hytools.ingestion._shared.helpers import normalize_internal_language_branch
+
+        normalized_branch = normalize_internal_language_branch(lang_branch)
         updates["metadata.internal_language_code"] = lang_code
-        updates["metadata.internal_language_branch"] = lang_branch
+        updates["metadata.internal_language_branch"] = normalized_branch
         updates["processing.internal_language_classified"] = True
 
     # Compute WA score breakdown — applied to every document containing any Armenian script
@@ -479,8 +483,11 @@ def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
 
             if existing.get("internal_language_branch") is None:
                 lang_code, lang_branch = classify_language(text)
+                from hytools.ingestion._shared.helpers import normalize_internal_language_branch
+
+                normalized_branch = normalize_internal_language_branch(lang_branch)
                 combined["metadata.internal_language_code"] = lang_code
-                combined["metadata.internal_language_branch"] = lang_branch
+                combined["metadata.internal_language_branch"] = normalized_branch
 
             if existing.get("wa_score") is None and _has_arm:
                 combined["metadata.wa_score"] = compute_wa_score_detailed(text)
