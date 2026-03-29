@@ -56,7 +56,7 @@ In Unicode, Armenian has a small block of **presentation-form ligatures** at U+F
 | U+FB14 | ARMENIAN SMALL LIGATURE MEN ECH | U+0574 U+0565 | մե (m + e) |
 | U+FB15 | ARMENIAN SMALL LIGATURE MEN INI | U+0574 U+056B | մի (m + i) |
 | U+FB16 | ARMENIAN SMALL LIGATURE VEW NOW | U+057E U+0576 | վն (v + n) |
-| U+FB17 | ARMENIAN SMALL LIGATURE MEN XEH | U+0574 U+056D | մխ (m + x) |
+| U+FB17 | ARMENIAN SMALL LIGATURE MEN XEH | U+0574 U+056D | մխ (m + kh) |
 
 All five are **lowercase** presentation forms. Uppercase ligatures exist in the range U+FB13–U+FB17 in some fonts, but the Unicode standard defines these as the Armenian ligature block; we decompose them to the two-letter sequence and then apply Armenian lowercase to the whole string so that casing is consistent.
 
