@@ -59,3 +59,47 @@ def open_mongodb_client(config: dict) -> Generator:
     finally:
         client.close()
 
+
+# ---------------------------------------------------------------------------
+# Backwards-compatible re-exports for legacy consumers
+# Some modules import WA/EA marker getters and constants from
+# `hytools.ingestion._shared.helpers`; those functions now live in
+# `hytools.linguistics.dialect.branch_dialect_classifier`. Provide
+# lightweight re-exports and reasonable defaults to avoid ImportError
+# when older import paths are used.
+# ---------------------------------------------------------------------------
+try:
+    from hytools.linguistics.dialect.branch_dialect_classifier import (
+        get_classical_markers,
+        get_lexical_markers,
+        get_wa_vocabulary_markers,
+        get_eastern_markers,
+        get_wa_standalone_patterns,
+        get_wa_suffix_patterns,
+        get_ea_regex_patterns,
+        get_word_internal_e_long_re,
+        get_word_ending_ay_re,
+        get_word_ending_oy_re,
+        get_wa_authors,
+        get_wa_publication_cities,
+        get_wa_score_threshold,
+        get_armenian_punctuation,
+    )
+
+    # Provide constants expected by older callers
+    _ARMENIAN_PUNCT = get_armenian_punctuation()
+    _WA_PUBLICATION_CITIES = list(get_wa_publication_cities())
+    _EAST_ARMENIAN_AUTHORS = []
+
+    import re as _re
+
+    _REFORMED_SUFFIX_RE = _re.compile(r"\u0578\u0582\u0569\u0575\u0578\u0582\u0576")
+    _CLASSICAL_SUFFIX_RE = _re.compile(r"\u0578\u0582\u0569\u056B\u0582\u0576")
+
+    # Minimal placeholders for word-boundary helpers (previously provided)
+    _ARM_WB_L = r""
+    _ARM_WB_R = r""
+    _ARM_PRECEDED = r""
+except Exception:  # pragma: no cover - best-effort compatibility shim
+    pass
+
