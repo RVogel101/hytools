@@ -6,6 +6,9 @@ import unicodedata
 
 import pytest
 
+import numpy as np
+
+from hytools.ocr.layout_strategies import score_ocr_text, vertical_valley_column_bounds
 from hytools.ocr.postprocessor import (
     decompose_ligatures,
     normalize_unicode,
@@ -71,3 +74,24 @@ class TestPostprocess:
 
     def test_empty_input(self):
         assert postprocess("") == ""
+
+
+class TestLayoutStrategies:
+    def test_score_ocr_text_empty(self):
+        assert score_ocr_text("") == 0.0
+
+    def test_score_ocr_text_prefers_letters(self):
+        s1 = score_ocr_text("ա")
+        s2 = score_ocr_text("|" * 20)
+        assert s1 > s2
+
+    def test_vertical_valley_two_columns(self):
+        # Wide image: dark left column, white gap, dark right column
+        h, w = 100, 400
+        g = np.full((h, w), 255, dtype=np.uint8)
+        g[:, 0:120] = 30
+        g[:, 200:320] = 30
+        bounds = vertical_valley_column_bounds(g, min_col_width_px=30, valley_fraction=0.28)
+        assert len(bounds) >= 2
+
+

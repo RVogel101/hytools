@@ -20,6 +20,9 @@ import pytesseract  # type: ignore
 import yaml
 from pdf2image import convert_from_path  # type: ignore[reportMissingImports]
 
+from .layout_strategies import run_layout_fallbacks
+from .pdf_tables_vector import try_vector_tables as extract_vector_tables_from_pdf
+from .pdf_text_layer import try_text_layer_page
 from .postprocessor import postprocess
 from .preprocessor import BinarizationMethod, preprocess
 from .tesseract_config import (
@@ -152,6 +155,10 @@ def ocr_pdf(
     tesseract_lang_english: str = TESSERACT_LANG_ENGLISH,
     script_armenian_threshold: float = 0.9,
     script_english_threshold: float = 0.9,
+    use_text_layer: bool = True,
+    layout_fallback: bool = False,
+    try_vector_tables: bool = False,
+    vector_tables_prefer: str = "camelot",
 ) -> Path:
     """OCR a single PDF and write one .txt file per page.
 
@@ -189,6 +196,14 @@ def ocr_pdf(
         Language strings used when per_page_lang is "auto" (and for fixed "hye"/"hye+eng"/"eng").
     script_armenian_threshold, script_english_threshold:
         When per_page_lang is "auto", Armenian ratio >= this → Armenian-only; Latin >= this → English-only.
+    use_text_layer:
+        If True, try embedded PDF text (PyMuPDF) before raster OCR when it passes quality heuristics.
+    layout_fallback:
+        If True, run column/sparse-PSM/word-box strategies and pick the best-scoring text (see layout_strategies).
+    try_vector_tables:
+        If True, append Camelot/Tabula table extracts for vector PDFs (optional deps).
+    vector_tables_prefer:
+        ``"camelot"`` or ``"tabula"`` — which library to try first.
 
     Returns
     -------
@@ -214,6 +229,27 @@ def ocr_pdf(
         if out_txt.exists():
             logger.debug("  Page %d already processed, skipping", page_num)
             continue
+
+        # Priority A: embedded text layer (skips OCR when acceptable)
+        if use_text_layer:
+            layer = try_text_layer_page(pdf_path, page_num)
+            if layer is not None:
+                clean_text = postprocess(layer)
+                if try_vector_tables:
+                    vt = extract_vector_tables_from_pdf(
+                        pdf_path,
+                        page_num,
+                        prefer=vector_tables_prefer,
+                    )
+                    if vt:
+                        clean_text = f"{clean_text.rstrip()}\n\n--- vector tables ---\n{vt}".strip()
+                out_txt.write_text(clean_text, encoding="utf-8")
+                logger.debug(
+                    "  Page %d: text layer, chars=%d",
+                    page_num,
+                    len(clean_text),
+                )
+                continue
 
         preprocessed = preprocess(
             image,
@@ -276,7 +312,7 @@ def ocr_pdf(
                 tesseract_lang_mixed
             )
 
-        # Run Tesseract
+        # Run Tesseract (optional B/C/D layout fallback)
         data = pytesseract.image_to_data(
             preprocessed,
             lang=page_lang,
@@ -286,7 +322,8 @@ def ocr_pdf(
         confidences = [c for c in data["conf"] if isinstance(c, (int, float)) and c >= 0]
         mean_conf = sum(confidences) / len(confidences) if confidences else 0
 
-        if mean_conf < confidence_threshold:
+        # Baseline confidence gate: layout_fallback can recover text when default PSM scores poorly
+        if not layout_fallback and mean_conf < confidence_threshold:
             logger.warning(
                 "  Page %d: low confidence %.1f (threshold %d), skipping",
                 page_num,
@@ -295,8 +332,26 @@ def ocr_pdf(
             )
             continue
 
-        raw_text = pytesseract.image_to_string(preprocessed, lang=page_lang, config=tess_config)
+        if layout_fallback:
+            raw_text, layout_name = run_layout_fallbacks(
+                image,
+                page_lang,
+                binarization=binarization,
+            )
+            logger.debug("  Page %d: layout_fallback=%s", page_num, layout_name)
+        else:
+            raw_text = pytesseract.image_to_string(preprocessed, lang=page_lang, config=tess_config)
+
         clean_text = postprocess(raw_text)
+        if layout_fallback and not clean_text.strip():
+            logger.warning("  Page %d: layout fallback produced empty text, skipping", page_num)
+            continue
+
+        if try_vector_tables:
+            vt = extract_vector_tables_from_pdf(pdf_path, page_num, prefer=vector_tables_prefer)
+            if vt:
+                clean_text = f"{clean_text.rstrip()}\n\n--- vector tables ---\n{vt}".strip()
+
         out_txt.write_text(clean_text, encoding="utf-8")
         logger.debug("  Page %d: conf=%.1f, chars=%d, lang=%s", page_num, mean_conf, len(clean_text), page_lang)
 
@@ -337,6 +392,10 @@ def run(config: dict | None = None, pdf_path: Path | None = None) -> None:
                 tesseract_lang_english=ocr_cfg.get("tesseract_lang_english", TESSERACT_LANG_ENGLISH),
                 script_armenian_threshold=ocr_cfg.get("script_armenian_threshold", 0.9),
                 script_english_threshold=ocr_cfg.get("script_english_threshold", 0.9),
+                use_text_layer=ocr_cfg.get("use_text_layer", True),
+                layout_fallback=ocr_cfg.get("layout_fallback", False),
+                try_vector_tables=ocr_cfg.get("try_vector_tables", False),
+                vector_tables_prefer=ocr_cfg.get("vector_tables_prefer", "camelot"),
             )
         except Exception as exc:
             logger.error("Failed to OCR %s: %s", pdf, exc)

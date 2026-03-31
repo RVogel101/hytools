@@ -60,6 +60,21 @@ dev = [
     "mongomock>=4.0",
 ]
 
+# OCR stack: Tesseract raster path + PDF text layer (PyMuPDF) + layout helpers
+ocr = [
+    "numpy>=1.24",
+    "Pillow>=9.0",
+    "pytesseract>=0.3.10",
+    "pdf2image>=1.17",
+    "opencv-python>=4.7",
+    "PyMuPDF>=1.24.0",
+]
+# Vector table extraction (Camelot / Tabula); Camelot may need Ghostscript — see upstream docs
+ocr-tables = [
+    "camelot-py>=0.11.0",
+    "tabula-py>=2.9.0",
+]
+
 [project.urls]
 Repository = "https://github.com/RVogel101/hytools"
 Documentation = "https://github.com/RVogel101/hytools/wiki"
