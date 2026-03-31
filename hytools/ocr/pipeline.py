@@ -225,20 +225,50 @@ def ocr_pdf(
         # Per-page language: "off" | "auto" | "hye" | "hye+eng" | "eng"
         page_lang = lang
         if per_page_lang == "auto":
+            # Probe the page with mixed languages to estimate script ratios
             probe_text = pytesseract.image_to_string(
                 preprocessed, lang=tesseract_lang_mixed, config=tess_config
             )
-            ar_ratio, lat_ratio = script_ratio_from_text(probe_text)
-            page_lang = choose_tesseract_lang_from_ratio(
-                ar_ratio,
-                lat_ratio,
-                armenian_only_threshold=script_armenian_threshold,
-                english_only_threshold=script_english_threshold,
-                lang_armenian=tesseract_lang_armenian,
-                lang_mixed=tesseract_lang_mixed,
-                lang_english=tesseract_lang_english,
+            # Also get probe confidences to detect low-confidence misreads
+            probe_data = pytesseract.image_to_data(
+                preprocessed, lang=tesseract_lang_mixed, config=tess_config, output_type=pytesseract.Output.DICT
             )
-            logger.debug("  Page %d: script ratio ar=%.2f lat=%.2f → lang=%s", page_num, ar_ratio, lat_ratio, page_lang)
+            probe_confs = [c for c in probe_data.get("conf", []) if isinstance(c, (int, float)) and c >= 0]
+            probe_mean_conf = sum(probe_confs) / len(probe_confs) if probe_confs else 0
+
+            ar_ratio, lat_ratio = script_ratio_from_text(probe_text)
+
+            # If probe confidence is low, prefer English when Armenian appears dominant
+            # but with low confidence (likely a misread), or when Latin ratio exceeds Armenian.
+            if probe_mean_conf < 50:
+                # Prefer mixed-mode unless a script shows overwhelming dominance
+                if ar_ratio > 0.8 and lat_ratio < 0.2:
+                    page_lang = tesseract_lang_mixed if ar_ratio < 0.95 else tesseract_lang_armenian
+                    logger.debug("  Page %d: low probe confidence %.1f and high ar_ratio %.2f → forcing %s", page_num, probe_mean_conf, ar_ratio, page_lang)
+                elif lat_ratio > ar_ratio:
+                    page_lang = tesseract_lang_mixed if lat_ratio < 0.95 else tesseract_lang_english
+                    logger.debug("  Page %d: low probe confidence %.1f and lat>ar (%.2f>%.2f) → forcing %s", page_num, probe_mean_conf, lat_ratio, ar_ratio, page_lang)
+                else:
+                    page_lang = choose_tesseract_lang_from_ratio(
+                        ar_ratio,
+                        lat_ratio,
+                        armenian_only_threshold=script_armenian_threshold,
+                        english_only_threshold=script_english_threshold,
+                        lang_armenian=tesseract_lang_armenian,
+                        lang_mixed=tesseract_lang_mixed,
+                        lang_english=tesseract_lang_english,
+                    )
+            else:
+                page_lang = choose_tesseract_lang_from_ratio(
+                    ar_ratio,
+                    lat_ratio,
+                    armenian_only_threshold=script_armenian_threshold,
+                    english_only_threshold=script_english_threshold,
+                    lang_armenian=tesseract_lang_armenian,
+                    lang_mixed=tesseract_lang_mixed,
+                    lang_english=tesseract_lang_english,
+                )
+            logger.debug("  Page %d: script ratio ar=%.2f lat=%.2f probe_conf=%.1f → lang=%s", page_num, ar_ratio, lat_ratio, probe_mean_conf, page_lang)
         elif per_page_lang in ("hye", "hye+eng", "eng"):
             page_lang = (
                 tesseract_lang_armenian if per_page_lang == "hye" else

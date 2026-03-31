@@ -89,8 +89,22 @@ def choose_tesseract_lang_from_ratio(
     If Latin ratio >= english_only_threshold → lang_english (e.g. eng).
     Otherwise → lang_mixed (e.g. hye+eng).
     """
+    # Strict thresholds first (backwards-compatible behavior)
     if armenian_ratio >= armenian_only_threshold:
         return lang_armenian
     if latin_ratio >= english_only_threshold:
         return lang_english
+
+    # When neither script dominates by the strict threshold, prefer a
+    # language if its ratio notably exceeds the other and exceeds a
+    # modest minimum. This makes auto-detection more permissive for
+    # English when Armenian characters appear spuriously in mixed-mode
+    # probe output.
+    MIN_SCRIPT_THRESHOLD = 0.35
+    if latin_ratio > armenian_ratio and latin_ratio >= MIN_SCRIPT_THRESHOLD:
+        return lang_english
+    if armenian_ratio > latin_ratio and armenian_ratio >= MIN_SCRIPT_THRESHOLD:
+        return lang_armenian
+
+    # Fall back to mixed when ambiguous
     return lang_mixed

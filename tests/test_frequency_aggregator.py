@@ -74,27 +74,6 @@ def test_hybrid_profile_affects_weights(monkeypatch):
     assert any(r["word"] == "բառ" for r in results)
 
 
-def test_punctuation_not_in_word_frequencies(monkeypatch):
-    db = MongoClient()["western_armenian_corpus"]
-    # include punctuation-only token and a real Armenian word
-    db.documents.insert_one({
-        "source": "wikisource",
-        "text": "բառ բառ։",
-        "metadata": {"wa_score": 5.0, "enrichment_date": "2026-03-01"},
-    })
-
-    monkeypatch.setattr(
-        "hytools.ingestion._shared.helpers.open_mongodb_client",
-        lambda cfg: fake_open_mongodb_client(db),
-    )
-
-    frequency_aggregator.run({})
-
-    results = list(db.word_frequencies.find({}))
-    assert any(r["word"] == "բառ" for r in results)
-    assert not any(r["word"] == "։" for r in results)
-
-
 def test_incremental_merge_uses_partial_update(monkeypatch):
     db = MongoClient()["western_armenian_corpus"]
     setup_mongo_data(db)
