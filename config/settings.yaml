@@ -36,8 +36,12 @@ ocr:
   script_english_threshold: 0.9
   binarization: "sauvola"
   confidence_threshold: 60
-  # PSM: 3 = auto layout, 6 = uniform block (better for textbook body text). Use 6 for book/PDF pages.
-  psm: 3
+  # PSM: 3 = auto layout, 6 = uniform block (better for textbook body text).
+  psm: 6
+  # Embedded PDF text (PyMuPDF): false | true | auto (probe pages across the PDF; heuristic).
+  use_text_layer: auto
+  # Re-process all pages even if page_####.txt exists (also: CLI --overwrite / -f)
+  overwrite: false
   # Dynamic DPI: probe first page, measure character height, choose DPI for 20–30 px letters
   adaptive_dpi: true
   font_hint: "normal"   # "tiny" | "normal" | "cursive" to override

@@ -6,10 +6,11 @@ Used when full-page OCR collapses multi-column or sparse layouts.
 from __future__ import annotations
 
 import logging
+
 import numpy as np
-import pytesseract
 from PIL import Image
 
+from hytools.ocr._tesseract_lazy import get_pytesseract
 from hytools.ocr.postprocessor import postprocess
 from hytools.ocr.preprocessor import BinarizationMethod, preprocess
 from hytools.ocr.tesseract_config import build_config, script_ratio_from_text
@@ -85,7 +86,8 @@ def ocr_image_string(
     method = BinarizationMethod(binarization)
     pre = preprocess(pil_image, method=method)
     cfg = build_config(psm=psm)
-    raw = pytesseract.image_to_string(pre, lang=lang, config=cfg)
+    pt = get_pytesseract()
+    raw = pt.image_to_string(pre, lang=lang, config=cfg)
     return postprocess(raw) if raw else ""
 
 
@@ -147,9 +149,8 @@ def reassemble_reading_order_from_boxes(
     pre = preprocess(pil_image, method=method)
     cfg = build_config(psm=psm)
     try:
-        data = pytesseract.image_to_data(
-            pre, lang=lang, config=cfg, output_type=pytesseract.Output.DICT
-        )
+        pt = get_pytesseract()
+        data = pt.image_to_data(pre, lang=lang, config=cfg, output_type=pt.Output.DICT)
     except Exception as exc:
         logger.debug("image_to_data failed: %s", exc)
         return ""

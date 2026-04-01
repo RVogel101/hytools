@@ -5,24 +5,30 @@ so letter height falls in Tesseract's optimal 20–30 px range.
 
 Usage::
 
-    python -m src.ocr.pipeline                   # process all PDFs in data/raw
-    python -m src.ocr.pipeline path/to/file.pdf  # process a single PDF
+    python -m hytools.ocr.pipeline                    # all PDFs under raw_dir (see settings)
+    python -m hytools.ocr.pipeline path/to/file.pdf  # one PDF
+    python -m hytools.ocr.pipeline file.pdf --overwrite  # redo even if page_####.txt exists
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from pathlib import Path
 from typing import Any
 
-import pytesseract  # type: ignore
 import yaml
 from pdf2image import convert_from_path  # type: ignore[reportMissingImports]
 
+from ._tesseract_lazy import get_pytesseract
 from .layout_strategies import run_layout_fallbacks
 from .pdf_tables_vector import try_vector_tables as extract_vector_tables_from_pdf
-from .pdf_text_layer import try_text_layer_page
+from .pdf_text_layer import (
+    parse_use_text_layer_setting,
+    probe_text_layer_policy,
+    try_text_layer_page,
+)
 from .postprocessor import postprocess
 from .preprocessor import BinarizationMethod, preprocess
 from .tesseract_config import (
@@ -59,7 +65,8 @@ def _estimate_character_height(image: Any, lang: str, tess_config: str) -> float
 
     Returns None if no valid heights found.
     """
-    data = pytesseract.image_to_data(image, lang=lang, config=tess_config, output_type=pytesseract.Output.DICT)
+    pt = get_pytesseract()
+    data = pt.image_to_data(image, lang=lang, config=tess_config, output_type=pt.Output.DICT)
     heights = [
         int(h) for h in data.get("height", [])
         if isinstance(h, (int, float)) and 5 <= int(h) <= 200
@@ -155,7 +162,8 @@ def ocr_pdf(
     tesseract_lang_english: str = TESSERACT_LANG_ENGLISH,
     script_armenian_threshold: float = 0.9,
     script_english_threshold: float = 0.9,
-    use_text_layer: bool = True,
+    use_text_layer: bool | str = False,
+    overwrite: bool = False,
     layout_fallback: bool = False,
     try_vector_tables: bool = False,
     vector_tables_prefer: str = "camelot",
@@ -197,7 +205,10 @@ def ocr_pdf(
     script_armenian_threshold, script_english_threshold:
         When per_page_lang is "auto", Armenian ratio >= this → Armenian-only; Latin >= this → English-only.
     use_text_layer:
-        If True, try embedded PDF text (PyMuPDF) before raster OCR when it passes quality heuristics.
+        ``True`` / ``False``, or ``\"auto\"`` to probe a few pages (spread across the PDF) and
+        enable the text layer only when embedded text looks consistently structured (heuristic).
+    overwrite:
+        If True, re-process every page even when ``page_####.txt`` already exists.
     layout_fallback:
         If True, run column/sparse-PSM/word-box strategies and pick the best-scoring text (see layout_strategies).
     try_vector_tables:
@@ -214,6 +225,21 @@ def ocr_pdf(
     method = BinarizationMethod(binarization)
     tess_config = build_config(psm=psm)
 
+    layer_mode = parse_use_text_layer_setting(use_text_layer)
+    if layer_mode == "auto":
+        probe = probe_text_layer_policy(pdf_path)
+        use_text_layer_effective = probe.recommend
+        logger.info(
+            "use_text_layer=auto → %s (%s) [sampled %d pages, %d acceptable, %d image-dominant]",
+            use_text_layer_effective,
+            probe.reason,
+            probe.pages_sampled,
+            probe.acceptable_pages,
+            probe.image_dominant_pages,
+        )
+    else:
+        use_text_layer_effective = bool(layer_mode)
+
     dpi = _resolve_dpi(
         pdf_path, dpi, lang, tess_config, adaptive_dpi, font_hint, probe_dpi,
         detect_cursive=detect_cursive,
@@ -224,14 +250,23 @@ def ocr_pdf(
     images = convert_from_path(str(pdf_path), dpi=dpi)
     logger.info("  %d pages found", len(images))
 
+    if not overwrite:
+        existing_pages = list(output_dir.glob("page_*.txt"))
+        if existing_pages:
+            logger.info(
+                "Found %d existing page_*.txt file(s); they will be skipped. "
+                "Use --overwrite / -f or ocr.overwrite=true to re-OCR all pages.",
+                len(existing_pages),
+            )
+
     for page_num, image in enumerate(images, start=1):
         out_txt = output_dir / f"page_{page_num:04d}.txt"
-        if out_txt.exists():
+        if out_txt.exists() and not overwrite:
             logger.debug("  Page %d already processed, skipping", page_num)
             continue
 
         # Priority A: embedded text layer (skips OCR when acceptable)
-        if use_text_layer:
+        if use_text_layer_effective:
             layer = try_text_layer_page(pdf_path, page_num)
             if layer is not None:
                 clean_text = postprocess(layer)
@@ -262,12 +297,13 @@ def ocr_pdf(
         page_lang = lang
         if per_page_lang == "auto":
             # Probe the page with mixed languages to estimate script ratios
-            probe_text = pytesseract.image_to_string(
+            pt = get_pytesseract()
+            probe_text = pt.image_to_string(
                 preprocessed, lang=tesseract_lang_mixed, config=tess_config
             )
             # Also get probe confidences to detect low-confidence misreads
-            probe_data = pytesseract.image_to_data(
-                preprocessed, lang=tesseract_lang_mixed, config=tess_config, output_type=pytesseract.Output.DICT
+            probe_data = pt.image_to_data(
+                preprocessed, lang=tesseract_lang_mixed, config=tess_config, output_type=pt.Output.DICT
             )
             probe_confs = [c for c in probe_data.get("conf", []) if isinstance(c, (int, float)) and c >= 0]
             probe_mean_conf = sum(probe_confs) / len(probe_confs) if probe_confs else 0
@@ -313,11 +349,12 @@ def ocr_pdf(
             )
 
         # Run Tesseract (optional B/C/D layout fallback)
-        data = pytesseract.image_to_data(
+        pt = get_pytesseract()
+        data = pt.image_to_data(
             preprocessed,
             lang=page_lang,
             config=tess_config,
-            output_type=pytesseract.Output.DICT,
+            output_type=pt.Output.DICT,
         )
         confidences = [c for c in data["conf"] if isinstance(c, (int, float)) and c >= 0]
         mean_conf = sum(confidences) / len(confidences) if confidences else 0
@@ -340,7 +377,7 @@ def ocr_pdf(
             )
             logger.debug("  Page %d: layout_fallback=%s", page_num, layout_name)
         else:
-            raw_text = pytesseract.image_to_string(preprocessed, lang=page_lang, config=tess_config)
+            raw_text = pt.image_to_string(preprocessed, lang=page_lang, config=tess_config)
 
         clean_text = postprocess(raw_text)
         if layout_fallback and not clean_text.strip():
@@ -358,13 +395,18 @@ def ocr_pdf(
     return output_dir
 
 
-def run(config: dict | None = None, pdf_path: Path | None = None) -> None:
+def run(
+    config: dict | None = None,
+    pdf_path: Path | None = None,
+    overwrite: bool = False,
+) -> None:
     """Process all PDFs in raw_dir or a single *pdf_path*."""
     cfg = config or _load_config()
     paths = cfg.get("paths", {})
     raw_dir = Path(paths.get("raw_dir", "data/raw"))
     ocr_dir = Path(paths.get("ocr_output_dir", "data/ocr_output"))
     ocr_cfg = cfg.get("ocr", {})
+    do_overwrite = bool(overwrite or ocr_cfg.get("overwrite", False))
 
     pdfs = [pdf_path] if pdf_path else list(raw_dir.rglob("*.pdf"))
     logger.info("Found %d PDFs to process", len(pdfs))
@@ -392,7 +434,8 @@ def run(config: dict | None = None, pdf_path: Path | None = None) -> None:
                 tesseract_lang_english=ocr_cfg.get("tesseract_lang_english", TESSERACT_LANG_ENGLISH),
                 script_armenian_threshold=ocr_cfg.get("script_armenian_threshold", 0.9),
                 script_english_threshold=ocr_cfg.get("script_english_threshold", 0.9),
-                use_text_layer=ocr_cfg.get("use_text_layer", True),
+                use_text_layer=ocr_cfg.get("use_text_layer", False),
+                overwrite=do_overwrite,
                 layout_fallback=ocr_cfg.get("layout_fallback", False),
                 try_vector_tables=ocr_cfg.get("try_vector_tables", False),
                 vector_tables_prefer=ocr_cfg.get("vector_tables_prefer", "camelot"),
@@ -403,5 +446,18 @@ def run(config: dict | None = None, pdf_path: Path | None = None) -> None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    path_arg = Path(sys.argv[1]) if len(sys.argv) > 1 else None
-    run(pdf_path=path_arg)
+    parser = argparse.ArgumentParser(description="OCR PDFs to per-page page_####.txt files.")
+    parser.add_argument(
+        "pdf",
+        nargs="?",
+        type=Path,
+        help="Path to a PDF (omit to process all PDFs under raw_dir from settings)",
+    )
+    parser.add_argument(
+        "--overwrite",
+        "-f",
+        action="store_true",
+        help="Re-run every page even if page_####.txt already exists",
+    )
+    args = parser.parse_args()
+    run(pdf_path=args.pdf, overwrite=args.overwrite)

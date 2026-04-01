@@ -9,6 +9,10 @@ import pytest
 import numpy as np
 
 from hytools.ocr.layout_strategies import score_ocr_text, vertical_valley_column_bounds
+from hytools.ocr.pdf_text_layer import (
+    parse_use_text_layer_setting,
+    recommend_text_layer_from_probe_stats,
+)
 from hytools.ocr.postprocessor import (
     decompose_ligatures,
     normalize_unicode,
@@ -84,6 +88,31 @@ class TestLayoutStrategies:
         s1 = score_ocr_text("ա")
         s2 = score_ocr_text("|" * 20)
         assert s1 > s2
+
+    def test_recommend_probe_good_embedded_text(self):
+        ok, _ = recommend_text_layer_from_probe_stats(
+            acceptable_count=4,
+            image_dominant_count=0,
+            sampled=5,
+            median_chars_acceptable=400.0,
+            median_newlines_acceptable=5.0,
+        )
+        assert ok is True
+
+    def test_recommend_probe_too_few_passing(self):
+        ok, _ = recommend_text_layer_from_probe_stats(
+            acceptable_count=1,
+            image_dominant_count=0,
+            sampled=5,
+            median_chars_acceptable=400.0,
+            median_newlines_acceptable=5.0,
+        )
+        assert ok is False
+
+    def test_parse_use_text_layer_setting(self):
+        assert parse_use_text_layer_setting("auto") == "auto"
+        assert parse_use_text_layer_setting(True) is True
+        assert parse_use_text_layer_setting("off") is False
 
     def test_vertical_valley_two_columns(self):
         # Wide image: dark left column, white gap, dark right column

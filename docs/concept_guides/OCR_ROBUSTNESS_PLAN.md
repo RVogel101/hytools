@@ -26,7 +26,7 @@ Implemented in `hytools.ocr` to mitigate **global Tesseract** failures on **mult
 
 **Pipeline flags** (`hytools.ocr.pipeline.ocr_pdf` and `config/settings.yaml` under `ocr`):
 
-- `use_text_layer` (default `true`) — try **A** before rendering the page.
+- `use_text_layer` — **`false`** (default) / **`true`** / **`auto`**. **`auto`** samples several pages (spread through the file), scores embedded text with the same heuristics as **A**, and skips the text layer when it looks like thin junk or scanned bitmaps. Not perfect; spot-check important pages.
 - `layout_fallback` (default `false`) — run **B/C/D** via `run_layout_fallbacks` and keep the best-scoring text; baseline confidence gating is skipped so recovery works when default PSM scores poorly.
 - `try_vector_tables` (default `false`) — append `--- vector tables ---` blocks from **E** when libraries are installed.
 - `vector_tables_prefer` — `"camelot"` or `"tabula"` (try order for **E**).
