@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from hytools.ingestion._shared.metadata import (
     TextMetadata,
@@ -11,6 +12,7 @@ from hytools.ingestion._shared.metadata import (
     SourceType,
     ContentType,
 )
+from hytools.ingestion.enrichment import metadata_tagger
 from hytools.ingestion.enrichment.metadata_tagger import CorpusMetadataTagger
 
 
@@ -123,3 +125,45 @@ def test_language_codes_hyw_and_hye_both_used():
     """Explicitly verify both hyw (Western) and hye (Eastern) are assigned."""
     assert TextMetadata.western_wikipedia("WA", "2026-01-01").source_language_code == "hyw"
     assert TextMetadata.eastern_wikipedia("EA", "2026-01-01").source_language_code == "hye"
+
+
+def test_metadata_tagger_review_queue_uses_shared_helper(monkeypatch):
+    captured = {}
+
+    def _fake_enqueue(collection, **kwargs):
+        captured["collection"] = collection
+        captured["kwargs"] = kwargs
+        return "low_confidence_dialect_classification"
+
+    monkeypatch.setattr(
+        "hytools.ingestion._shared.review_queue.maybe_enqueue_language_review",
+        _fake_enqueue,
+    )
+
+    review_collection = MagicMock()
+    reason = metadata_tagger._maybe_enqueue_review_for_result(
+        review_collection,
+        {"confidence_threshold": 0.4, "score_margin_threshold": 1.5},
+        {
+            "doc_id": "doc-1",
+            "source": "wikipedia_wa",
+            "title": "Title",
+            "source_url": "https://example.com/doc-1",
+            "review_candidate": True,
+            "review_text": "աբգ",
+            "internal_language_branch": "hye-w",
+            "wa_score": 4.25,
+        },
+    )
+
+    assert reason == "low_confidence_dialect_classification"
+    assert captured["collection"] is review_collection
+    assert captured["kwargs"]["stage"] == "metadata_tagger"
+    assert captured["kwargs"]["item_id"] == "doc-1"
+    assert captured["kwargs"]["confidence_threshold"] == 0.4
+    assert captured["kwargs"]["score_margin_threshold"] == 1.5
+    assert captured["kwargs"]["extra"] == {
+        "source": "wikipedia_wa",
+        "internal_language_branch": "hye-w",
+        "wa_score": 4.25,
+    }

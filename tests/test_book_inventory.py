@@ -158,6 +158,19 @@ class TestBookInventoryManager(TestCase):
         self.assertEqual(len(manager2.books), 1)
         self.assertEqual(manager2.books[0].title, "Persistent Book")
 
+    def test_cleanup_titles_normalizes_and_flags_implausible_mixed_script(self):
+        """Test title cleanup normalizes punctuation and flags OCR-corrupted mixed script."""
+        manager = BookInventoryManager(self.inventory_file)
+        manager.add_book(BookInventoryEntry(title=" «Դավտի Մեծ Զmassage» "))
+
+        stats = manager.cleanup_titles()
+
+        self.assertEqual(manager.books[0].title, "Դավտի Մեծ Զmassage")
+        self.assertIn("implausible_title", manager.books[0].tags)
+        self.assertIn("title_issue:mixed_script_alpha", manager.books[0].tags)
+        self.assertEqual(stats["normalized_titles"], 1)
+        self.assertEqual(stats["flagged_implausible_titles"], 1)
+
     def test_export_to_csv(self):
         """Test exporting to CSV format."""
         manager = BookInventoryManager(self.inventory_file)

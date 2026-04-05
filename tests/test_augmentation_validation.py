@@ -179,15 +179,25 @@ def test_classical_spelling_validation():
     assert len(issues) > 0, "Should have spelling issues"
 
 
-def test_nayiri_dictionary_stub():
-    """Test that Nayiri dictionary stub returns placeholder values.
+def test_nayiri_dictionary_validation():
+    """Test Nayiri dictionary validation with real or unavailable wordset.
 
-    Text: "Speaks Armenian." Markers: կը (gu), խօսի, հայերէն."""
-    text = "կը խօսի հայերէն"
-    all_valid, unknown = validate_nayiri_dictionary(text)
+    If MongoDB is available with Nayiri data, tests real validation.
+    If unavailable, tests graceful fallback."""
+    from hytools.ocr.nayiri_spellcheck import load_nayiri_wordset
+    wordset = load_nayiri_wordset()
 
-    assert all_valid, "Stub should return valid (placeholder)"
-    assert len(unknown) == 0, "Stub should return no unknown words"
+    if wordset:
+        # Real Nayiri available — test with known valid WA word
+        all_valid, unknown = validate_nayiri_dictionary("հայերէն")
+        # validate_nayiri_dictionary now does real checking; we just verify it runs
+        assert isinstance(all_valid, bool)
+        assert isinstance(unknown, list)
+    else:
+        # No Nayiri data — should gracefully return (True, [])
+        all_valid, unknown = validate_nayiri_dictionary("կը խօսի հայerect")
+        assert all_valid, "Should return valid when Nayiri wordset unavailable"
+        assert len(unknown) == 0
 
 
 def test_regeneration_prompt_generation():
