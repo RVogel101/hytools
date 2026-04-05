@@ -128,38 +128,57 @@ def _detect_wa_vocabulary(text: str) -> int:
     return wa_vocab_count
 
 
-def validate_nayiri_dictionary(text: str) -> tuple[bool, list[str]]:
-    """Validate that all words exist in Nayiri dictionary (FUTURE FEATURE).
-    
-    This is a stub for future implementation. When implemented, this will:
-    1. Tokenize the text into individual words
-    2. Check each word against the Nayiri dictionary database
-    3. Return validation status and list of unknown words
-    
+def validate_nayiri_dictionary(
+    text: str,
+    config: dict | None = None,
+) -> tuple[bool, list[str]]:
+    """Validate that words in *text* exist in the Nayiri dictionary.
+
+    Tokenizes the text, loads the Nayiri wordset from MongoDB, and returns
+    a tuple of (all_words_valid, list_of_unknown_words).
+
     Parameters
     ----------
     text:
-        Input text to validate
-        
+        Input text to validate.
+    config:
+        Optional config dict with ``database.mongodb_uri`` etc.
+        Falls back to ``config/settings.yaml`` when *None*.
+
     Returns
     -------
     tuple[bool, list[str]]
         (all_words_valid, list_of_unknown_words)
-        
-    Notes
-    -----
-    Current implementation always returns (True, []) as a placeholder.
-    TODO: Implement actual Nayiri dictionary lookup once database is ready.
     """
-    # TODO: Implement actual Nayiri dictionary validation
-    # Steps for future implementation:
-    # 1. from hytools.cleaning.armenian_tokenizer import extract_words
-    # 2. words = extract_words(text)
-    # 3. unknown = [w for w in words if not nayiri_db.contains(w)]
-    # 4. return (len(unknown) == 0, unknown)
-    
-    logger.debug("Nayiri dictionary validation not yet implemented (stub)")
-    return True, []
+    try:
+        from hytools.cleaning.armenian_tokenizer import extract_words
+    except ImportError:
+        logger.warning("armenian_tokenizer unavailable — Nayiri validation skipped")
+        return True, []
+
+    try:
+        from hytools.ocr.nayiri_spellcheck import load_nayiri_wordset
+    except ImportError:
+        logger.warning("nayiri_spellcheck unavailable — Nayiri validation skipped")
+        return True, []
+
+    wordset = load_nayiri_wordset(config)
+    if not wordset:
+        logger.warning("Nayiri wordset empty — validation skipped")
+        return True, []
+
+    words = extract_words(text, min_length=2)
+    unknown = [w for w in words if w not in wordset and w.lower() not in wordset]
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique_unknown: list[str] = []
+    for w in unknown:
+        if w not in seen:
+            seen.add(w)
+            unique_unknown.append(w)
+
+    all_valid = len(unique_unknown) == 0
+    return all_valid, unique_unknown
 
 
 def validate_classical_spelling(text: str) -> tuple[bool, list[str]]:

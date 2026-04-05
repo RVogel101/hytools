@@ -16,8 +16,11 @@ reverse: "u"→ը, "ou"/"oo"→ու.
 
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
+
+logger = logging.getLogger(__name__)
 from typing import Literal
 
 Dialect = Literal["eastern", "classical", "western"]
@@ -318,6 +321,7 @@ def to_latin(text: str, dialect: Dialect = "western", insert_schwa: bool = True)
         try:
             from hytools.linguistics.dialect import branch_dialect_classifier as _bdc
         except Exception:
+            logger.debug("branch_dialect_classifier unavailable for WA enforcement", exc_info=True)
             _bdc = None
         if _bdc is not None:
             ea_markers = [re.compile(p, flags=re.IGNORECASE) for p, _ in _bdc.get_eastern_markers()]

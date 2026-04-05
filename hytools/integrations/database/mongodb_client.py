@@ -27,7 +27,46 @@ except ImportError:
     ConnectionFailure = Exception
     DuplicateKeyError = Exception
 
+try:
+    from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+    _TENACITY_AVAILABLE = True
+except ImportError:
+    _TENACITY_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+_COVERAGE_PREVIEW_LIMIT = 100
+_BULK_INSERT_BATCH_SIZE = 1000
+
+
+def _compute_text_hashes(text: str) -> tuple[str, str]:
+    import hashlib
+    import re
+    import unicodedata
+
+    content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    normalized = unicodedata.normalize("NFKC", text)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized_content_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return content_hash, normalized_content_hash
+
+
+def _mongo_retry(func):
+    """Apply tenacity retry with exponential backoff for transient MongoDB errors.
+
+    Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+    Only retries on ConnectionFailure (network / server selection errors).
+    Falls back to no-retry when tenacity is not installed.
+    """
+    if not _TENACITY_AVAILABLE:
+        return func
+    return retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        retry=retry_if_exception_type(ConnectionFailure),
+        reraise=True,
+    )(func)
 
 
 class MongoDBCorpusClient:
@@ -58,6 +97,7 @@ class MongoDBCorpusClient:
         """Context manager exit."""
         self.close()
 
+    @_mongo_retry
     def connect(self) -> None:
         """Establish MongoDB connection and verify it's alive."""
         if not _PYMONGO_AVAILABLE or MongoClient is None:
@@ -116,6 +156,11 @@ class MongoDBCorpusClient:
         return self.db["news_article_catalog"]
 
     @property
+    def crawler_state(self) -> Any:
+        """Incremental state and domain profiles for the web crawler."""
+        return self.db["crawler_state"]
+
+    @property
     def book_inventory(self) -> Any:
         """Get book inventory collection."""
         return self.db["book_inventory"]
@@ -166,6 +211,21 @@ class MongoDBCorpusClient:
         return self.db["acquisition_priorities"]
 
     @property
+    def coverage_gap_items(self) -> Any:
+        """Itemized coverage gap rows for large reports."""
+        return self.db["coverage_gap_items"]
+
+    @property
+    def acquisition_priority_items(self) -> Any:
+        """Itemized acquisition priority rows for large reports."""
+        return self.db["acquisition_priority_items"]
+
+    @property
+    def drift_alerts(self) -> Any:
+        """Per-run drift summaries and alert records."""
+        return self.db["drift_alerts"]
+
+    @property
     def augmentation_checkpoint(self) -> Any:
         """Get augmentation checkpoint collection (task_uid -> done)."""
         return self.db["augmentation_checkpoint"]
@@ -176,9 +236,39 @@ class MongoDBCorpusClient:
         return self.db["augmentation_metrics"]
 
     @property
+    def ocr_page_metrics(self) -> Any:
+        """Per-page OCR metrics (run_id, page_num, status, engine, confidence, etc.).
+
+        See :mod:`hytools.ocr.ocr_metrics` for the full schema reference.
+        """
+        return self.db["ocr_page_metrics"]
+
+    @property
+    def review_queue(self) -> Any:
+        """Unified manual review queue.
+
+        Backed by the legacy ``ocr_review_queue`` collection so OCR and
+        acquisition review items stay in one place without a data migration.
+        """
+        return self.db["ocr_review_queue"]
+
+    @property
     def etymology(self) -> Any:
         """Get etymology / loanword_origin collection (lemma → source, confidence, etymology text)."""
         return self.db["etymology"]
+
+    @property
+    def ocr_review_queue(self) -> Any:
+        """Backward-compatible alias for :attr:`review_queue`."""
+        return self.review_queue
+
+    @property
+    def ocr_run_alerts(self) -> Any:
+        """Per-run OCR monitoring summaries and alerts.
+
+        See :mod:`hytools.ocr.run_monitor` for the full schema reference.
+        """
+        return self.db["ocr_run_alerts"]
 
     @property
     def source_binaries_fs(self) -> Any:
@@ -216,6 +306,10 @@ class MongoDBCorpusClient:
             self.news_article_catalog.create_index([("url", ASCENDING)])
             self.news_article_catalog.create_index([("document_id", ASCENDING)])
 
+        if hasattr(self, "crawler_state"):
+            self.crawler_state.create_index([("kind", ASCENDING), ("domain", ASCENDING)])
+            self.crawler_state.create_index([("kind", ASCENDING), ("updated_at", DESCENDING)])
+
         # Book inventory
         self.book_inventory.create_index([("title", ASCENDING)])
         self.book_inventory.create_index([("coverage_status", ASCENDING)])
@@ -236,6 +330,14 @@ class MongoDBCorpusClient:
         self.author_timeline.create_index([("metadata.generated", DESCENDING)])
         self.coverage_gaps.create_index([("generated", DESCENDING)])
         self.acquisition_priorities.create_index([("generated", DESCENDING)])
+        self.coverage_gap_items.create_index([("generated", DESCENDING)])
+        self.coverage_gap_items.create_index([("priority", ASCENDING)])
+        self.coverage_gap_items.create_index([("type", ASCENDING)])
+        self.acquisition_priority_items.create_index([("generated", DESCENDING)])
+        self.acquisition_priority_items.create_index([("priority_filter", ASCENDING), ("priority", ASCENDING)])
+        self.drift_alerts.create_index([("generated", DESCENDING)])
+        self.drift_alerts.create_index([("alert", ASCENDING)])
+        self.drift_alerts.create_index([("status", ASCENDING)])
 
         # Augmentation checkpoint
         self.augmentation_checkpoint.create_index([("task_uid", ASCENDING)], unique=True)
@@ -244,10 +346,43 @@ class MongoDBCorpusClient:
         self.etymology.create_index([("lemma", ASCENDING)], unique=True)
         self.etymology.create_index([("source", ASCENDING)])
 
+        # OCR per-page metrics (see hytools.ocr.ocr_metrics for schema)
+        self.ocr_page_metrics.create_index(
+            [("run_id", ASCENDING), ("page_num", ASCENDING)], unique=True,
+        )
+        self.ocr_page_metrics.create_index(
+            [("pdf_name", ASCENDING), ("page_num", ASCENDING)],
+        )
+        self.ocr_page_metrics.create_index([("status", ASCENDING)])
+        self.ocr_page_metrics.create_index([("timestamp", DESCENDING)])
+        self.ocr_page_metrics.create_index([("engine", ASCENDING)])
+
+        # OCR review queue (see hytools.ocr.review_queue for schema)
+        self.review_queue.create_index(
+            [("run_id", ASCENDING), ("page_num", ASCENDING)], unique=True,
+        )
+        self.review_queue.create_index(
+            [("pdf_name", ASCENDING), ("page_num", ASCENDING)],
+        )
+        self.review_queue.create_index([("reason", ASCENDING)])
+        self.review_queue.create_index([("reviewed", ASCENDING)])
+        self.review_queue.create_index([("priority", ASCENDING)])
+        self.review_queue.create_index([("created_at", DESCENDING)])
+        self.review_queue.create_index([("queue_source", ASCENDING)])
+        self.review_queue.create_index([("stage", ASCENDING)])
+        self.review_queue.create_index([("item_id", ASCENDING)])
+
+        # OCR run alerts / monitoring (see hytools.ocr.run_monitor for schema)
+        self.ocr_run_alerts.create_index([("run_id", ASCENDING)], unique=True)
+        self.ocr_run_alerts.create_index([("pdf_name", ASCENDING)])
+        self.ocr_run_alerts.create_index([("alert", ASCENDING)])
+        self.ocr_run_alerts.create_index([("created_at", DESCENDING)])
+
         logger.debug("MongoDB indexes created")
 
     # ── Document Operations ─────────────────────────────────────────────────
 
+    @_mongo_retry
     def insert_document(
         self,
         source: str,
@@ -273,15 +408,19 @@ class MongoDBCorpusClient:
         Raises:
             DuplicateKeyError: If document with same content_hash exists
         """
-        import hashlib
-        import re
-        import unicodedata
+        content_hash, normalized_content_hash = _compute_text_hashes(text)
 
-        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-        normalized = unicodedata.normalize("NFKC", text)
-        normalized = re.sub(r"\s+", " ", normalized).strip()
-        normalized_content_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+        existing = self.documents.find_one(
+            {"content_hash": content_hash},
+            {"_id": 1, "title": 1, "source": 1},
+        )
+        if existing is not None:
+            logger.warning(
+                "Duplicate document detected before insert (hash: %s..., existing title=%s)",
+                content_hash[:16],
+                existing.get("title", ""),
+            )
+            raise DuplicateKeyError(f"Duplicate document content_hash={content_hash}")
 
         doc = {
             "source": source,
@@ -313,6 +452,7 @@ class MongoDBCorpusClient:
             logger.warning(f"Duplicate document detected (hash: {content_hash[:16]}...)")
             raise
 
+    @_mongo_retry
     def get_document(self, doc_id: str) -> Optional[dict]:
         """Retrieve a document by ID.
 
@@ -330,6 +470,7 @@ class MongoDBCorpusClient:
             logger.error(f"Error retrieving document {doc_id}: {e}")
             return None
 
+    @_mongo_retry
     def find_documents(
         self,
         source: Optional[str] = None,
@@ -354,6 +495,7 @@ class MongoDBCorpusClient:
 
         return list(self.documents.find(query).limit(limit))
 
+    @_mongo_retry
     def update_processing_status(
         self,
         doc_id: str,
@@ -390,6 +532,7 @@ class MongoDBCorpusClient:
 
         return result.matched_count > 0
 
+    @_mongo_retry
     def count_documents(self, source: Optional[str] = None) -> int:
         """Count documents in corpus.
 
@@ -404,6 +547,7 @@ class MongoDBCorpusClient:
 
     # ── Pipeline Metadata ───────────────────────────────────────────────────
 
+    @_mongo_retry
     def log_pipeline_run(self, stage: str, status: str, details: Optional[dict] = None) -> None:
         """Log a pipeline stage execution.
 
@@ -421,6 +565,7 @@ class MongoDBCorpusClient:
         self.metadata.insert_one(entry)
         logger.info(f"Logged pipeline run: {stage} ({status})")
 
+    @_mongo_retry
     def get_latest_run(self, stage: str) -> Optional[dict]:
         """Get most recent pipeline run for a stage.
 
@@ -432,8 +577,13 @@ class MongoDBCorpusClient:
         """
         return self.metadata.find_one({"stage": stage}, sort=[("timestamp", DESCENDING)])
 
+    # Alias: several callers (runner, drift_detection, incremental_merge) use
+    # ``get_latest_metadata`` — keep both names pointing to the same logic.
+    get_latest_metadata = get_latest_run
+
     # ── Catalog Operations ───────────────────────────────────────────────────
 
+    @_mongo_retry
     def upsert_catalog_items(self, source: str, catalog: dict[str, dict]) -> int:
         """Upsert catalog items to MongoDB. Each item has item_id as key.
 
@@ -562,20 +712,55 @@ class MongoDBCorpusClient:
         self.author_generation_report.insert_one(doc)
 
     def save_coverage_gaps(self, report: dict) -> None:
-        """Replace coverage gaps report (summary + gaps list)."""
+        """Replace coverage gaps report using a compact summary plus item rows."""
         doc = dict(report)
-        doc.setdefault("generated", datetime.utcnow().isoformat())
+        generated = datetime.utcnow().isoformat()
+        gaps = [dict(item) for item in doc.pop("gaps", [])]
+        doc["generated"] = generated
+        doc["total_gap_rows"] = len(gaps)
+        doc["gap_preview"] = gaps[:_COVERAGE_PREVIEW_LIMIT]
         self.coverage_gaps.delete_many({})
+        self.coverage_gap_items.delete_many({})
         self.coverage_gaps.insert_one(doc)
+        if gaps:
+            for start in range(0, len(gaps), _BULK_INSERT_BATCH_SIZE):
+                batch = []
+                for offset, gap in enumerate(gaps[start:start + _BULK_INSERT_BATCH_SIZE], start=start):
+                    batch.append({"generated": generated, "row_index": offset, **gap})
+                self.coverage_gap_items.insert_many(batch)
 
     def save_acquisition_priorities(self, priorities_by_filter: dict[str, list[dict]]) -> None:
-        """Replace acquisition priorities (one doc: keys 'all', 'high', etc., each a list of row dicts)."""
-        doc = {
-            "generated": datetime.utcnow().isoformat(),
-            **priorities_by_filter,
+        """Replace acquisition priorities using summary counts plus item rows."""
+        generated = datetime.utcnow().isoformat()
+        inventory_coverage = priorities_by_filter.get("inventory_coverage")
+        segments = {
+            key: [dict(item) for item in value]
+            for key, value in priorities_by_filter.items()
+            if key in {"all", "high", "medium", "low"}
         }
+        doc = {"generated": generated}
+        if inventory_coverage is not None:
+            doc["inventory_coverage"] = inventory_coverage
+        for key, rows in segments.items():
+            doc[f"{key}_count"] = len(rows)
+            doc[f"{key}_preview"] = rows[:_COVERAGE_PREVIEW_LIMIT]
         self.acquisition_priorities.delete_many({})
+        self.acquisition_priority_items.delete_many({})
         self.acquisition_priorities.insert_one(doc)
+        for key, rows in segments.items():
+            if not rows:
+                continue
+            for start in range(0, len(rows), _BULK_INSERT_BATCH_SIZE):
+                batch = []
+                for offset, row in enumerate(rows[start:start + _BULK_INSERT_BATCH_SIZE], start=start):
+                    batch.append({"generated": generated, "priority_filter": key, "row_index": offset, **row})
+                self.acquisition_priority_items.insert_many(batch)
+
+    def save_drift_alert(self, alert_doc: dict) -> None:
+        """Insert a drift summary / alert record."""
+        doc = dict(alert_doc)
+        doc.setdefault("generated", datetime.utcnow())
+        self.drift_alerts.insert_one(doc)
 
     # ── Augmentation ────────────────────────────────────────────────────────
 

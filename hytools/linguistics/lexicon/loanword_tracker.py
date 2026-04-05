@@ -332,6 +332,36 @@ def add_loanwords(language: str, words: Iterable[str]) -> None:
     _WORD_TO_LANGUAGE = _build_word_to_language_map()
 
 
+def create_nayiri_checker(config: dict | None = None) -> Callable[[str], bool]:
+    """Return a predicate backed by the Nayiri dictionary for use as *is_known_word*.
+
+    Usage::
+
+        checker = create_nayiri_checker(config)
+        report = analyze_possible_loanwords(text, is_known_word=checker)
+
+    If the Nayiri wordset is empty or unavailable the returned predicate
+    falls back to treating all words as known (same as default behaviour).
+    """
+    try:
+        from hytools.ocr.nayiri_spellcheck import load_nayiri_wordset
+    except ImportError:
+        import logging as _log
+        _log.getLogger(__name__).warning(
+            "nayiri_spellcheck unavailable — Nayiri checker disabled"
+        )
+        return _default_is_known_armenian_word
+
+    wordset = load_nayiri_wordset(config)
+    if not wordset:
+        return _default_is_known_armenian_word
+
+    def _check(word: str) -> bool:
+        return word in wordset or word.lower() in wordset
+
+    return _check
+
+
 __all__ = [
     "LoanwordReport",
     "PossibleLoanwordReport",
@@ -340,5 +370,6 @@ __all__ = [
     "analyze_batch",
     "get_loanword_lexicon",
     "add_loanwords",
+    "create_nayiri_checker",
     "normalize_lexicon_word",
 ]

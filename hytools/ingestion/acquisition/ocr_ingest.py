@@ -22,6 +22,8 @@ import sys
 from pathlib import Path
 
 from hytools.ingestion._shared.helpers import insert_or_skip, open_mongodb_client, try_wa_filter
+from hytools.ingestion._shared.review_queue import get_review_collection, maybe_enqueue_language_review
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +133,7 @@ def ingest_directory(
     with open_mongodb_client(config) as client:
         if client is None:
             raise RuntimeError("MongoDB is required but unavailable")
+        review_coll = get_review_collection(client)
 
         for i, file_path in enumerate(files, 1):
             try:
@@ -151,6 +154,16 @@ def ingest_directory(
                 continue
 
             result = try_wa_filter(text[:5000])
+            maybe_enqueue_language_review(
+                review_coll,
+                stage="ocr_ingest",
+                item_id=str(file_path),
+                text=text[:5000],
+                title=file_path.stem,
+                queue_source="ocr_ingest",
+                rejected=apply_wa_filter and result is False,
+                extra={"file_path": str(file_path), "source": source},
+            )
             if apply_wa_filter and result is False:
                 stats["skipped_wa"] += 1
                 continue
@@ -158,16 +171,16 @@ def ingest_directory(
 
             ok = insert_or_skip(
                 client,
-                source=source,
-                title=file_path.stem,
-                text=text,
-                url=None,
-                metadata={
-                    "source_type": "ocr",
-                    "file_path": str(file_path),
-                    "source_language_code": dialect,
-                    "ocr_dpi": dpi,
-                },
+                doc=ScrapedDocument(
+                    source_family=source,
+                    text=text,
+                    title=file_path.stem,
+                    source_language_code=dialect,
+                    internal_language_code="hy",
+                    internal_language_branch="hye-w" if result is True else None,
+                    source_type="ocr",
+                    extra={"file_path": str(file_path), "ocr_dpi": dpi},
+                ),
                 config=config,
             )
             if ok:
@@ -215,6 +228,7 @@ def ingest_from_gridfs(
     with open_mongodb_client(config) as client:
         if client is None:
             raise RuntimeError("MongoDB is required but unavailable")
+        review_coll = get_review_collection(client)
 
         files = client.find_source_binaries(source=source, limit=limit)
         if not files:
@@ -253,6 +267,16 @@ def ingest_from_gridfs(
                 continue
 
             result = try_wa_filter(text[:5000])
+            maybe_enqueue_language_review(
+                review_coll,
+                stage="ocr_ingest",
+                item_id=str(file_id),
+                text=text[:5000],
+                title=Path(filename).stem,
+                queue_source="ocr_ingest",
+                rejected=apply_wa_filter and result is False,
+                extra={"gridfs_file_id": str(file_id), "source": gridfs_source},
+            )
             if apply_wa_filter and result is False:
                 stats["skipped_wa"] += 1
                 continue
@@ -260,16 +284,16 @@ def ingest_from_gridfs(
 
             ok = insert_or_skip(
                 client,
-                source=gridfs_source,
-                title=Path(filename).stem,
-                text=text,
-                url=None,
-                metadata={
-                    "source_type": "ocr",
-                    "gridfs_file_id": str(file_id),
-                    "source_language_code": dialect,
-                    "ocr_dpi": dpi,
-                },
+                doc=ScrapedDocument(
+                    source_family=gridfs_source,
+                    text=text,
+                    title=Path(filename).stem,
+                    source_language_code=dialect,
+                    internal_language_code="hy",
+                    internal_language_branch="hye-w" if result is True else None,
+                    source_type="ocr",
+                    extra={"gridfs_file_id": str(file_id), "ocr_dpi": dpi},
+                ),
                 config=config,
             )
             if ok:

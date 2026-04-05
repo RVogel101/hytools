@@ -29,10 +29,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from statistics import mean, median
 from typing import Any
+
+logger = logging.getLogger(__name__)
 from typing import Sequence
 
 
@@ -251,6 +254,7 @@ def _save_optional_parquet(records: list[DialectPairRecord], path: str | Path) -
     try:
         import pandas as pd  # type: ignore
     except Exception:
+        logger.debug("pandas unavailable — skipping parquet export")
         return None
 
     out = Path(path)

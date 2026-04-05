@@ -12,9 +12,12 @@ Uses the morphology module for full declension/conjugation support.
 """
 
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Set, Optional, Dict
+
+logger = logging.getLogger(__name__)
 
 try:
     from . import (
@@ -40,9 +43,9 @@ def _load_monosyllabic_roots() -> tuple[Set[str], Dict[str, Set[str]]]:
     alternants: Dict[str, Set[str]] = {}
     try:
         # Project layout places the top-level `data/` next to the package dir.
-        # Path(__file__).parent.parent points to hytools/hytools; we need the
-        # repository root (hytools/) so go up one more level.
-        data_dir = Path(__file__).resolve().parents[2] / "data"
+        # Path(__file__).parent.parent.parent points to hytools/hytools; we need
+        # the repository root (hytools/) so go up one more level.
+        data_dir = Path(__file__).resolve().parents[3] / "data"
         path = data_dir / "monosyllabic_roots.json"
         if not path.exists():
             return root_forms, alternants
@@ -60,7 +63,7 @@ def _load_monosyllabic_roots() -> tuple[Set[str], Dict[str, Set[str]]]:
             for form in group:
                 alternants[form] = group
     except Exception:
-        pass
+        logger.debug("Failed to load monosyllabic roots from %s", roots_path, exc_info=True)
     return root_forms, alternants
 
 
@@ -115,6 +118,7 @@ def _get_case_stem_candidates(word: str) -> Set[str]:
         ye = ARM["ye"]
         r = ARM["r"]
     except Exception:
+        logger.debug("ARM dict key lookup failed in _get_case_stem_candidates", exc_info=True)
         return candidates
 
     # Base pieces
@@ -161,8 +165,8 @@ def extract_plural_stem(word: str) -> Optional[str]:
         ner = ARM["n"] + ARM["ye"] + ARM["r"]  # -ner
         if word.endswith(ner):
             return word[:-len(ner)]
-    except:
-        pass
+    except Exception:
+        logger.debug("ARM dict key lookup failed in extract_plural_stem", exc_info=True)
     
     return None
 

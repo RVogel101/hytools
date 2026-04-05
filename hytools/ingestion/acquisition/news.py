@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import logging
+
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -36,6 +38,63 @@ logger = logging.getLogger(__name__)
 # Shared constants (used by newspaper and ea_news; rss_news may override delay via config)
 _MIN_ARMENIAN_CHARS = 30
 _REQUEST_DELAY = 2.0  # seconds between requests
+
+
+def _get_news_review_config(config: dict | None) -> dict:
+    from hytools.linguistics.dialect.review_audit import get_stage_review_settings
+
+    merged: dict = {}
+    cfg = config or {}
+    for top_level in ("scraping", "ingestion"):
+        section = cfg.get(top_level) or {}
+        if not isinstance(section, dict):
+            continue
+        for stage_key in ("news", "newspapers", "eastern_armenian", "rss_news"):
+            stage_cfg = section.get(stage_key) or {}
+            if isinstance(stage_cfg, dict) and isinstance(stage_cfg.get("review_queue"), dict):
+                merged.update(stage_cfg["review_queue"])
+
+    return get_stage_review_settings("news", merged)
+
+
+def _maybe_enqueue_news_review(
+    client,
+    config: dict | None,
+    *,
+    source_id: str,
+    title: str,
+    text: str,
+    url: str,
+    extra: dict | None = None,
+) -> str | None:
+    if client is None or not (text or "").strip():
+        return None
+
+    from hytools.ingestion._shared.review_queue import get_review_collection, maybe_enqueue_language_review
+
+    review_cfg = _get_news_review_config(config)
+    if not bool(review_cfg.get("enabled", True)):
+        return None
+
+    collection = get_review_collection(client)
+    if collection is None:
+        return None
+
+    return maybe_enqueue_language_review(
+        collection,
+        stage="news",
+        item_id=url or title or source_id,
+        text=text,
+        title=title,
+        source_url=url,
+        queue_source=str(review_cfg.get("queue_source", "news") or "news"),
+        confidence_threshold=float(review_cfg.get("confidence_threshold", 0.35) or 0.35),
+        score_margin_threshold=float(review_cfg.get("score_margin_threshold", 2.0) or 2.0),
+        extra={
+            "source": source_id,
+            **(extra or {}),
+        },
+    )
 
 
 def _armenian_char_count(text: str) -> int:
@@ -105,31 +164,43 @@ def _upsert_article_from_record(
         except Exception:
             logger.debug("Catalog upsert failed for %s", record.url)
 
-    meta = {
-        "source_type": "news",
-        "category": record.category or writing_category,
-        "publication_date": record.publication_date,
-        "published_at": record.publication_date,
-        "tags": [],
-        "rss_sources": [record.source_id],
-        "source_language_code": source_language_code,
-        "source_language_codes": [source_language_code],
-        "content_type": record.content_type,
-        "writing_category": writing_category,
-    }
-    # Merge any extra metadata the crawler attached (e.g. wa_score, dialect)
-    if record.metadata:
-        meta.update(record.metadata)
+    meta_extra = dict(record.metadata) if record.metadata else {}
 
-    inserted = insert_or_skip(
-        client,
-        source=record.source_id,
-        title=record.title,
+    scraped = ScrapedDocument(
+        source_family=record.source_id,
         text=record.text,
-        url=record.url,
-        metadata=meta,
-        config=cfg,
+        title=record.title,
+        source_url=record.url,
+        source_language_code=source_language_code,
+        source_type="news",
+        content_type=record.content_type,
+        writing_category=writing_category,
+        publication_date=record.publication_date,
+        extra={
+            "category": record.category or writing_category,
+            "published_at": record.publication_date,
+            "tags": [],
+            "rss_sources": [record.source_id],
+            "source_language_codes": [source_language_code],
+            **meta_extra,
+        },
     )
+    inserted = insert_or_skip(client, doc=scraped, config=cfg)
+
+    if inserted:
+        _maybe_enqueue_news_review(
+            client,
+            cfg,
+            source_id=record.source_id,
+            title=record.title,
+            text=record.text,
+            url=record.url,
+            extra={
+                "content_type": record.content_type,
+                "writing_category": writing_category,
+                "source_language_code": source_language_code,
+            },
+        )
 
     if not inserted:
         return False
@@ -530,7 +601,7 @@ def _collect_article_urls(driver, source: NewspaperSource) -> list[str]:
                     all_urls.extend(fallback_urls)
                     found_on_page += len(fallback_urls)
             except Exception:
-                pass
+                logger.debug("Fallback URL extraction from driver page source failed", exc_info=True)
 
         if found_on_page == 0:
             try:
@@ -545,7 +616,7 @@ def _collect_article_urls(driver, source: NewspaperSource) -> list[str]:
                         all_urls.extend(fallback_urls)
                         found_on_page += len(fallback_urls)
             except Exception:
-                pass
+                logger.debug("Fallback URL extraction via requests failed", exc_info=True)
 
         logger.info("  Found %d new article URLs on page %d", found_on_page, page_num)
         if found_on_page == 0:
@@ -573,6 +644,7 @@ def _extract_article_text(driver, url: str, source: NewspaperSource) -> str:
                 if paragraphs:
                     break
         except Exception:
+            logger.debug("CSS selector %s failed for %s", selector, url, exc_info=True)
             continue
 
     if not paragraphs:
@@ -647,7 +719,7 @@ def _scrape_newspaper_source(
                     wa_score = _compute_wa_score(text[:5000])
                     detected_lc = "hyw" if wa_score >= _wa_threshold else "hye"
                 except Exception:
-                    pass
+                    logger.debug("WA score computation failed for %s", url, exc_info=True)
 
             title = url.split("/")[-1] or url
             record = ArticleRecord(
@@ -1716,27 +1788,38 @@ def _run_scrape_from_news_catalog(config: dict, client) -> None:
         sources = cat_doc.get("sources") or []
         source_tag = f"rss_news:{sources[0]}" if sources else "rss_news:unknown"
         # Detailed tagging for filtering and downstream pipelines (source_language_code, source_language_codes, content_type, writing_category)
-        meta = {
-            "source_type": "news",
-            "category": cat_doc.get("category", "news"),
-            "published_at": cat_doc.get("published_at"),
-            "tags": cat_doc.get("tags", []),
-            "rss_sources": sources,
-            "source_language_code": cat_doc.get("source_language_code") or cat_doc.get("language_code") or "und",
-            "source_language_codes": cat_doc.get("source_language_codes") or cat_doc.get("language_codes") or [],
-            "content_type": cat_doc.get("content_type") or "article",
-            "writing_category": cat_doc.get("writing_category") or "news",
-        }
-        if insert_or_skip(
-            client,
-            source=source_tag,
-            title=cat_doc.get("title", ""),
+        scraped = ScrapedDocument(
+            source_family=source_tag,
             text=text,
-            url=url,
-            metadata=meta,
-            config=config,
-        ):
+            title=cat_doc.get("title", ""),
+            source_url=url,
+            source_language_code=cat_doc.get("source_language_code") or cat_doc.get("language_code") or "und",
+            source_type="news",
+            content_type=cat_doc.get("content_type") or "article",
+            writing_category=cat_doc.get("writing_category") or "news",
+            extra={
+                "category": cat_doc.get("category", "news"),
+                "published_at": cat_doc.get("published_at"),
+                "tags": cat_doc.get("tags", []),
+                "rss_sources": sources,
+                "source_language_codes": cat_doc.get("source_language_codes") or cat_doc.get("language_codes") or [],
+            },
+        )
+        if insert_or_skip(client, doc=scraped, config=config):
             inserted += 1
+            _maybe_enqueue_news_review(
+                client,
+                config,
+                source_id=source_tag,
+                title=cat_doc.get("title", ""),
+                text=text,
+                url=url,
+                extra={
+                    "content_type": cat_doc.get("content_type") or "article",
+                    "writing_category": cat_doc.get("writing_category") or "news",
+                    "source_language_code": cat_doc.get("source_language_code") or cat_doc.get("language_code") or "und",
+                },
+            )
         # Link catalog to document (whether we just inserted or it was a duplicate)
         try:
             doc = client.documents.find_one({"metadata.url": url}, {"_id": 1})
@@ -1806,19 +1889,33 @@ def _run_rss_news(config: dict, client) -> None:
                 continue
             if insert_or_skip(
                 client,
-                source=source_tag,
-                title=entry.get("title", ""),
-                text=text,
-                url=entry.get("url"),
-                metadata={
-                    "source_type": "news",
-                    "category": entry.get("category", "news"),
-                    "published_at": entry.get("published_at"),
-                    "tags": entry.get("tags", []),
-                },
+                doc=ScrapedDocument(
+                    source_family=source_tag,
+                    text=text,
+                    title=entry.get("title", ""),
+                    source_url=entry.get("url"),
+                    source_type="news",
+                    extra={
+                        "category": entry.get("category", "news"),
+                        "published_at": entry.get("published_at"),
+                        "tags": entry.get("tags", []),
+                    },
+                ),
                 config=config,
             ):
                 mongo_inserted += 1
+                _maybe_enqueue_news_review(
+                    client,
+                    config,
+                    source_id=source_tag,
+                    title=entry.get("title", ""),
+                    text=text,
+                    url=entry.get("url", ""),
+                    extra={
+                        "content_type": "article",
+                        "writing_category": entry.get("category", "news"),
+                    },
+                )
 
         total_new += len(new_entries)
         if new_entries:

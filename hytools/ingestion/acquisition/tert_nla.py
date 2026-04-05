@@ -28,6 +28,7 @@ def _pdf_download_path(config: dict | None, filename: str) -> Path:
 def run(config: dict) -> dict:
     """Scrape the Bagin table page and ingest PDFs. Returns stats."""
     from hytools.ingestion._shared.helpers import insert_or_skip, open_mongodb_client
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     # Use pattern-driven harvesting as the primary flow (archive PDFs).
     session = requests.Session()
@@ -119,6 +120,7 @@ def run(config: dict) -> dict:
                 try:
                     from hytools.linguistics.tools.language_tagging import classify_text_to_internal_tags_detailed
                 except Exception:
+                    logger.debug("language_tagging module unavailable for tert_nla", exc_info=True)
                     classify_text_to_internal_tags_detailed = None
 
                 lang_code = None
@@ -136,17 +138,16 @@ def run(config: dict) -> dict:
 
                 ok = insert_or_skip(
                     client,
-                    source="tert_nla",
-                    title=fname,
-                    text=text,
-                    url=pdf_url,
-                    author=None,
-                    metadata={
-                        "file_path": str(local_path),
-                        "source_type": "ocr",
-                        "internal_language_code": lang_code,
-                        "internal_language_branch": lang_branch,
-                    },
+                    doc=ScrapedDocument(
+                        source_family="tert_nla",
+                        text=text,
+                        title=fname,
+                        source_url=pdf_url,
+                        source_type="ocr",
+                        internal_language_code=lang_code,
+                        internal_language_branch=lang_branch,
+                        extra={"file_path": str(local_path)},
+                    ),
                     config=config,
                 )
                 if ok:
@@ -191,7 +192,7 @@ def _generate_predicted_links(config: dict | None, session: requests.Session) ->
                 fh.write(url + "\n")
     except Exception:
         # best-effort only
-        pass
+        logger.debug("Failed to write tert_nla tried URLs list", exc_info=True)
 
     # Filter by HTTP HEAD to keep only existing files (lightweight check)
     found = []
@@ -206,6 +207,7 @@ def _generate_predicted_links(config: dict | None, session: requests.Session) ->
         else:
             status_db = {}
     except Exception:
+        logger.debug("Failed to load tert_nla URL status DB", exc_info=True)
         status_db = {}
 
     import time
@@ -225,10 +227,10 @@ def _generate_predicted_links(config: dict | None, session: requests.Session) ->
                         with head_log_path.open("a", encoding="utf-8") as fh:
                             fh.write(f"{url}\tCACHED\t{entry.get('status')}\n")
                     except Exception:
-                        pass
+                        logger.debug("Failed to write HEAD cache log for %s", url, exc_info=True)
                     continue
             except Exception:
-                pass
+                logger.debug("Failed to parse cached entry for %s", url, exc_info=True)
 
         try:
             h = session.head(url, timeout=15, allow_redirects=True)
@@ -249,13 +251,14 @@ def _generate_predicted_links(config: dict | None, session: requests.Session) ->
                         with head_log_path.open("a", encoding="utf-8") as fh:
                             fh.write(f"{url}\tERROR\t{ge}\n")
                     except Exception:
-                        pass
+                        logger.debug("Failed to write HEAD error log for %s", url, exc_info=True)
 
             # respect Retry-After if present (simple backoff)
             retry_after = None
             try:
                 retry_after = int(h.headers.get("Retry-After")) if h is not None and h.headers.get("Retry-After") else None
             except Exception:
+                logger.debug("Failed to parse Retry-After header for %s", url, exc_info=True)
                 retry_after = None
             if retry_after:
                 time.sleep(min(retry_after, 30))
@@ -265,7 +268,7 @@ def _generate_predicted_links(config: dict | None, session: requests.Session) ->
                 with head_log_path.open("a", encoding="utf-8") as fh:
                     fh.write(f"{url}\t{status}\t{ctype}\n")
             except Exception:
-                pass
+                logger.debug("Failed to write HEAD result log for %s", url, exc_info=True)
 
             status_db[url] = {"status": status, "content_type": ctype, "checked_at": time.time()}
             if status == 200 and "pdf" in (ctype or "pdf"):
@@ -276,7 +279,7 @@ def _generate_predicted_links(config: dict | None, session: requests.Session) ->
                 with head_log_path.open("a", encoding="utf-8") as fh:
                     fh.write(f"{url}\tERROR\t{exc}\n")
             except Exception:
-                pass
+                logger.debug("Failed to write HEAD error log for %s", url, exc_info=True)
             status_db[url] = {"status": "ERROR", "error": str(exc), "checked_at": time.time()}
             # ignore network errors here; the main download loop will surface them
             # small random sleep to reduce chance of throttling
@@ -288,6 +291,6 @@ def _generate_predicted_links(config: dict | None, session: requests.Session) ->
         with status_db_path.open("w", encoding="utf-8") as fh:
             json.dump(status_db, fh, ensure_ascii=False, indent=2)
     except Exception:
-        pass
+        logger.debug("Failed to persist tert_nla URL status DB", exc_info=True)
     return found
     return found

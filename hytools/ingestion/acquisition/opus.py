@@ -246,6 +246,7 @@ def _ingest_corpus(corpus: _OpusCorpus, zip_path: Path, client, config: dict) ->
     Returns stats dict.
     """
     from hytools.ingestion._shared.helpers import insert_or_skip
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     stats = {"lines": 0, "inserted": 0, "skipped": 0, "wa": 0, "ea": 0}
 
@@ -278,26 +279,24 @@ def _ingest_corpus(corpus: _OpusCorpus, zip_path: Path, client, config: dict) ->
         else:
             stats["ea"] += 1
 
-        meta = {
-            "source_type": "dataset",
-            "source_language_code": detected_lc,
-            "source_language_codes": [detected_lc],
-            "wa_score": round(wa_score, 2),
-            "opus_corpus": corpus.name,
-            "opus_lang": corpus.armenian_lang,
-            "content_type": "parallel_corpus",
-            "writing_category": "web",
-        }
-
-        if insert_or_skip(
-            client,
-            source=corpus.source_tag,
-            title=f"{corpus.name} chunk {chunk_index}",
+        scraped = ScrapedDocument(
+            source_family=corpus.source_tag,
             text=text,
-            url=None,
-            metadata=meta,
-            config=config,
-        ):
+            title=f"{corpus.name} chunk {chunk_index}",
+            source_language_code=detected_lc,
+            internal_language_code="hy",
+            internal_language_branch="hye-w" if detected_lc == "hyw" else "hye-e",
+            source_type="dataset",
+            content_type="parallel_corpus",
+            writing_category="web",
+            wa_score=round(wa_score, 2),
+            extra={
+                "source_language_codes": [detected_lc],
+                "opus_corpus": corpus.name,
+                "opus_lang": corpus.armenian_lang,
+            },
+        )
+        if insert_or_skip(client, doc=scraped, config=config):
             stats["inserted"] += 1
 
         chunk_index += 1

@@ -15,9 +15,12 @@ All metrics stored as JSON "metric cards" for comparative analysis.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
 from collections import Counter, defaultdict
+
+logger = logging.getLogger(__name__)
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -194,6 +197,7 @@ class QuantitativeLinguisticsAnalyzer:
                     words = extract_words(text, min_length=2)
                     freqs.update(words)
             except Exception:
+                logger.debug("Failed to read corpus file %s", txt_file, exc_info=True)
                 continue
 
         # Convert to proportion (frequency/total)

@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from hytools.cleaning.armenian_tokenizer import extract_words
 
@@ -151,6 +154,7 @@ def build_feature_matrix_from_mongodb(
             {"_id": 1, "title": 1, "source": 1, "text": 1, "metadata": 1},
         ).limit(max_rows * 2)
     except Exception:
+        logger.debug("MongoDB query failed in build_feature_matrix_from_mongodb", exc_info=True)
         return [], np.zeros((0, 0), dtype=float)
 
     rows: list[FeatureRow] = []
@@ -252,6 +256,7 @@ def save_artifacts_to_mongodb(
     try:
         coll = client.db["dialect_clustering"]
     except Exception:
+        logger.debug("Failed to access dialect_clustering collection", exc_info=True)
         return None
     docs = []
     for i, row in enumerate(rows):
@@ -284,6 +289,7 @@ def save_artifacts_to_mongodb(
             )
         return batch_id
     except Exception:
+        logger.debug("Failed to save clustering artifacts to MongoDB", exc_info=True)
         return None
 
 
