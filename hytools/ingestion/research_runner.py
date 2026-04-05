@@ -14,6 +14,7 @@ import logging
 import time
 from pathlib import Path
 
+from hytools.config.settings import ValidationError as SettingsValidationError, load_config
 from hytools.ingestion.discovery.author_extraction import AuthorExtractor, extract_authors_from_corpus
 from hytools.ingestion.discovery.author_research import AuthorProfileManager
 from hytools.ingestion.discovery.book_inventory import BookInventoryManager
@@ -33,6 +34,119 @@ def setup_logging(debug: bool = False) -> None:
         format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Author research pipeline orchestrator",
+    )
+
+    parser.add_argument(
+        "--corpus-dir",
+        type=Path,
+        default=Path("data"),
+        help="Corpus directory",
+    )
+
+    parser.add_argument(
+        "--inventory-file",
+        type=Path,
+        default=Path("data/book_inventory.jsonl"),
+        help="Book inventory JSONL file",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data"),
+        help="Output directory for reports",
+    )
+
+    parser.add_argument(
+        "--skip-extraction",
+        action="store_true",
+        help="Skip extraction phase (use existing profiles)",
+    )
+
+    parser.add_argument(
+        "--skip-enrichment",
+        action="store_true",
+        help="Skip biography enrichment",
+    )
+
+    parser.add_argument(
+        "--skip-timeline",
+        action="store_true",
+        help="Skip timeline generation",
+    )
+
+    parser.add_argument(
+        "--skip-coverage",
+        action="store_true",
+        help="Skip coverage analysis",
+    )
+
+    parser.add_argument(
+        "--wikipedia-lookups",
+        type=int,
+        default=50,
+        help="Max Wikipedia lookups (rate limiting)",
+    )
+
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to config YAML (default: config/settings.yaml)",
+    )
+    parser.add_argument(
+        "--exclude-dirs",
+        nargs="+",
+        default=None,
+        help="Override research.exclude_dirs for extraction scope",
+    )
+    parser.add_argument(
+        "--exclude-sources",
+        nargs="+",
+        default=None,
+        help="Override research.exclude_sources for MongoDB-backed research scope",
+    )
+    parser.add_argument(
+        "--metadata-patterns",
+        nargs="+",
+        default=None,
+        help="Override research.metadata_patterns for extraction sidecar discovery",
+    )
+    parser.add_argument(
+        "--error-threshold-pct",
+        type=float,
+        default=None,
+        help="Override research.error_threshold_pct",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+    return parser
+
+
+def _apply_cli_research_overrides(cfg: dict, args: argparse.Namespace) -> dict:
+    updated = dict(cfg or {})
+    research_cfg = dict(updated.get("research") or {})
+
+    if args.exclude_dirs is not None:
+        research_cfg["exclude_dirs"] = list(args.exclude_dirs)
+    if args.exclude_sources is not None:
+        research_cfg["exclude_sources"] = list(args.exclude_sources)
+    if args.metadata_patterns is not None:
+        research_cfg["metadata_patterns"] = list(args.metadata_patterns)
+    if args.error_threshold_pct is not None:
+        research_cfg["error_threshold_pct"] = float(args.error_threshold_pct)
+
+    if research_cfg:
+        updated["research"] = research_cfg
+    return updated
 
 
 def run_extraction_phase(
@@ -93,6 +207,7 @@ def run_extraction_phase(
         profiles_file=str(output_dir / "author_profiles.jsonl"),
         config=config or {},
     )
+    manager.profiles.clear()
     for profile in profiles:
         manager.add_profile(profile)
     saved = manager.save_profiles()
@@ -250,74 +365,7 @@ def run_coverage_phase(
 
 def main():
     """Main orchestration function."""
-    parser = argparse.ArgumentParser(
-        description="Author research pipeline orchestrator",
-    )
-    
-    parser.add_argument(
-        "--corpus-dir",
-        type=Path,
-        default=Path("data"),
-        help="Corpus directory",
-    )
-    
-    parser.add_argument(
-        "--inventory-file",
-        type=Path,
-        default=Path("data/book_inventory.jsonl"),
-        help="Book inventory JSONL file",
-    )
-    
-    parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("data"),
-        help="Output directory for reports",
-    )
-    
-    parser.add_argument(
-        "--skip-extraction",
-        action="store_true",
-        help="Skip extraction phase (use existing profiles)",
-    )
-    
-    parser.add_argument(
-        "--skip-enrichment",
-        action="store_true",
-        help="Skip biography enrichment",
-    )
-    
-    parser.add_argument(
-        "--skip-timeline",
-        action="store_true",
-        help="Skip timeline generation",
-    )
-    
-    parser.add_argument(
-        "--skip-coverage",
-        action="store_true",
-        help="Skip coverage analysis",
-    )
-    
-    parser.add_argument(
-        "--wikipedia-lookups",
-        type=int,
-        default=50,
-        help="Max Wikipedia lookups (rate limiting)",
-    )
-    
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=None,
-        help="Path to config YAML (default: config/settings.yaml)",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Enable debug logging",
-    )
-    
+    parser = _build_parser()
     args = parser.parse_args()
 
     setup_logging(debug=args.debug)
@@ -328,14 +376,24 @@ def main():
     config_path = args.config or Path("config/settings.yaml")
     if config_path.exists():
         try:
-            import yaml
-            with open(config_path, encoding="utf-8") as f:
-                cfg = yaml.safe_load(f) or {}
+            cfg = load_config(str(config_path))
             logger.info("Loaded config from %s", config_path)
+        except SettingsValidationError as e:
+            raise RuntimeError(f"Invalid config {config_path}: {e}") from e
         except Exception as e:
             logger.warning("Could not load config %s: %s; using defaults", config_path, e)
     else:
         logger.info("No config file at %s; using defaults", config_path)
+
+    cfg = _apply_cli_research_overrides(cfg, args)
+    research_cfg = get_research_config(cfg)
+    logger.info(
+        "Research config: exclude_dirs=%s, exclude_sources=%s, metadata_patterns=%s, error_threshold_pct=%s",
+        research_cfg["exclude_dirs"],
+        research_cfg["exclude_sources"],
+        research_cfg["metadata_patterns"],
+        research_cfg["error_threshold_pct"],
+    )
 
     use_mongodb = bool(cfg.get("database", {}).get("mongodb_uri") or cfg.get("database", {}).get("use_mongodb"))
     if use_mongodb:
@@ -356,13 +414,13 @@ def main():
         manager = run_extraction_phase(
             corpus_dir=args.corpus_dir,
             inventory_file=args.inventory_file,
-            output_dir=args.output_dir,
+            output_dir=output_dir,
             config=cfg,
         )
     else:
         logger.info("Skipping extraction; loading existing author profiles...")
         manager = AuthorProfileManager(
-            profiles_file=str(args.output_dir / "author_profiles.jsonl"),
+            profiles_file=str(output_dir / "author_profiles.jsonl"),
             config=cfg,
         )
         logger.info("Loaded %d existing profiles", len(manager.profiles))

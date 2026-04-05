@@ -34,6 +34,8 @@ from hytools.ingestion._shared.helpers import (
     save_catalog_to_mongodb,
     try_wa_filter,
 )
+from hytools.ingestion._shared.review_queue import get_review_collection, maybe_enqueue_language_review
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
 logger = logging.getLogger(__name__)
 _STAGE = "hathitrust"
@@ -120,14 +122,15 @@ _KNOWN_ARMENIAN_HTIDS: list[str] = [
 def search_items(
     queries: list[str],
     max_per_query: int = 200,
+     include_seed_list: bool = True,
 ) -> dict[str, dict]:
     """Search HathiTrust catalog for Armenian texts.
 
     Uses a two-pronged approach:
     1. Scrapes the HathiTrust catalog search HTML for each query to discover
        volume HTIDs from search result links.
-    2. Falls back to a curated seed list of known Armenian holdings so the
-       scraper always has something to work with.
+     2. Optionally falls back to a curated seed list of known Armenian holdings
+         so the scraper always has something to work with.
 
     For each discovered HTID, fetches metadata from the Bibliographic API.
     """
@@ -137,10 +140,12 @@ def search_items(
         from bs4 import BeautifulSoup
         _bs4_available = True
     except ImportError:
+        BeautifulSoup = None
         _bs4_available = False
         logger.warning("beautifulsoup4 not installed — using seed catalog only")
 
     if _bs4_available:
+        assert BeautifulSoup is not None
         session = requests.Session()
         session.headers.update(_SEARCH_HEADERS)
 
@@ -165,7 +170,7 @@ def search_items(
 
                     htids_on_page: list[tuple[str, Any]] = []
                     for link in links:
-                        href = link.get("href", "")
+                        href = str(link.get("href") or "")
                         if "id=" in href:
                             htid = href.split("id=")[-1].split("&")[0].split(";")[0]
                             if htid and htid not in catalog:
@@ -202,23 +207,24 @@ def search_items(
             logger.info("  Found %d items for query: %s", found_this_query, query)
             time.sleep(_REQUEST_DELAY)
 
-    for htid in _KNOWN_ARMENIAN_HTIDS:
-        if htid in catalog:
-            continue
-        meta = get_volume_metadata(htid)
-        title = htid
-        if meta:
-            records = meta.get("records", {})
-            for rec in records.values():
-                title = rec.get("titles", [htid])[0] if rec.get("titles") else htid
-                break
-        catalog[htid] = {
-            "title": title,
-            "query": "seed_list",
-            "downloaded": False,
-            "pages_downloaded": 0,
-        }
-        time.sleep(0.5)
+    if include_seed_list:
+        for htid in _KNOWN_ARMENIAN_HTIDS:
+            if htid in catalog:
+                continue
+            meta = get_volume_metadata(htid)
+            title = htid
+            if meta:
+                records = meta.get("records", {})
+                for rec in records.values():
+                    title = rec.get("titles", [htid])[0] if rec.get("titles") else htid
+                    break
+            catalog[htid] = {
+                "title": title,
+                "query": "seed_list",
+                "downloaded": False,
+                "pages_downloaded": 0,
+            }
+            time.sleep(0.5)
 
     logger.info("HathiTrust catalog: %d items total", len(catalog))
     return catalog
@@ -405,6 +411,7 @@ def _download_and_ingest(client, catalog: dict[str, dict], apply_wa_filter: bool
     """
     stats = {"inserted": 0, "duplicates": 0, "skipped_wa": 0, "skipped_short": 0, "metadata_only": 0, "ocr_inserted": 0}
     ocr_fallback = (config or {}).get("scraping", {}).get("hathitrust", {}).get("ocr_fallback", False)
+    review_coll = get_review_collection(client)
 
     for i, (htid, item) in enumerate(catalog.items(), 1):
         if item.get("downloaded") and item.get("ingested") is not None:
@@ -440,7 +447,19 @@ def _download_and_ingest(client, catalog: dict[str, dict], apply_wa_filter: bool
                 log_item(logger, "debug", _STAGE, htid, "biblio_fallback", status="metadata_stored")
             continue
 
-        if apply_wa_filter and try_wa_filter(text[:5000]) is False:
+        wa_filter_result = try_wa_filter(text[:5000]) if apply_wa_filter else None
+        maybe_enqueue_language_review(
+            review_coll,
+            stage=_STAGE,
+            item_id=htid,
+            text=text[:5000],
+            title=item.get("title", htid),
+            source_url=f"https://babel.hathitrust.org/cgi/pt?id={htid}",
+            queue_source="hathitrust",
+            rejected=wa_filter_result is False,
+            extra={"catalog_source": "hathitrust"},
+        )
+        if apply_wa_filter and wa_filter_result is False:
             item["ingested"] = False
             stats["skipped_wa"] += 1
             log_item(logger, "debug", _STAGE, htid, "ingest", status="skipped_wa")
@@ -448,11 +467,15 @@ def _download_and_ingest(client, catalog: dict[str, dict], apply_wa_filter: bool
 
         ok = insert_or_skip(
             client,
-            source="hathitrust",
-            title=item.get("title", htid),
-            text=text,
-            url=f"https://babel.hathitrust.org/cgi/pt?id={htid}",
-            metadata={"source_type": "book", "htid": htid},
+            doc=ScrapedDocument(
+                source_family="hathitrust",
+                text=text,
+                title=item.get("title", htid),
+                source_url=f"https://babel.hathitrust.org/cgi/pt?id={htid}",
+                source_type="book",
+                catalog_id=htid,
+                extra={"htid": htid},
+            ),
             config=config,
         )
         item["ingested"] = ok
