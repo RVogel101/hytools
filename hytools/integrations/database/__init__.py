@@ -11,23 +11,29 @@ Modules:
 - mongodb_client: MongoDBCorpusClient (requires pymongo)
 """
 
-from .adapters import (
-    NewspaperDatabaseAdapter,
-    NayiriDatabaseAdapter,
-    ArchiveOrgDatabaseAdapter,
-    GenericDatabaseAdapter,
-)
-from .telemetry import ProcessTelemetry
-from .migrator import DataMigrator
-from .mongodb_client import MongoDBCorpusClient
+import importlib as _importlib
 
-__all__ = [
-    "NewspaperDatabaseAdapter",
-    "NayiriDatabaseAdapter",
-    "ArchiveOrgDatabaseAdapter",
-    "GenericDatabaseAdapter",
-    "ProcessTelemetry",
-    "DataMigrator",
-    "MongoDBCorpusClient",
-]
+_LAZY_IMPORTS: dict[str, tuple[str, str]] = {
+    "NewspaperDatabaseAdapter": ("adapters", "NewspaperDatabaseAdapter"),
+    "NayiriDatabaseAdapter": ("adapters", "NayiriDatabaseAdapter"),
+    "ArchiveOrgDatabaseAdapter": ("adapters", "ArchiveOrgDatabaseAdapter"),
+    "GenericDatabaseAdapter": ("adapters", "GenericDatabaseAdapter"),
+    "ProcessTelemetry": ("telemetry", "ProcessTelemetry"),
+    "DataMigrator": ("migrator", "DataMigrator"),
+    "MongoDBCorpusClient": ("mongodb_client", "MongoDBCorpusClient"),
+}
+
+__all__ = list(_LAZY_IMPORTS.keys())
+
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        module_name, attr_name = _LAZY_IMPORTS[name]
+        mod = _importlib.import_module(f".{module_name}", __name__)
+        return getattr(mod, attr_name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return __all__
 
