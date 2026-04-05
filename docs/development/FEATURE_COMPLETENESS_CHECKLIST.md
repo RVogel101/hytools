@@ -80,6 +80,8 @@ Last updated: April 2026
 - [x] A dedup check compares `content_hash` of new acquisitions against existing corpus documents before insert.
 - [x] Coverage dashboard shows % of inventory items present in corpus.
 - [x] Coverage/acquisition rows carry source-target hints so the dashboard can drive the next catalog backfill cycle.
+- [x] A targeted catalog backfill CLI can consume acquisition-priority rows, query LOC / Archive.org / Hathi / Nayiri, and persist catalog hits without polluting targeted Hathi runs with the global seed list (`python -m hytools.ingestion.discovery.catalog_backfill`).
+- [x] Work coverage analysis filters implausible mixed-script titles before acquisition rows are generated, and the refreshed live queue excludes the known OCR-noise example.
 
 **Exit criterion:** At least one catalog-driven acquisition cycle completed; dedup prevented at least one duplicate.
 

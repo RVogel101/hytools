@@ -155,6 +155,7 @@ def _page_image_dominant(page: Any) -> bool:
         page_area = max(r.width * r.height, 1.0)
         return (img_area / page_area) > 0.55 and (text_area / page_area) < 0.03
     except Exception:
+        logger.debug("Image-dominant probe failed for page", exc_info=True)
         return False
 
 

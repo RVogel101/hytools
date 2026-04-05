@@ -148,14 +148,101 @@ def deskew(binary: np.ndarray) -> np.ndarray:
     return rotated
 
 
+# ── Stroke thickening (morphological dilation for degraded type) ─────────
+
+
+def estimate_stroke_width(binary: np.ndarray) -> float:
+    """Estimate median stroke width from a binary image using distance transform.
+
+    Parameters
+    ----------
+    binary : np.ndarray
+        Binary image (0/255 uint8) — dark foreground on white background.
+
+    Returns
+    -------
+    float
+        Estimated median stroke width in pixels (0 if no foreground).
+    """
+    # Invert so foreground (ink) = 255
+    fg = cv2.bitwise_not(binary)
+    dt = cv2.distanceTransform(fg, cv2.DIST_L2, 3)
+    # Skeleton pixels are local maxima of the distance transform;
+    # approximate by thresholding at > 0 and sampling those distances.
+    values = dt[dt > 0]
+    if len(values) == 0:
+        return 0.0
+    return float(np.median(values)) * 2  # diameter ≈ 2 × radius
+
+
+def detect_stroke_thinning(binary: np.ndarray, thin_threshold: float = 2.5) -> bool:
+    """Return True when strokes appear degraded / too thin for reliable OCR.
+
+    Parameters
+    ----------
+    binary : np.ndarray
+        Binary image (0/255 uint8).
+    thin_threshold : float
+        Stroke width (px) below which the page is considered "thin".
+
+    Returns
+    -------
+    bool
+    """
+    w = estimate_stroke_width(binary)
+    is_thin = 0 < w < thin_threshold
+    if is_thin:
+        logger.debug("Thin strokes detected (width=%.1f px, threshold=%.1f)", w, thin_threshold)
+    return is_thin
+
+
+def thicken_strokes(
+    binary: np.ndarray,
+    iterations: int = 1,
+    kernel_size: int = 2,
+) -> np.ndarray:
+    """Morphological dilation to thicken strokes in a binary image.
+
+    Uses a small square structuring element to uniformly expand ink
+    regions.  Because the input is white-background / dark-foreground,
+    we **erode** the white areas (which dilates the dark ink).
+
+    Parameters
+    ----------
+    binary : np.ndarray
+        Binary image (0/255 uint8), dark text on white.
+    iterations : int
+        Number of dilation passes (1 is usually sufficient).
+    kernel_size : int
+        Side length of the square structuring element in pixels.
+
+    Returns
+    -------
+    np.ndarray
+        Binary image with thicker strokes.
+    """
+    kernel = np.ones((kernel_size, kernel_size), np.uint8)
+    # Erode the white background → dilates the dark foreground text.
+    result = cv2.erode(binary, kernel, iterations=iterations)
+    logger.debug(
+        "Stroke thickening applied (kernel=%d, iterations=%d)",
+        kernel_size, iterations,
+    )
+    return result
+
+
 def preprocess(
     image: Image.Image,
     method: BinarizationMethod = BinarizationMethod.SAUVOLA,
     cursive_mode: bool = False,
     detect_cursive: bool = False,
     cursive_threshold: float = 0.5,
+    stroke_thicken: bool | str = False,
+    stroke_thin_threshold: float = 2.5,
+    stroke_thicken_iterations: int = 1,
+    stroke_thicken_kernel: int = 2,
 ) -> Image.Image:
-    """Full preprocessing pipeline: grayscale → binarize → deskew.
+    """Full preprocessing pipeline: grayscale → binarize → deskew → (thicken).
 
     When detect_cursive=True, estimates cursive likelihood from an initial
     binarization. If score >= cursive_threshold, re-runs with cursive_mode.
@@ -172,6 +259,17 @@ def preprocess(
         Auto-detect cursive and apply cursive_mode when score >= threshold.
     cursive_threshold:
         Score above which to treat as cursive (default 0.5).
+    stroke_thicken:
+        ``True`` = always apply morphological dilation to thicken strokes,
+        ``"auto"`` = detect thin strokes and thicken only when needed,
+        ``False`` = disabled (default).
+    stroke_thin_threshold:
+        Median stroke width (px) below which auto-detection triggers
+        thickening (default 2.5).
+    stroke_thicken_iterations:
+        Number of dilation passes (default 1).
+    stroke_thicken_kernel:
+        Side length of the square structuring element (default 2).
 
     Returns
     -------
@@ -190,4 +288,20 @@ def preprocess(
             binary = binarize(gray, method=method, cursive_mode=True)
 
     deskewed = deskew(binary)
+
+    # Stroke thickening for degraded / thin type
+    if stroke_thicken is True:
+        deskewed = thicken_strokes(
+            deskewed,
+            iterations=stroke_thicken_iterations,
+            kernel_size=stroke_thicken_kernel,
+        )
+    elif stroke_thicken == "auto":
+        if detect_stroke_thinning(deskewed, thin_threshold=stroke_thin_threshold):
+            deskewed = thicken_strokes(
+                deskewed,
+                iterations=stroke_thicken_iterations,
+                kernel_size=stroke_thicken_kernel,
+            )
+
     return Image.fromarray(deskewed)

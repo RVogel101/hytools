@@ -26,14 +26,15 @@ This is the canonical short-form backlog for hytools.
 
 4. Stabilize the research pipeline and make its outputs actionable.
 	- Shift the next semantic-cleanup pass from author names to noisy inventory/title rows now that live author extraction is no longer persisting mixed-script OCR junk names.
-	- Use the dashboard acquisition detail view to identify and tighten title / work plausibility filters for backfill targets.
+	- Keep tightening title / work plausibility filters now that the live acquisition queue and dashboard detail view no longer emit known mixed-script OCR-noise titles.
 	- Add any missing CLI/config overrides needed for `research_runner`, and keep the live research pipeline verified before expanding it further.
 	- Add canonical author-name alias normalization so spelling, initial-only, transliterated, and OCR-variant forms resolve to the same author profile before enrichment and coverage analysis.
 
 ### Next wave
 
 5. Connect catalog intelligence to acquisition and dedup.
-	- Use the dashboard acquisition detail view and source-target hints to drive targeted LOC / Archive.org / Hathi / Nayiri backfill cycles.
+	- Keep using the dashboard acquisition detail view and source-target hints to drive targeted LOC / Archive.org / Hathi / Nayiri backfill cycles.
+	- Improve hit quality for LOC / Archive.org cycles and treat HathiTrust public search as 403-prone unless Hathifiles / HTRC bulk access is available.
 	- Prioritize scarce or high-value WA works and reduce duplicate ingestion.
 
 6. Expand sources in operational order, not speculative order.
@@ -78,3 +79,5 @@ This is the canonical short-form backlog for hytools.
 - Research dashboard now links to an itemized detail page with acquisition backfill queries, source targets, and review rows
 - Live author extraction now refreshes `author_profiles` from current extraction output instead of preserving stale OCR-noise profiles
 - Mixed-script author-name corruption is now rejected during extraction, and the latest live validation run persisted a clean refreshed author profile set to MongoDB
+- Mixed-script OCR-noise work titles are now filtered out of acquisition priorities, and the refreshed live queue no longer emits the known `massage`-style corruption case
+- First targeted catalog backfill cycle now runs via `python -m hytools.ingestion.discovery.catalog_backfill`; the validated live pass produced Nayiri matches, kept LOC / Archive.org query-scoped, and disables HathiTrust seed-list fallback for targeted searches

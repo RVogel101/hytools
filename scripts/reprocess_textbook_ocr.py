@@ -282,6 +282,41 @@ def reprocess_low_pages(
     binars = ["sauvola", "otsu"]
     rotations = [0, -2, -1, 1, 2, 90, 270]
 
+    # Build a flat grid and sample diverse combinations so that every DPI and
+    # every language is represented within the first ``max_attempts`` tries.
+    import itertools
+
+    full_grid = list(itertools.product(dpis, langs, psms, binars, rotations))
+
+    def _select_diverse(grid, n):
+        """Pick *n* combos ensuring each DPI and each lang appears at least once."""
+        selected: list[tuple] = []
+        seen_dpi: set = set()
+        seen_lang: set = set()
+
+        # Phase 1 – guarantee DPI and lang diversity
+        for combo in grid:
+            dpi, lang, *_ = combo
+            if dpi not in seen_dpi or lang not in seen_lang:
+                selected.append(combo)
+                seen_dpi.add(dpi)
+                seen_lang.add(lang)
+            if len(selected) >= n:
+                return selected
+
+        # Phase 2 – fill remaining slots with unseen combos
+        remaining = [c for c in grid if c not in selected]
+        # Prefer varying rotation to catch deskew issues
+        remaining.sort(key=lambda c: (c[0], c[1], c[4]))
+        for combo in remaining:
+            if len(selected) >= n:
+                break
+            selected.append(combo)
+
+        return selected
+
+    sampled_grid = _select_diverse(full_grid, max_attempts)
+
     summary: dict[int, dict] = {}
 
     # lazy trocr loader
@@ -312,33 +347,20 @@ def reprocess_low_pages(
             best_text = (pages_dir / f"page_{page_num:04d}.txt").read_text(encoding="utf-8", errors="replace") if (pages_dir / f"page_{page_num:04d}.txt").exists() else ""
             attempt = 0
 
-            for dpi in dpis:
-                for lang in langs:
-                    if per_page_lang in ("hye", "hye+eng", "eng"):
-                        # allow overriding per_page_lang preference
-                        lang = per_page_lang if per_page_lang != "auto" else lang
-                    for psm in psms:
-                        for binar in binars:
-                            for rotation in rotations:
-                                if attempt >= max_attempts:
-                                    break
-                                attempt += 1
-                                chars, text = _try_ocr_page(pdf_path, page_num, dpi, psm, binar, lang, rotation=rotation)
-                                if save_variants:
-                                    var_file = pages_dir / f"page_{page_num:04d}_try{attempt}.txt"
-                                    var_file.write_text(text or "", encoding="utf-8")
-                                if chars > best_chars:
-                                    best_chars = chars
-                                    best_text = text
-                                if best_chars >= threshold:
-                                    break
-                            if best_chars >= threshold or attempt >= max_attempts:
-                                break
-                        if best_chars >= threshold or attempt >= max_attempts:
-                            break
-                    if best_chars >= threshold or attempt >= max_attempts:
-                        break
-                if best_chars >= threshold or attempt >= max_attempts:
+            for dpi, lang, psm, binar, rotation in sampled_grid:
+                if per_page_lang in ("hye", "hye+eng", "eng"):
+                    lang = per_page_lang if per_page_lang != "auto" else lang
+                if attempt >= max_attempts:
+                    break
+                attempt += 1
+                chars, text = _try_ocr_page(pdf_path, page_num, dpi, psm, binar, lang, rotation=rotation)
+                if save_variants:
+                    var_file = pages_dir / f"page_{page_num:04d}_try{attempt}.txt"
+                    var_file.write_text(text or "", encoding="utf-8")
+                if chars > best_chars:
+                    best_chars = chars
+                    best_text = text
+                if best_chars >= threshold:
                     break
 
             # Trocr fallback attempt if enabled and still below threshold
