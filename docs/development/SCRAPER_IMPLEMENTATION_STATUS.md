@@ -307,19 +307,19 @@
 
 ## 9. Recommendations
 
-### High priority
+### Immediate
 
 1. **Fix test imports**: Update `test_eastern_armenian_news` and `test_metadata_tagging` to use `scraping.ea_news` and `scraping.metadata_tagger` (and correct `metadata` path).
 2. **MongoDB-only for remaining scrapers**: Refactor ea_news, newspaper, rss_news, english_sources, nayiri, culturax, mss_nkr to stream to MongoDB without writing JSON/txt.
 3. **mss_nkr**: Migrate catalog to MongoDB; fix `main()` module path.
 
-### Medium priority
+### Next wave
 
 4. **Add tests**: Unit tests for loc, archive_org, gallica, hathitrust, gomidas (with mocks for HTTP).
 5. **worldcat_searcher**: Clarify role (catalog vs ingestion); add MongoDB write if desired; fix runner integration.
 6. **ocr_ingest**: Add `scraping.ocr_ingest.path` config support in runner.
 
-### Low priority
+### Later
 
 7. **Wikipedia dumps**: Keep bz2 for resume; consider streaming-only if disk is a concern.
 8. **Documentation**: Per-module docstrings with usage, config keys, and MongoDB schema.

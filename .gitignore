@@ -148,3 +148,6 @@ data/raw/wikipedia_ea/
 .cursor/
 *.png
 *.csv
+
+# Secret/local config — keep settings.example.yaml tracked
+config/settings.yaml

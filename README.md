@@ -60,35 +60,60 @@ All stages read from and write to MongoDB — no intermediate CSV, JSONL, or fil
 
 ## Full Pipeline Execution
 
-### Local (Orchestrated)
+Primary quick start: `docs/QUICK_START_PHASE1.md`
+
+Canonical workflow and command reference: `docs/development/DEVELOPMENT.md`
+
+Current active backlog: `docs/development/CURRENT_BACKLOG.md`
+
+### Local (Canonical Runner)
 
 ```bash
 # Run the full pipeline (scraping + extraction + post-processing)
-python -m scraping.runner run
+python -m hytools.ingestion.runner run --config config/settings.yaml
 
 # Run only scraping stages
-python -m scraping.runner run --group scraping
+python -m hytools.ingestion.runner run --config config/settings.yaml --group scraping
 
 # Run only extraction stages
-python -m scraping.runner run --group extraction
+python -m hytools.ingestion.runner run --config config/settings.yaml --group extraction
+
+# Run only post-processing stages
+python -m hytools.ingestion.runner run --config config/settings.yaml --group postprocessing
 
 # Skip specific stages
-python -m scraping.runner run --skip validate_contract_alignment
+python -m hytools.ingestion.runner run --config config/settings.yaml --skip validate_contract_alignment
+
+# Run one specific stage
+python -m hytools.ingestion.runner run --config config/settings.yaml --only news
 
 # List all registered stages
-python -m scraping.runner list
+python -m hytools.ingestion.runner list --config config/settings.yaml
+
+# Preflight the configured run without executing stages
+python -m hytools.ingestion.runner run --config config/settings.yaml --dry-run
 
 # Run in background
-python -m scraping.runner run --background
+python -m hytools.ingestion.runner run --config config/settings.yaml --background
+
+# Build the dashboard
+python -m hytools.ingestion.runner dashboard --config config/settings.yaml --output data/logs/scraper_dashboard.html
+```
+
+### Wrapper Script
+
+```bash
+# Run scrape + OCR + clean + ingest through the repo-level wrapper
+python scripts/run_pipeline.py --stage all --config config/settings.yaml
 ```
 
 ### CI/CD (GitHub Actions)
 
 Recommended automation setup:
 
-- Run `python -m scraping.runner run` from the repo root.
-- Use `--group extraction` to run only extraction stages in CI.
-- Persist `pipeline_execution_report.json` as a build artifact.
+- Run `python -m hytools.ingestion.runner run --config config/settings.yaml --group scraping` from CI scraping workflows.
+- Use `--group extraction` to run only extraction stages in CI extraction jobs.
+- Persist `data/logs/pipeline_summary.json` as the pipeline summary artifact.
 - Add schedule/dispatch triggers for automated scraping runs.
 
 ---
@@ -211,15 +236,12 @@ mypy armenian_corpus_core/
 
 ### Phase 2: Enhancement (active)
 
-- [ ] Implement `hybrid` profile for statistical conflict resolution
-- [ ] Add incremental merge (only re-process changed records)
-- [ ] Create format exporters (parquet, HuggingFace datasets)
-- [ ] Add comprehensive test suite
-
-- Implement `hybrid` profile for statistical conflict resolution
-- Add incremental merge (only re-process changed records)
-- Create format exporters (parquet, HuggingFace datasets)
-- Add comprehensive test suite
+- ✅ Implement `hybrid` profile for statistical conflict resolution
+- ✅ Add incremental merge (only re-process changed records)
+- ✅ Create format exporters (parquet, HuggingFace datasets)
+- ✅ Add comprehensive test suite + CI workflow
+- [ ] Integration-test proof (delta idempotency, deterministic export)
+- [x] Unified review & audit layer operational baseline (shared queue, linguistics-owned heuristics, review CLI)
 
 ### Phase 3: Distribution
 

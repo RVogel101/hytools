@@ -1,6 +1,6 @@
 # Implementation History (armenian-corpus-core)
 
-Record of features that have been implemented. For current backlog and ideas, see [FUTURE_IMPROVEMENTS.md](FUTURE_IMPROVEMENTS.md).
+Record of features that have been implemented. For active priorities, see [CURRENT_BACKLOG.md](CURRENT_BACKLOG.md). For the broader roadmap and later ideas, see [FUTURE_IMPROVEMENTS.md](FUTURE_IMPROVEMENTS.md).
 
 ---
 
@@ -37,6 +37,8 @@ Record of features that have been implemented. For current backlog and ideas, se
 | Feature | Notes |
 |--------|-------|
 | **Research pipeline** | Centralized `ingestion._shared.research_config` (config key `research.*`); exclude_dirs/sources, error_threshold_pct; `extract_authors_from_corpus(..., return_stats=True)`; pipeline fails if error rate > threshold. |
+| **Author extraction hardening** | `ingestion/discovery/author_extraction.py` now tolerates malformed JSONL lines, variant metadata shapes, and regex-group failures without aborting the pipeline. |
+| **Author extraction quality guardrails** | Text-pattern extraction now requires explicit author cues, rejects common OCR/function-word false positives, and treats the default `data/book_inventory.jsonl` path as a valid Mongo-backed inventory source even when no JSONL file exists locally. Fresh extraction runs now replace stale `author_profiles` instead of appending old OCR-noise rows. |
 
 ---
 
@@ -48,6 +50,29 @@ Record of features that have been implemented. For current backlog and ideas, se
 | **Gallica, DPLA, Gomidas** | Implemented. See `docs/DATA_SOURCES_API_REFERENCE.md`. |
 | **Unified scraper CLI** | `python -m scraping.runner` with `run`, `status`, `list`, `dashboard`. |
 | **Dashboard** | `python -m scraping.runner dashboard [--output data/logs/scraper_dashboard.html]` generates HTML with document counts per source. |
+| **Canonical runner dry-run** | `python -m hytools.ingestion.runner run --config config/settings.yaml --dry-run` resolves the active stage plan without executing stages and writes the usual summary artifact. |
+| **Config-aware stage listing** | `python -m hytools.ingestion.runner list --config config/settings.yaml` shows enabled/disabled state from the active config rather than only the static registry. |
+
+---
+
+## Review and audit operations
+
+| Feature | Notes |
+|--------|-------|
+| **Centralized review heuristics** | Dialect review thresholds and priorities now live in `hytools/linguistics/dialect/review_audit.py` and `review_heuristics.yaml`. |
+| **Unified review CLI** | `python -m hytools.ingestion.review list` and `mark-reviewed` provide operator access to the shared OCR + ingestion review queue. |
+| **News review routing** | `ingestion/acquisition/news.py` now routes low-confidence items through the same shared review queue used by metadata tagging and the crawler. |
+| **Dashboard review surfacing** | `python -m hytools.ingestion.runner dashboard` now exposes review summary rows in the operator dashboard and links to an itemized detail view. |
+
+---
+
+## Coverage and drift operations
+
+| Feature | Notes |
+|--------|-------|
+| **Coverage summary payloads** | `coverage_analysis.py` now persists `inventory_coverage` summaries plus acquisition query strings alongside coverage gaps and priority rows. |
+| **Acquisition backfill detail view** | Acquisition priority rows now persist source-target hints, and `data/logs/scraper_dashboard_details.html` renders itemized acquisition / coverage / review tables with direct source search links for backfill work. |
+| **Drift alert persistence** | `ingestion/aggregation/drift_detection.py` now writes drift alert records to MongoDB with baseline metadata and top drifted words, in addition to the stage summary metadata. |
 
 ---
 

@@ -730,7 +730,7 @@ Several digitized archives exist:
 - **National Library of Armenia (NLA)**: https://nla.am/en_US  
   - **Holdings**: 6M+ digitized pages (books and periodicals); 93,691+ PDFs with OCR (as of 2023). Union Catalog: https://armunicat.nla.am ; DSpace repository: dspace.nla.am.  
   - **Terms**: Copying/scanning for personal, educational, or research use permitted under RA copyright law (limits e.g. one article per issue, one chapter or ≤10% of a book).  
-  - **Scraping / API**: No documented public API for programmatic access. Do **not** scrape without permission. Contact NLA for terms and possible research or bulk access (+37460 623513).
+  - **Scraping / API**: Verified public DSpace 7.3 backend at `https://api.nla.am/server` with public `discover`, `communities`, `collections`, and OpenSearch surfaces; public item pages expose direct file links. OAI-PMH is exposed but did not return records during this research pass, so do not rely on it until NLA confirms it. The Koha properties (`armunicat`, `haygirk`, `tert`) are separate systems and should not be bulk-harvested by default. Contact NLA for terms, rate limits, and bulk/research access before any full-dataset pull (+37460 623513). See `docs/development/NATIONAL_LIBRARY_OF_ARMENIA_IMPLEMENTATION_PLAN.md`.
 - **Other official/library sources**: Any government or national library site should be contacted for terms before scraping; many collections are Eastern Armenian–heavy and may need dialect filtering.
 
 #### Other Libraries and Archives with Armenian Text Data

@@ -4,6 +4,8 @@ In-depth audit of `linguistics/`: organization, redundancies, modularity, and na
 
 **Status: Option B implemented.** Layout is now: `phonology/`, `lexicon/`, `dialect/`, `metrics/` (slimmed), `morphology/` (with difficulty exported, grammar_rules in archive), `tools/` (phonetics_audit, import_etymology_from_wiktextract). Backward-compat: `linguistics.phonetics`, `linguistics.dialect_classifier`, `linguistics.loanword_tracker`, `linguistics.etymology_db` are aliased so existing imports still work.
 
+Dialect review/audit thresholds are now also centralized under `linguistics/dialect/` via `review_audit.py` and `review_heuristics.yaml`, so ingestion-stage review routing pulls its defaults from the linguistics package instead of scattering them across acquisition and enrichment modules.
+
 ---
 
 ## 1. Current layout

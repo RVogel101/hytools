@@ -150,7 +150,7 @@ scraping:
     enabled: true
   dpla:
     enabled: false
-    api_key: ""  # enable only after supplying a real DPLA API key
+    api_key: ""   # enable only after supplying a real DPLA API key
   newspapers:
     enabled: true
     # Historical crawler (diaspora newspapers: Aztag, Horizon, Asbarez, Hairenik, Armenian Weekly, Keghart, Nor Or, Marmara, Jamanag, Massis Post, Mirror-Spectator).
@@ -251,7 +251,6 @@ ingestion:
   corpus_export:
     enabled: false
   frequency_aggregator:
-    enabled: true
     internal_language_branch: hye-w
     hybrid_profile: true
     wa_score_weight: 0.5

@@ -37,4 +37,4 @@ jobs:
       - name: Install dependencies
         run: pip install -e .
       - name: Run extraction pipeline
-        run: python -m scraping.runner run --group extraction
+        run: python -m hytools.ingestion.runner run --group extraction

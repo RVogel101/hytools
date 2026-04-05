@@ -2,69 +2,37 @@
 
 Items tracked for data collection, scraping, corpus research, and related pipelines. Implemented features are documented in [IMPLEMENTATION_HISTORY.md](IMPLEMENTATION_HISTORY.md).
 
+Active priorities now live in `docs/development/CURRENT_BACKLOG.md`. This file remains the broader roadmap and long-tail ideas list.
+
 ---
 
 ## Summary table (high-level status)
 
 | Area / Project                                  | Status            | Priority      | Next steps                                                                                     |
 |-------------------------------------------------|-------------------|---------------|------------------------------------------------------------------------------------------------|
-| Phase 2 enhancement pipeline                    | In progress       | High          | Hybrid profile, incremental merge, exporters, robust tests (see docs/development/PHASE2_CHECKLIST.md) |
-| Western Armenian audio for voice-generation     | Research / planned| Medium        | Finalize audio metadata schema; add optional audio track + ingestion scripts; pick 1–2 pilot sources (ReRooted, MWA/Vatican). |
-| Loanword and etymology extensions               | Planned           | Medium        | Design minimal etymology/loanword schema; prototype stem catalog + transliteration helpers; wire into corpus metadata. |
-| Etymology DB, stem catalog, transliteration     | Research complete | Medium        | Implement recommended pipeline (Wiktextract + Nayiri headwords); add small `etymology` collection and stem storage. |
-| Transliteration / IPA / pronunciation guide    | Partially done     | Medium        | Unwritten ը (insert_schwa) and Western և/եւ implemented. Remaining: word break-up, վ vs ու passive-verb rule; see section below. |
-| Latin → Armenian spelling consistency         | Planned           | Medium        | Check known words / reference lexicon for consistent classical spelling. |
-| Western Armenian keyboard (Android)           | Planned           | Medium        | Build installable WA phone keyboard for Android (classical orthography). |
-| HathiTrust bulk integration                     | Blocked / future  | Low           | Decide on HTRC membership or Hathifiles-only approach; if approved, implement `load_htrc_bulk()` and integration tests. |
-| Internet Archive access constraints             | Policy note       | Low           | Keep as guardrail; only revisit if a rights-cleared IA workflow is explicitly requested.      |
-| Gallica SRU access reliability                  | Future tweak      | Low/Medium    | Confirm UA and rate limits in `scraping/gallica.py`; add explicit 403 diagnostics and doc link to BnF support. |
-| LOC web content (blogs / hub pages)             | Planned           | Medium        | Define seed URL list; implement `loc_web_articles` scraper with robots/TOS checks; add new `source` type in Mongo. |
-| Grammar / dialect metrics                       | Planned           | Medium        | Specify metric set (e.g. GrammarDistanceIndex features); implement on a sample corpus; feed into dialect clustering. |
-| **Reform ↔ Classical orthography converter**    | Planned           | Medium        | Build a bidirectional converter between Reformed (Soviet-era) Armenian orthography and Classical (Mashdotsian) orthography. Should handle all systematic spelling differences (e.g. -ութիւն → -ություն, -եալ → -ել, -ոյ → -ու, etc.) in both directions. Expose as `linguistics/orthography/reform_classical_converter.py` with `to_classical(text)` and `to_reform(text)` functions. Useful for cross-orthography corpus normalization, search, and deduplication. |
-| **Eastern ↔ Western Armenian dialect converter** | Planned          | High          | Build a bidirectional rule-based converter between Eastern Armenian and Western Armenian. Must handle: (1) systematic voicing reversals (բ/պ, գ/կ, դ/տ, ձ/ծ, ջ/ճ), (2) morphological differences (verbal aspect markers, pronominal forms, postpositions vs. prepositions), (3) lexical substitutions (common word-level divergences). Expose as `linguistics/dialect/dialect_converter.py` with `to_western(text)` and `to_eastern(text)`. This is a research-grade tool — phonological rules must be verified against `docs/armenian_language_guids/` and `linguistics/phonetics/`. Should NOT be used silently in the pipeline; always surface source dialect in metadata. |
-| **Corpus-wide normalized TTR pipeline**         | Planned           | Medium        | Raw TTR decreases with text length, making cross-document comparison unreliable. Planned: a corpus-wide pass that computes Standardized TTR (STTR, 100-token windows) for every document and stores the result in `metadata.sttr_normalized`. This gives a length-independent vocabulary richness score suitable for dialect comparison, register analysis, and augmentation quality tracking. Trigger: after `text_metrics` backfill is complete. |
-| **Clause-count via finite-verb markers**        | Planned           | Low           | Current clause detection counts subordinating conjunctions (\u0578\u0580, \u056b\u0576\u0579, \u0565\u0569\u0567 etc.) as a proxy. A more accurate Armenian-specific approach is to count finite verb markers per sentence: WA uses \u056f\u0565/\u056f\u055a prefix or inflected suffixes (-\u0565\u0574/-\u0565\u057d/-\u0565/\u0563\u056f/-\u0565\u0576). Implement as an optional analysis mode requiring morphological POS tagging. |
-| **Decomission metadata.dialect field**          | **Implemented**   | High          | All 7 scrapers stop writing `metadata.dialect`; 5 readers updated to derive from `metadata.language_code`; `metadata_tagger.py` cleaned; EDA notebook updated. Existing MongoDB docs still have the field — run `$unset` migration. |
-| **Incremental `text_metrics` pipeline (`_update_text_metric`)** | Planned | Medium | `text_metrics_date` sentinel is now written per-doc when `metadata.text_metrics` and `metadata.loanwords` are first computed. Future work: build a dedicated `_update_text_metric` runner (or add a `--backfill-text-metrics` flag to `metadata_tagger`) that queries `{metadata.text_metrics_date: null, metadata.enrichment_date: {$exists: true}}` and processes only untagged docs. This lets the expensive `QuantitativeLinguisticsAnalyzer` + `analyze_loanwords` computations run incrementally as new documents arrive without re-processing the whole corpus. |
-| **Missing URL backfill (wiki, culturax)**       | **Implemented**   | High          | wiki.py now constructs Wikipedia URLs from language_code + title; culturax.py passes `doc["url"]` through to MongoDB. Re-scraping needed to backfill existing docs. |
-| **EDA short-text & missing-URL breakdowns**     | **Implemented**   | Medium        | Added notebook cells 18a (missing URL by source) and 18b (short text <100 chars by source) to `mongodb_eda.ipynb`. |
-| Grammar logic scripts                           | Planned           | Medium        | Extend `linguistics/morphology` rules for gaps; add tests; update `phonetics_rule_gaps.md` with any new edge cases. |
-| Book/manuscript catalog integration             | Planned           | Medium        | Connect catalog + `book_inventory` to drive archive_org/LOC/Hathi queries and dedup; implement a small pilot job. |
-| New source – Gallica (BNF)                      | Implemented       | Medium        | Keep SRU config in sync with API docs; monitor errors; periodically refresh catalog and validate WA coverage. |
-| New source – DPLA                               | Implemented       | Medium        | WA scoring added to pipeline (dialect classification on insert); API key required; review English/Armenia-related items. |
-| New source – Gomidas Institute                  | Implemented       | Medium        | Run PDF→OCR pipeline periodically; validate OCR quality; update metrics on WA newspaper coverage.            |
-| New source – Hamazkayin / Pakine                | **Implemented**   | High          | Scraper in `ingestion/acquisition/hamazkayin.py`; WP REST API + HTML fallback; pakine.net (literary) + hamazkayin.com (news). |
-| New source – Mechitarist (Venice)               | Planned / external| Medium/Long   | Use MECHITARIST_PERMISSION_REQUEST.md to request access; if granted, implement/enable scraper.               |
-| New source – AGBU Nubar (Paris)                 | Planned / external| Medium/Long   | Use AGBU_NUBARIAN_LIBRARY_PARTNERSHIP.md email; on approval, implement/enable scraper and catalog loader.    |
-| New source – UK Centre for Western Armenian Studies (CFWAS) | Planned / external| Medium/Long | Follow DATA_SOURCES_EXPANSION.md; contact CFWAS (Memory Documentation Project) for transcript/text access; design ingest once terms are clear. |
-| New source – National Library of Armenia (NLA)  | Planned / external| Medium/Long   | Do not scrape; contact NLA about research/bulk access to digitized/OCR’d content; design API/ingest only if permitted. |
-| New source – British Library EAP (EAP613, EAP180) | Planned / external| Medium/Long | Use IIIF manifests; confirm reuse permissions with custodians; design image→OCR→ingest pipeline respecting terms. |
-| New source – Zohrab Center (NYC)                | Planned / external| Medium/Long   | Contact center about digitized ecclesiastical texts; if allowed, plan scan/OCR ingest with WA tagging.       |
-| Session carry-forward (EA subcategories, etc.)  | Planned           | Medium        | Backfill EA subcategory metadata; improve clustering evaluation; tune fallback crawl depth.   |
-| **OCR: GPU / build vs collaborate**            | Very low priority | Very low      | Long-term: option to train own Armenian OCR model (PaddleOCR/EasyOCR); keep option to collaborate with existing projects (e.g. portmind/armenian-ocr, ArmCor for post-correction). See ARMENIAN_OCR_GPU_AND_QUALITY.md. |
-| **OCR: per-page sidecar report**               | Optional          | Low           | Optional sidecar (JSON or CSV) from `ocr_pdf()` with per-page mean_confidence, char_count, word_count, skipped; machine-readable for low-yield detection. See ARMENIAN_OCR_GPU_AND_QUALITY.md §4.4. |
-| **Newspaper article splitting helper**         | Planned           | Medium        | Design and implement a reusable helper for long Armenian newspapers (e.g. ՊԻՈՆԵՐ, Արեւելք) that splits IA issues into article-sized documents using header/date patterns and size limits; integrate with `scraping.archive_org` and other newspaper scrapers. Use **news_article_catalog** (RSS-derived titles/URLs) to better inform split boundaries and article titles when splitting full-issue OCR. |
-| **Defunct newspapers → Wayback Machine**       | Planned           | Low/Medium    | If a newspaper is no longer operational, explore scraping archived versions via the Wayback Machine (e.g. archive.org/web) so we can still ingest historical issues. |
-| English ↔ Western Armenian translation pipeline | High priority     | High          | Choose initial model(s); assemble WA–EN parallel data; implement back-translation + instruction-tuning pipeline and evaluation. |
-| **New source – WA Pedagogical Curriculum**      | Planned / research| High          | Full WA curriculum: grammar lessons, reading texts, exercises, stories designed for diaspora WA learners → clean pedagogical WA prose with no parallel in existing pipeline. Scrape text + PDFs (OCR), catalogue audio/video assets. Identify source(s): AGBU AVC, Zarmanazan, Saturday-school textbooks, INALCO materials. Check licensing/permissions before scraping. |
-| **B-1** Package __init__.py exports              | Done (cleaning, ocr) | Medium     | `cleaning/__init__.py` and `ocr/__init__.py` now export the requested symbols. Optionally add `__all__` to `scraping/__init__.py`. |
-| **B-3** Tests for core scrapers                  | Not started       | Medium        | Mock HTTP for archive_org (pagination, download), loc (catalog, retry), wikisource (category pagination); unit tests for culturax streaming, wikipedia dump resolution. |
-| **B-5** Top-level pipeline script                | Not started       | High          | Add a run_pipeline CLI (e.g. `ingestion/tools/run_pipeline.py` or repo root) with `--stage` (scrape, ocr, clean) and `--all`; delegate to `ingestion.runner`, `ocr`, `cleaning.runner`; support `--dry-run`. Training stage lives in WesternArmenianLLM. |
-| **B-6** Western Armenian markers (language/WA classifier) | Partially done | High          | Expand WA/EA markers in `scraping/_helpers.py` to 25+; add EA-only negative markers; make threshold tunable in `config/settings.yaml`. `compute_wa_score` already returns float. |
-| **B-6a** Centralized WA/EA marker source in helpers (`_CONSOLIDATED_RULES`) | Implemented | High | `cleaning/language_filter.py` now imports WA/EA marker sets, authors, cities, punctuation, and regex from `hytools.ingestion._shared.helpers`; local duplication removed; EA authors and WA publication cities names are now sourced centrally and ready for dialect-mix detection. |
-| **B-7** Research pipeline validation             | In progress       | High          | Harden `ingestion/discovery/author_extraction.py` regex handling; add optional `--exclude-dirs` CLI to `ingestion/research_runner.py` (config already has `research.exclude_dirs`). Verify full pipeline run and outputs. |
-| Wikipedia / data source mining                   | Planned           | Medium        | Parse document metadata for citations; build source catalog and provenance graph; output `data/source_catalog.json`, `data/source_provenance.jsonl`. |
-| New source – Agos (agos.com.tr/am)               | **Implemented**   | High          | Standalone `requests` crawler in `ingestion/acquisition/agos.py`; crawls 10 category pages with `?p=N` pagination; registered in runner (`--only agos`). |
-| New source – WesternArmeniaTV (society_wa)       | Planned           | High          | Investigate and scrape Western Armenian section at https://westernarmeniatv.com/society_wa/ (e.g., https://westernarmeniatv.com/society_wa/%d5%b0%d5%a1%d5%b5%d5%af%d5%a1%d5%af%d5%a1%d5%b6-%d5%ac%d5%a5%d5%bc%d5%b6%d5%a1%d5%b7%d5%ad%d5%a1%d6%80%d5%b0-%d5%b8%d5%b9-%d5%a9%d5%a7-%d5%a1%d6%80%d5%a5%d6%82%d5%a5%d5%ac%d5%a5%d5%a1%d5%b6-%d5%a1/) and align with WA scoring rules; also inspect English page for context. |
-| WA pedagogical curriculum (diaspora schools)      | Research / planned| High          | Scrape full WA curriculum materials (grammar, reading, exercises, stories) from diaspora educational programs; PDFs through OCR; video/audio for future TTS/ASR; unique pedagogical WA prose not in any existing source. |
+| Runner/config operational rollout               | Implemented / rollout tuning | Immediate     | Keep `doctor`, `list --config`, and `run --dry-run` as the canonical preflight path; remaining work is choosing which optional stages should stay enabled by default. |
+| Phase 2 aggregation hardening                   | Implemented / regression watch | Immediate     | Keep the `incremental_merge` delta/idempotency proof, hybrid `frequency_aggregator` weighting, and deterministic export/release paths green in CI. |
+| Unified review and audit layer                  | Implemented / evolving | Immediate     | Extend the shared review CLI, dashboard surfaces, and linguistics-owned heuristics to any remaining operator workflows and additional review reasons. |
+| Research pipeline stabilization                 | Implemented / semantic cleanup | Immediate     | Use the live-validated Mongo-backed outputs and detail dashboard to clean noisy inventory/title rows, add canonical author-identity normalization, and expand downstream consumption of the research data. |
+| Catalog-driven acquisition and dedup            | In progress       | Next wave     | Use `book_inventory`, author metadata, dashboard source-target hints, and `worldcat_searcher` outputs to drive better LOC / Archive.org / Hathi queries, prioritization, and deduplication. |
+| Operational source expansion                    | Mixed: implemented modules, incomplete rollout | Next wave | Make DPLA, LOC, WorldCat-driven lookups, and OCR-first ingestion reliable in practice before spending effort on partnership-dependent sources. |
+| Western Armenian pedagogical curriculum         | Planned / research| Next wave     | Inventory curricula, scrape/OCR educational materials, and preserve exercise structure for instruction tuning and grammar evaluation. |
+| English ↔ Western Armenian translation pipeline | Planned           | After corpus expansion | Re-scrape bilingual sources for aligned WA/EN and EA/EN pairs, then build the first back-translation and instruction-tuning pipeline on top of stronger corpus inputs. |
+| Calibration and advanced linguistic analysis    | Planned / partially done | After corpus expansion | Audit the WA classifier, add incremental `text_metrics` backfill and normalization passes, add token-level lexical-origin clustering for flagged-word mining, and revisit dialect-conversion tooling only after the review loop is trustworthy. |
+| Western Armenian audio for voice-generation     | Research / planned| Later         | Finalize audio metadata schema and pilot 1–2 sources once the core text and review pipeline priorities above are stable. |
+| Loanword, etymology, and transliteration extensions | Research complete / planned | Later | Implement the recommended Wiktextract + Nayiri-backed etymology pipeline, add review-first lexical-origin suggestion workflows, and extend transliteration/IPA only after the core corpus pipeline is stable. |
+| Workflow-manager orchestration and always-on autonomy | Deferred        | Low for now   | Keep using the local scheduler first; defer Airflow/Prefect, dynamic discovery, and self-healing autonomy until the current pipeline is operationally settled. |
+| Custom OCR model training                       | Very low priority | Very low      | Revisit only after current OCR, review, and source-expansion work have plateaued. |
+
+Detailed project-specific notes and long-tail items remain in the sections below; the table above is intentionally aligned to the canonical ordering in `docs/development/CURRENT_BACKLOG.md`.
 
 ---
 
-## Backlog items (from archived WA-LLM doc)
+## Immediate and next-wave carry-forward items
 
 These items were migrated from `WesternArmenianLLM/docs/archive/root-docs-2026-03/ops/FUTURE_IMPROVEMENTS.md`. Paths below refer to **armenian-corpus-core** (no `src/`; packages at repo root: `cleaning/`, `ocr/`, `ingestion/` including discovery, enrichment, aggregation; research pipeline under `ingestion/`).
 
-### B-1. Fill __init__.py stubs with proper exports
+### Archived reference — package __init__.py exports
 
 | Package      | Status           | Notes |
 |-------------|------------------|--------|
@@ -75,35 +43,44 @@ These items were migrated from `WesternArmenianLLM/docs/archive/root-docs-2026-0
 
 ---
 
-### B-3. Tests for core scrapers
+### Archived reference — tests for core scrapers
 
-**Status:** Not started.  
-**Priority:** Medium.
+**Status:** Implemented.  
+**Framing:** Archived reference.
 
-Existing: `tests/test_digital_library_scrapers.py` (LOC, archive_org, gallica, hathitrust, gomidas with mocked HTTP). Missing or to expand:
+Existing: `tests/test_digital_library_scrapers.py` (LOC, archive_org, gallica, hathitrust, gomidas, wiki, culturax with mocked HTTP).
 
-- **archive_org.py** — tests for search pagination and download (beyond current search mock).
-- **loc.py** — catalog building and retry logic (current test covers search_items).
-- **wikisource.py** — category pagination and text fetch (mocked).
-- **culturax.py** — unit tests for streaming loader.
-- **wikipedia.py** — dump resolution and date handling.
+- **archive_org.py** — search pagination and multi-file text download coverage added.
+- **loc.py** — retry/catalog behavior and WA-filter review-queue rejection path covered.
+- **wikisource.py** — category pagination and revision-slot text fetch covered.
+- **culturax.py** — streaming loader, checkpoint resume, and `max_docs` behavior covered.
+- **wikipedia.py** — latest dump-date resolution and download handoff covered.
 
-**Effort:** ~3 hours.
+Verification target: `python -m pytest tests/test_digital_library_scrapers.py -q --tb=line`
 
 ---
 
-### B-5. Top-level pipeline orchestration script
+### Immediate — top-level pipeline orchestration script
 
-**Status:** Not started.  
-**Priority:** High.
+**Status:** Partially implemented.  
+**Framing:** Immediate.
 
-No single script ties scrape → OCR → clean together. Desired interface:
+`scripts/run_pipeline.py` already exists and supports `--stage scrape|ocr|clean|ingest|all` plus `--config`, `--pdf`, and `--overwrite`.
+
+Remaining work:
+
+- add `--dry-run`
+- add narrower source/stage selection without editing the script
+- keep docs aligned so `hytools.ingestion.runner` is the canonical stage-level command surface and `scripts/run_pipeline.py` is the cross-stage wrapper
+
+Current interface:
 
 ```text
-python -m ingestion.tools.run_pipeline --stage scrape --source loc   # or similar entry point
-python -m ingestion.tools.run_pipeline --stage ocr
-python -m ingestion.tools.run_pipeline --stage clean
-python -m ingestion.tools.run_pipeline --all   # scrape + ocr + clean
+python scripts/run_pipeline.py --stage scrape --config config/settings.yaml
+python scripts/run_pipeline.py --stage ocr --config config/settings.yaml
+python scripts/run_pipeline.py --stage clean --config config/settings.yaml
+python scripts/run_pipeline.py --stage ingest --config config/settings.yaml
+python scripts/run_pipeline.py --stage all --config config/settings.yaml
 ```
 
 Each stage should delegate to the relevant runner (`ingestion.runner`, OCR entry point, `cleaning.runner`), with progress logging, graceful handling of interruption, and `--dry-run`. The **train** stage lives in **WesternArmenianLLM** (e.g. `prepare_training_data`, `pretrain`, `instruct_finetune`); corpus-core focuses on data acquisition and cleaning.
@@ -112,10 +89,10 @@ Each stage should delegate to the relevant runner (`ingestion.runner`, OCR entry
 
 ---
 
-### B-6. Expand Western Armenian markers (language/WA classifier)
+### Immediate — expand Western Armenian markers (language/WA classifier)
 
 **Status:** Partially done.  
-**Priority:** High.
+**Framing:** Immediate.
 
 WA scoring lives in `scraping/_helpers.py`: `compute_wa_score()` (float), `is_western_armenian()`, `WA_SCORE_THRESHOLD`. Vocabulary, authors, and publication cities already provide many markers; EA reform and EA vocabulary subtract. `cleaning/language_filter.py` uses these helpers and adds author-aware checks.
 
@@ -130,10 +107,10 @@ WA scoring lives in `scraping/_helpers.py`: `compute_wa_score()` (float), `is_we
 
 ---
 
-### B-7. Stabilize research pipeline validation (Phase 3)
+### Immediate — stabilize research pipeline validation (Phase 3)
 
 **Status:** In progress (modules implemented; validation and hardening ongoing).  
-**Priority:** High.
+**Framing:** Immediate.
 
 - **ingestion/discovery/author_extraction.py** — Add defensive handling around all regex match/group usage so that missing groups do not cause hard failures; continue on per-file/per-pattern failure with structured logs. (One `try/except IndexError` exists for a single pattern; extend to other patterns.)
 - **ingestion/research_runner.py** — Exclude dirs are already config-driven via `ingestion/_shared/research_config.py` (`exclude_dirs`, default `["augmented", "logs", "__pycache__"]`). Optional: add `--exclude-dirs` CLI argument to override config so that `python -m ingestion.research_runner --exclude-dirs augmented ...` works without editing YAML.
@@ -146,7 +123,7 @@ WA scoring lives in `scraping/_helpers.py`: `compute_wa_score()` (float), `is_we
 
 ---
 
-### Wikipedia / data source mining (future)
+### Next wave — Wikipedia / data source mining
 
 **Objective:** Extract and catalog data sources referenced in corpus documents.
 
@@ -160,7 +137,7 @@ WA scoring lives in `scraping/_helpers.py`: `compute_wa_score()` (float), `is_we
 
 ---
 
-### Research pipeline implementation status (Phases 1–2 and 3)
+### Immediate context — research pipeline implementation status
 
 **Location:** Author/book pipeline is under **armenian-corpus-core** `ingestion/` (discovery, enrichment, aggregation, research_runner, _shared/research_config).
 
@@ -181,13 +158,23 @@ WA scoring lives in `scraping/_helpers.py`: `compute_wa_score()` (float), `is_we
 - `ingestion/aggregation/coverage_analysis.py` — Author/period/genre/work coverage gaps; priority scoring; acquisition checklists.
 - `ingestion/research_runner.py` — Orchestration CLI (extraction → enrichment → timeline → coverage); configurable phase skipping; uses `ingestion/_shared/research_config.py` for `exclude_dirs` and error thresholds.
 
-**Outputs:** `data/author_profiles.jsonl`, `data/author_timeline.json`, `data/author_periods.csv`, `data/author_generations.json`, `data/coverage_gaps.json`, `data/acquisition_priorities.csv`, `data/high_priority_acquisitions.csv`.
+**Outputs:** MongoDB collections (`author_profiles`, `author_timeline`, `author_period_analysis`, `author_generation_report`, `coverage_gaps`, `coverage_gap_items`, `acquisition_priorities`, `acquisition_priority_items`); optional file exports when MongoDB is not used.
 
-**Next steps (from archived doc):** Run pipeline on full corpus; integrate with augmentation metrics; optional visualization dashboard; NER model for author extraction; expand manual biography database; author collaboration network analysis.
+**Next steps (from archived doc, adjusted to current state):** Use the dashboard detail surfaces to drive the next catalog backfill cycle; continue semantic cleanup of noisy inventory/title rows; integrate the persisted research outputs with more downstream metrics; optionally expand biography coverage and later add collaboration-network analysis.
+
+### Next wave — author identity normalization and alias resolution
+
+**Goal:** Ensure spelling variants of the same author collapse into one canonical identity before enrichment, coverage analysis, and acquisition planning.
+
+- Extend `ingestion/discovery/author_research.py` so `AuthorProfile.primary_name`, `name_variants`, and `author_id` support a canonical identity plus a durable alias list instead of relying only on lowercase substring matching.
+- Add a normalized author-name key that tolerates initials, transliteration differences, classical/Western spelling variation, and common OCR noise before profile merge decisions are made.
+- Feed alias evidence from `ingestion/discovery/author_extraction.py`, `ingestion/discovery/book_inventory.py`, and enrichment outputs into the same merge pipeline so inventory rows, corpus mentions, and biography sources do not fragment the same writer into multiple profiles.
+- Keep ambiguous merges reviewable: persist merge candidates and confidence so uncertain cases can be approved manually instead of silently collapsed.
+- Add focused tests around initials, transliterated variants, orthographic variants, and OCR-corrupted names before enabling automatic alias merges by default.
 
 ---
 
-## Transliteration, IPA, and pronunciation guide (future enhancements)
+## Later — transliteration, IPA, and pronunciation guide
 
 **Goal:** Extend `linguistics/transliteration.py` and related docs so that Armenian ↔ Latin, Armenian → IPA, and pronunciation aids behave correctly for Western/Classical/Eastern and support full sentences.
 
@@ -249,7 +236,7 @@ WA scoring lives in `scraping/_helpers.py`: `compute_wa_score()` (float), `is_we
 
 ---
 
-## Western Armenian audio for voice-generation training
+## Later — Western Armenian audio for voice-generation training
 
 **Goal:** Identify and leverage existing Western Armenian (WA) audio for training or fine-tuning voice/TTS models, or for building a WA speech corpus aligned with this project’s text corpus.
 
@@ -288,7 +275,7 @@ WA scoring lives in `scraping/_helpers.py`: `compute_wa_score()` (float), `is_we
 
 ---
 
-## Loanword and etymology extensions
+## Later — loanword and etymology extensions
 
 - **Etymology**: Track etymological origin per Armenian word; support multiple theories with credibility weights. Integrate Wiktionary, Nayiri, academic sources.
 - **Stem catalog**: Build catalog of stem/root words; track roots in compound words (e.g. `ան-`, `-ութիւն`).
@@ -299,9 +286,20 @@ See `**docs/ETYMOLOGY_STEM_TRANSLITERATION_STRATEGIES.md`** for strategies.
 
 ---
 
-## Etymology DB, stem catalog, and transliteration (research summary)
+## Later — etymology DB, stem catalog, and transliteration
 
 **Goal:** Support loanword tracking, dictionary lookups, and corpus analysis. Feasibility-oriented summary.
+
+### 0. Lexical-origin clustering and flagged-word mining
+
+**Goal:** Move possible-loanword detection from a mostly static lexicon into a review-first candidate-mining system that can surface words needing etymology review.
+
+- Build a per-token feature table from tokenizer output, corpus frequency, document/source distribution, and the existing `metadata.document_metrics` pipeline so each Armenian word can be compared using the same measurable signals.
+- Use orthographic, phonotactic, morphological, and distributional statistics to cluster words and score outliers, with the aim of separating core Armenian-looking items from tokens that should be reviewed for possible external origin.
+- Treat origin classes as ranked hypotheses rather than automatic truth: examples of review buckets include Armenian/core, Middle Persian or broader Iranian strata, Ottoman Turkish, Arabic, Urartian, Hittite, Ancient Greek, and unknown or disputed origin.
+- Reuse the existing loanword and possible-loanword flow as seed labels, then add dictionary-backed known-word checks (Nayiri, Wiktextract, curated lexicons) so flagged items are supported by evidence rather than shape alone.
+- Persist feature vectors, cluster labels, confidence scores, and human review decisions so accepted judgments can feed back into the etymology catalog and future classifier training.
+- Start with candidate flagging and analyst review, not full auto-labeling; this keeps the system useful even when origin boundaries are historically disputed.
 
 ### 1. Etymology database
 
@@ -339,21 +337,21 @@ Implement **Armenian (script) → ISO 9985 Latin** for dictionary keys and searc
 
 ---
 
-## HathiTrust (remaining work)
+## Later — HathiTrust remaining work
 
 - **Current:** Scraper uses catalog search and Data API; catalog/status in MongoDB. Bibliographic fallback when full text unavailable; stub `load_htrc_bulk()`.
 - **Remaining:** Full HTRC bulk integration (Extracted Features or full-text packages) requires HTRC membership/agreement.
 
 ---
 
-## Internet Archive access constraints (future enhancement)
+## Later — Internet Archive access constraints
 
 - Borrow-only / rights-restricted items on archive.org return HTTP 401/403 for text downloads (e.g. DjVuTXT). These should be treated as out-of-scope for the default scraper: you cannot (and should not) bypass them without logging in via a browser-style flow and ensuring full compliance with archive.org’s Terms of Service.
 - If we ever decide to pursue those titles, it should be a separate, explicitly consented workflow (e.g. browser automation tied to a human account, with strict rate limits and manual review), not part of the normal corpus build.
 
 ---
 
-## Gallica SRU access reliability (future enhancement)
+## Later — Gallica SRU access reliability
 
 - Ensure the Gallica scraper sends a clear, descriptive User-Agent and uses very conservative rates (e.g. 1–2 requests/second or slower).
 - When Gallica returns 403 for SRU calls, manually test a simple SRU query in a browser from the same machine (e.g. `https://gallica.bnf.fr/SRU?version=1.2&operation=searchRetrieve&query=(dc.language any "arm") and (dc.type any "monographie")&maximumRecords=1&startRecord=1`). If the browser also sees 403, it is almost certainly an IP/network/policy issue, not scraper code.
@@ -361,7 +359,7 @@ Implement **Armenian (script) → ISO 9985 Latin** for dictionary keys and searc
 
 ---
 
-## LOC web content (blogs / hub pages) as separate source (future enhancement)
+## Later — LOC web content as a separate source
 
 - Some LOC slugs in the catalog (e.g. `articles-and-essays`, `related-resources`, `4-corners-international-collections-program-calendar-...`, Armenian-program blog posts) are **web pages on loc.gov**, not catalog items exposed via the LOC JSON item API. The current `loc` scraper correctly gets 404 for those when it calls the item endpoint and skips them.
 - If we want that text anyway, we should add a **separate pipeline for LOC web content**, distinct from the catalog-based `loc` stage:
@@ -372,22 +370,22 @@ Implement **Armenian (script) → ISO 9985 Latin** for dictionary keys and searc
 
 ---
 
-## WA dialect classifier audit (backtest)
+## After corpus expansion — WA dialect classifier audit
 
 - The `compute_wa_score` heuristic in `ingestion/_shared/helpers.py` has never been evaluated against labeled ground-truth data.
 - **Task:** Assemble a small labeled test set — ~100 documents confirmed WA and ~100 confirmed EA (e.g. from known WA newspapers vs. Azatutyun / Armenian Wikipedia). Run `compute_wa_score` on each and compute precision/recall/F1 and optimal threshold.
 - This will reveal whether threshold=5.0 is well-calibrated, which marker families drive false positives/negatives, and whether the cap-at-10 per marker is appropriate.
 - **Output:** A notebook or script in `notebooks/` + summary in `docs/development/`.
-- **Priority:** Medium — affects audit reliability for the entire training pipeline.
+- **Framing:** After corpus expansion — affects audit reliability for the entire training pipeline.
 
 ---
 
-## Grammar / dialect
+## After corpus expansion — grammar and dialect analysis
 
 - Quantitative grammar-distance metrics (inflectional profiles, analytic/synthetic load, paradigm consistency, Composite GrammarDistanceIndex).
 - Evaluation and integration into clustering; fine-grained dialect subcategories + DBSCAN; feature engineering; backfill `dialect_subcategory`.
 
-## Grammar logic scripts
+## After corpus expansion — grammar logic scripts
 
 - Extend inflectional and morphological rules in `linguistics/morphology`.
 - Improve paradigm consistency checks and analytic/synthetic load metrics.
@@ -396,7 +394,7 @@ Implement **Armenian (script) → ISO 9985 Latin** for dictionary keys and searc
 
 ---
 
-## New sources
+## Next wave — source expansion
 
 - **Book/manuscript catalog integration:** Use catalogs + ook_inventory (see docs/MONGODB_CORPUS_SCHEMA.md and integrations/database/corpus_schema.py) to seed and refine queries for rchive_org, loc, hathitrust; e.g. use inventory titles/authors/years to build targeted search terms, avoid duplicate pulls, and prioritize high-value WA/rare items.
 - **Gallica, DPLA, Gomidas:** Implemented. See `docs/DATA_SOURCES_API_REFERENCE.md`.
@@ -418,7 +416,7 @@ Planned data-expansion projects for the Western Armenian corpus. Full detail: **
 | **Gomidas Institute** | ✅ Implemented | Newspapers; `scraping/gomidas.py`; bulk permission draft in `docs/development/requests_guides/GOMIDAS_BULK_PERMISSION.md` |
 | **British Library EAP** | ⏳ Planned | EAP613 (113 newspapers), EAP180 (*Nor dar*); IIIF access at eap.bl.uk; reuse may require custodian permission; IIIF/download tools available |
 | **Clark University — Guerguerian Archive** | ⏳ Planned | Armenian *Takvim-i Vekayi*, 1919 tribunal minutes; indexed digitized materials; contact for access |
-| **National Library of Armenia (NLA)** | ⏳ Permission / contact | 6M+ digitized pages, DSpace, Union Catalog; no public API; do not scrape; contact for bulk/research (+37460 623513) |
+| **National Library of Armenia (NLA)** | ⏳ Planned / permission-first rollout | Verified public DSpace backend (`api.nla.am/server`) plus Koha-linked properties; implement metadata-first DSpace harvest, treat Koha as separate permission-gated scope, and confirm bulk file access with NLA before any full pull. Plan: `docs/development/NATIONAL_LIBRARY_OF_ARMENIA_IMPLEMENTATION_PLAN.md` |
 | **Nayiri / COWA** | ⏳ Planned | Western Armenian corpus (beta), nayiri.com/text-corpus; check terms for bulk or API |
 | **EANC** | ⏳ Optional | Eastern Armenian; for comparison/dialect filtering only, not primary WA source |
 | **Matenadaran (Yerevan)** | ⏳ Permission | Manuscripts; some digitized as images; permission/partnership typically required |
@@ -448,13 +446,13 @@ Planned data-expansion projects for the Western Armenian corpus. Full detail: **
 
 ---
 
-## Session carry-forward
+## Next wave — session carry-forward
 
 - Populate EA subcategory dirs, metadata backfill, clustering evaluation, improve fallback crawl depth.
 
 ---
 
-## English ↔ Western Armenian translation (high priority)
+## After corpus expansion — English ↔ Western Armenian translation
 
 **Rationale:** (1) **Back-translation pipeline** — WA → English → WA for diverse synthetic training data. (2) **Instruction tuning** — Include Western Armenian in instructions/responses for better WA instruction-following.
 
@@ -490,7 +488,7 @@ Several news sites (Horizon Weekly, Agos, Civilnet, Hetq, Armenpress) publish bo
 
 ---
 
-## Western Armenian pedagogical curriculum (new source — high priority)
+## Next wave — Western Armenian pedagogical curriculum
 
 **Rationale:** WA diaspora school curricula contain grammar lessons, reading texts, graded exercises, short stories, and exam materials written specifically for WA learners. This is **clean, pedagogical Western Armenian prose** — structured, graded by level, and covers core grammar explicitly. No existing pipeline source provides this; it fills a unique gap between literary/news text and conversational data.
 
@@ -535,166 +533,11 @@ Several news sites (Horizon Weekly, Agos, Civilnet, Hetq, Armenpress) publish bo
 
 ---
 
-# Development Guide
+## Canonical docs
 
-## Quick Start
+- Quick start: `docs/QUICK_START_PHASE1.md`
+- Development workflow and commands: `docs/development/DEVELOPMENT.md`
+- Current short-form backlog: `docs/development/CURRENT_BACKLOG.md`
+- Implemented features: `docs/development/IMPLEMENTATION_HISTORY.md`
 
-```bash
-cd C:\Users\litni\armenian_projects\armenian-corpus-core
-
-# Install in editable mode with dev dependencies
-pip install -e ".[dev]"
-
-# Verify installation
-python -m scraping.runner list
-```
-
-## Prerequisites
-
-- Python 3.10+
-- MongoDB running locally on `mongodb://localhost:27017/`
-- pip / setuptools
-
-## Running the Pipeline
-
-```bash
-# Run the full pipeline (scraping + extraction + post-processing)
-python -m scraping.runner run
-
-# Run only scraping stages
-python -m scraping.runner run --group scraping
-
-# Run only extraction stages
-python -m scraping.runner run --group extraction
-
-# Run only post-processing stages
-python -m scraping.runner run --group postprocessing
-
-# Skip specific stages
-python -m scraping.runner run --skip hathitrust nayiri
-
-# Run specific stages only (e.g. news: RSS catalog + scrape)
-python -m ingestion.runner run --only news
-python -m scraping.runner run --only wikipedia_wa wikisource culturax
-
-# Run in background
-python -m scraping.runner run --background
-
-# Check status
-python -m scraping.runner status
-
-# List all registered stages
-python -m ingestion.runner run --help   # or: python -m scraping.runner list (if using scraping runner)
-```
-
-**News stage (RSS catalog + full-article scrape):** Run with `python -m ingestion.runner run --only news`. Config: `scraping.rss_news` in `config/settings.yaml`. Catalog and documents are tagged with `language_code`, `content_type`, `writing_category`. See [NEWS_AND_RSS_CATALOG.md](../concept_guides/NEWS_AND_RSS_CATALOG.md) for schema and run instructions.
-
-## Project Structure
-
-```
-armenian-corpus-core/
-├── scraping/                  # All data collection and extraction
-│   ├── runner.py              # Unified pipeline orchestrator
-│   ├── registry.py            # Stage metadata catalog
-│   ├── wikipedia_wa.py        # Western Armenian Wikipedia scraper
-│   ├── wikipedia_ea.py        # Eastern Armenian Wikipedia scraper
-│   ├── wikisource.py          # Wikisource scraper (dialect-classified)
-│   ├── archive_org.py         # Internet Archive scraper
-│   ├── hathitrust.py          # HathiTrust Digital Library scraper
-│   ├── loc.py                 # Library of Congress scraper
-│   ├── newspaper.py           # Diaspora newspaper scraper (Selenium)
-│   ├── ea_news.py             # Eastern Armenian news agencies
-│   ├── rss_news.py            # RSS/Atom feed scraper (full-text)
-│   ├── culturax.py            # CulturaX HuggingFace dataset
-│   ├── english_sources.py     # English-language academic sources
-│   ├── nayiri.py              # Nayiri dictionary scraper (Selenium)
-│   ├── mss_nkr.py             # Matenadaran NKR archive
-│   ├── import_anki_to_mongodb.py   # AnkiConnect -> MongoDB
-│   ├── _wa_filter.py          # Western Armenian dialect classifier
-│   ├── _mongodb_helper.py     # Shared MongoDB utilities
-│   └── (other extraction/post-processing modules)
-├── core_contracts/            # Canonical data types
-│   ├── types.py               # DocumentRecord, LexiconEntry, etc.
-│   └── hashing.py             # Content normalization and hashing
-├── integrations/              # External system adapters
-│   ├── anki/                  # AnkiConnect client
-│   └── database/              # MongoDB client, SQLite adapters
-├── linguistics/               # Language analysis tools
-│   ├── dialect_classifier.py  # WA/EA dialect detection
-│   └── phonetics.py           # Armenian phonetics/IPA
-├── cleaning/                  # Text normalization and filtering
-├── tests/                     # Test suite
-├── pyproject.toml
-└── README.md
-```
-
-## Running Tests
-
-```bash
-pytest tests/
-pytest tests/test_mappers.py -v
-pytest --cov=scraping
-```
-
-## Code Quality
-
-```bash
-black scraping/ core_contracts/ integrations/ linguistics/
-isort scraping/ core_contracts/ integrations/ linguistics/
-mypy scraping/
-```
-
----
-
-## Troubleshooting
-
-### Import Error: No module named ...
-
-Verify installation:
-```bash
-pip show armenian-corpus-core
-```
-
-Reinstall:
-```bash
-pip install -e .
-```
-
-### MongoDB Connection Error
-
-Ensure MongoDB is running:
-```bash
-mongosh --eval "db.adminCommand('ping')"
-```
-
----
-
-## References
-
-- **Python Packaging**: https://packaging.python.org/
-- **Editable Installs**: https://pip.pypa.io/en/latest/topics/local-project-installs/
-- **MongoDB Python Driver**: https://pymongo.readthedocs.io/
-
-# Current Working Backlog (armenian-corpus-core)
-
-This is the single current working backlog for the repository and should be kept short and actionable.
-
-## Phase 2 priority tasks
-
-1. Hybrid profile for `frequency_aggregator` and corpus harmonization.
-2. Incremental merge stage in ingestion pipeline.
-3. Export formats for frequency data (parquet and HuggingFace datasets).
-4. Comprehensive test suite for pipeline and language branch filtering.
-5. Docs cleanup (README phase status, one canonical quick start, backlog summarization).
-
-## Ongoing support tasks
-
-- Drift detection via ingestion metrics.
-- Loanword tracker + etymology DB integration.
-- Source coverage and pipeline observability dashboard.
-
-## Ownership
-
-- `hytools/ingestion/aggregation` and `hytools/ingestion/runner`: implementation.
-- `docs/development/CURRENT_BACKLOG.md`: backlog tracking.
-- `tests/`: validation and guardrails.
+The embedded development guide and working backlog were retired so that quick start, workflow, and active priorities each have one canonical home.

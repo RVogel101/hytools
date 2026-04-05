@@ -5,7 +5,7 @@ This document captures the authoritative command policy for how the assistant re
 ## Rule summary
 1. Never guess PowerShell command forms. Always derive from actual code in the repository.
 2. Confirm the exact entrypoint and options from source code before responding.
-3. For this repository, the CLI is `hytools.ingestion.runner` and the valid commands are `run`, `status`, `list`, `dashboard` (as implemented in `hytools/ingestion/runner.py`).
+3. For this repository, the CLI is `hytools.ingestion.runner` and the valid commands are `run`, `status`, `list`, `dashboard`, `doctor`, `schedule`, and `release` (as implemented in `hytools/ingestion/runner.py`).
 4. If a user asks for commands, provide exact syntax from the parser's choices and any required flags.
 5. Do not recommend a command without code proof.
 6. Respect user's requested format preference in each query (concise, final answer etc).
@@ -62,6 +62,12 @@ generate_wa_full_mapping(overwrite=True)
   - `python -m hytools.ingestion.runner list`
 - Dashboard:
   - `python -m hytools.ingestion.runner dashboard --config config/settings.yaml --output data/logs/scraper_dashboard.html`
+- Doctor:
+  - `python -m hytools.ingestion.runner doctor --config config/settings.yaml`
+- Schedule:
+  - `python -m hytools.ingestion.runner schedule --config config/settings.yaml`
+- Release:
+  - `python -m hytools.ingestion.runner release --config config/settings.yaml --output data/releases/latest`
 
 ## Notes
 - If `--stage` is provided, it's invalid for `hytools.ingestion.runner` and will yield an argparse error.

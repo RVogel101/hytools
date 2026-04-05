@@ -43,12 +43,12 @@ From README, INDEX, and FUTURE_IMPROVEMENTS:
 
 | Item | Status | Notes |
 |------|--------|------|
-| Implement `hybrid` profile for statistical conflict resolution | ❌ Not started | Not found in codebase or FUTURE_IMPROVEMENTS |
-| Incremental merge (only re-process changed records) | ❌ Not started | No incremental merge pipeline stage |
-| Format exporters (parquet, HuggingFace datasets) | ❌ Not started | Optional dependency `huggingface` exists; no exporter stage |
-| Comprehensive test suite | 🟡 Partial | Many tests (integration, hashing, types, mappers, dialect, metrics, augmentation, OCR, etc.); no pytest in CI; some tests reference deprecated paths |
+| Implement `hybrid` profile for statistical conflict resolution | ✅ Done | `frequency_aggregator.py` supports `hybrid_profile` config; tested in `test_frequency_aggregator.py::test_hybrid_profile_affects_weights` |
+| Incremental merge (only re-process changed records) | ✅ Done | `incremental_merge.py` stage with delta + bootstrap modes; 4 tests covering add/update/delete/scope-change |
+| Format exporters (parquet, HuggingFace datasets) | ✅ Done | `corpus_export.py` exports Parquet, HF datasets, and deterministic release splits; tested in `test_doctor_and_corpus_export.py` |
+| Comprehensive test suite | ✅ Done | 57+ test files; CI workflow `.github/workflows/ci.yml` runs `pytest tests/ -v` on push/PR across Python 3.10–3.12 |
 
-**Phase 2 verdict:** Largely not started. “Comprehensive test suite” is partially there; adding pytest to CI would strengthen it.
+**Phase 2 verdict:** Core items implemented. Remaining work is integration-test proof and operational rollout; see `docs/development/FEATURE_COMPLETENESS_CHECKLIST.md`.
 
 ---
 
@@ -132,32 +132,31 @@ All extraction stages in README exist and are registered in `runner._build_stage
 | Component | Status | Notes |
 |-----------|--------|------|
 | GitHub Actions scraping workflow | ✅ | Scheduled + manual; MongoDB; artifacts |
-| Test workflow (pytest on push/PR) | ❌ | Recommended in prior audit; not added |
+| Test workflow (pytest on push/PR) | ✅ | `.github/workflows/ci.yml` — push/PR on main; Python 3.10–3.12 matrix |
 | docs/ (INDEX, STRUCTURE, FUTURE_IMPROVEMENTS, etc.) | ✅ | Large doc set; STRUCTURE describes subpackages that don’t exist (scraping is flat) |
 
 ---
 
 ## 4. Gaps and Inconsistencies
 
+
+
 1. **README roadmap**  
-   - Phase 1 “Move core contracts to central package” is done; README still says ⏳.  
-   - Phase 2 “hybrid profile” is undefined in code or FUTURE_IMPROVEMENTS.
+   - Phase 1 and Phase 2 markers were stale. → **Fixed April 2026.**
 
 2. **docs/STRUCTURE.md**  
    - Describes scraping subpackages (wikimedia/, digital_libraries/, news/, etc.). Actual layout is flat (`scraping/*.py`). Either refactor into subpackages or update STRUCTURE to match reality.
 
-3. **Tests not in CI**  
-   - No GitHub Action runs `pytest`. Regressions can slip through; adding a test job is high value.
+3. ~~**Tests not in CI**~~ → **Resolved.** `.github/workflows/ci.yml` now runs `pytest tests/ -v` on push/PR.
 
 4. **Runner vs. registry**  
-   - Runner builds stages in code (`_build_stages()`); registry holds tool metadata but is not used for execution. Consider documenting that registry is for discovery/metadata only, or unifying stage list with registry.
+   - Runner builds stages in code (`_build_stages()`); registry holds tool metadata but is not used for execution. Document that registry is for discovery/metadata only.
 
 5. **MOVED_FROM_WA_LLM**  
-   - Refers to `armenian_corpus_core/`; real packages are at repo root (scraping, core_contracts, etc.). Update doc to match pyproject layout.
+   - Refers to `armenian_corpus_core/`; real packages are under `hytools/`. Update doc to match pyproject layout.
 
-6. **Optional Phase 2 items**  
-   - “Hybrid profile”: clarify meaning or remove from roadmap.  
-   - Incremental merge and format exporters are clearly scoped in README but not started.
+6. ~~**Optional Phase 2 items**~~ → **Resolved.** Hybrid profile, incremental merge, and format exporters are implemented and tested.
+
 
 ---
 
@@ -165,29 +164,23 @@ All extraction stages in README exist and are registered in `runner._build_stage
 
 ### High priority (align with stated goals)
 
-1. **Update README**  
-   - Mark Phase 1 “Move core contracts” as ✅.  
-   - Clarify or drop “hybrid profile” in Phase 2.
 
-2. **Add test workflow**  
-   - Run `pytest tests/` on push/PR (and optionally on schedule).  
-   - Fix any tests that assume WesternArmenianLLM paths or deprecated imports.
+1. ~~**Update README**~~ → **Done April 2026.** Phase markers updated.
+
+2. ~~**Add test workflow**~~ → **Done.** `.github/workflows/ci.yml` runs pytest on push/PR.
 
 3. **Align docs with code**  
    - Update STRUCTURE.md to describe the flat scraping layout (or plan a subpackage refactor).  
-   - Update MOVED_FROM_WA_LLM to use actual package names (scraping, core_contracts, etc.).
+   - Update MOVED_FROM_WA_LLM to use actual package names.
 
 ### Medium priority (roadmap and maintainability)
 
-4. **Phase 2 — Incremental merge**  
-   - Design: only re-process documents whose source content or metadata changed.  
-   - Implement as an option in runner or a dedicated stage.
+4. ~~**Phase 2 — Incremental merge**~~ → **Done.** `incremental_merge.py` with delta + bootstrap; tested.
 
-5. **Phase 2 — Format exporters**  
-   - Add stage(s) or CLI to export from MongoDB to parquet and/or HuggingFace datasets (using existing `huggingface` optional dependency).
+5. ~~**Phase 2 — Format exporters**~~ → **Done.** `corpus_export.py` with Parquet, HF, and release split support.
 
-6. **Drift detection on ingest**  
-   - Compute baseline stats; in `_compute_document_metrics` (or after insert), run drift check and store flag or alert.
+6. **Drift detection on ingest / pipeline monitoring**  
+   - Baseline comparison and persisted drift alerts now exist in `ingestion/aggregation/drift_detection.py`; remaining work is deeper ingest-time hooks if per-document drift screening becomes necessary.
 
 ### Lower priority (from FUTURE_IMPROVEMENTS)
 
@@ -213,12 +206,12 @@ All extraction stages in README exist and are registered in `runner._build_stage
 | Area | Done | In progress | Not started |
 |------|------|-------------|-------------|
 | Phase 1 (foundation) | 5/5 | 0 | 0 |
-| Phase 2 (enhancement) | 0 | Test suite (partial) | hybrid, incremental merge, exporters |
+| Phase 2 (enhancement) | 4/4 (hybrid, merge, exporters, tests) | Integration proof + CI gates | — |
 | Phase 3 (distribution) | 0 | 0 | PyPI, docs site, benchmarks |
 | Scraping & extraction | Full pipeline + registry | — | — |
 | Core contracts | types, hashing, usage | — | — |
 | Linguistics & dialect | WA/EA, loanwords, possible_loanwords, metrics | Nayiri for possible_loanwords | Classical (hyc) |
 | Ingest & metrics | document_metrics, loanwords, possible_loanwords | — | Drift on ingest |
-| CI/CD | Scraping workflow | — | Test workflow |
+| CI/CD | Scraping workflow + test workflow | — | — |
 
-**Bottom line:** Foundation (Phase 1) is complete. The project is in good shape for scraping, extraction, dialect/linguistics, and ingest metrics. The main gaps are: (1) README and doc accuracy, (2) tests in CI, (3) Phase 2 enhancements (incremental merge, exporters, and clarifying “hybrid profile”), and (4) drift detection and other items in FUTURE_IMPROVEMENTS.
+**Bottom line (updated April 2026):** Phases 1 and 2 are implemented. The main remaining gaps are: (1) integration-test proof for incremental merge and deterministic export, (2) unified review layer operationalization, (3) catalog-driven acquisition loop, and (4) drift detection wiring. See `docs/development/FEATURE_COMPLETENESS_CHECKLIST.md` for the concrete exit-criteria checklist.
