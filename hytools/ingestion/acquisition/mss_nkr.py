@@ -192,6 +192,7 @@ def _ingest_text_files_to_mongodb(
 ) -> dict:
     """Insert any .txt or .html files downloaded from MSS NKR into MongoDB."""
     from hytools.ingestion._shared.helpers import insert_or_skip
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     stats = {"inserted": 0, "duplicates": 0}
     for url, info in catalog.items():
@@ -211,11 +212,14 @@ def _ingest_text_files_to_mongodb(
             continue
         ok = insert_or_skip(
             client,
-            source="mss_nkr",
-            title=info.get("filename", path.name),
-            text=text,
-            url=url,
-            metadata={"source_type": "archive", "file_type": suffix.lstrip(".")},
+            doc=ScrapedDocument(
+                source_family="mss_nkr",
+                text=text,
+                title=info.get("filename", path.name),
+                source_url=url,
+                source_type="archive",
+                extra={"file_type": suffix.lstrip(".")},
+            ),
             config=config,
         )
         if ok:

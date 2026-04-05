@@ -87,12 +87,14 @@ def _parse_json_value(value):
             try:
                 return json.loads(attempt)
             except Exception:
+                logger.debug("JSON parse attempt failed for value: %.50s", attempt)
                 continue
         # If there are escaped quotes, attempt a relaxed parse.
         try:
             candidate = raw.replace('\\"', '"')
             return json.loads(candidate)
         except Exception:
+            logger.debug("Relaxed JSON parse also failed for value: %.50s", raw)
             return value
     return value
 
@@ -203,6 +205,7 @@ def parse_lexicon_data(data: dict, client) -> int:
                 if getattr(res, "upserted_id", None) is not None:
                     imported += 1
             except Exception:
+                logger.debug("MongoDB upsert failed for nayiri entry %s", entry_id, exc_info=True)
                 continue
 
     return imported
@@ -398,7 +401,7 @@ def import_lexicon_from_url(config: dict, client) -> int:
         try:
             zip_path.unlink()
         except Exception:
-            pass
+            logger.debug("Failed to remove lexicon ZIP %s", zip_path, exc_info=True)
 
     logger.info("Imported %d Nayiri lexicon entries into nayiri_entries collection", imported)
     return imported
@@ -491,7 +494,7 @@ def import_corpus_from_url(config: dict, client) -> int:
         try:
             zip_path.unlink()
         except Exception:
-            pass
+            logger.debug("Failed to remove corpus ZIP %s", zip_path, exc_info=True)
 
     logger.info("Imported %d documents into nayiri_wa_corpus collection", imported)
     return imported

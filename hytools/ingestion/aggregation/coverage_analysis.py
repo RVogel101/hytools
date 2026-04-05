@@ -17,9 +17,22 @@ from pathlib import Path
 from typing import Any, Optional
 
 from hytools.ingestion.discovery.author_research import AuthorProfile, AuthorProfileManager
-from hytools.ingestion.discovery.book_inventory import BookInventoryManager, ContentType, CoverageStatus
+from hytools.ingestion.discovery.book_inventory import (
+    BookInventoryManager,
+    ContentType,
+    CoverageStatus,
+    assess_title_plausibility,
+    normalize_inventory_title,
+)
 
 logger = logging.getLogger(__name__)
+
+_BACKFILL_SOURCE_RULES: dict[str, tuple[str, ...]] = {
+    "period": ("worldcat", "loc", "archive_org", "hathitrust", "gallica"),
+    "author": ("worldcat", "loc", "archive_org", "nayiri"),
+    "genre": ("worldcat", "loc", "archive_org", "nayiri"),
+    "work": ("worldcat", "loc", "archive_org", "hathitrust", "nayiri"),
+}
 
 
 @dataclass
@@ -50,6 +63,59 @@ class CoverageAnalyzer:
         self.profile_manager = profile_manager
         self.inventory_manager = inventory_manager
         self.gaps: list[CoverageGap] = []
+
+    def build_inventory_coverage_summary(self) -> dict[str, Any]:
+        if not self.inventory_manager:
+            return {}
+        summary = self.inventory_manager.get_summary()
+        return {
+            "total_books": summary.total_books,
+            "books_in_corpus": summary.books_in_corpus,
+            "books_missing": summary.books_missing,
+            "books_copyrighted": summary.books_copyrighted,
+            "books_partially_scanned": summary.books_partially_scanned,
+            "books_acquired": summary.books_acquired,
+            "coverage_percentage": summary.coverage_percentage,
+            "words_in_corpus": summary.words_in_corpus,
+            "total_estimated_words": summary.total_estimated_words,
+        }
+
+    def build_acquisition_query(self, gap: CoverageGap) -> str:
+        metadata = gap.metadata or {}
+        if gap.gap_type == "work":
+            title = normalize_inventory_title(str(metadata.get("title", "") or ""))
+            authors = metadata.get("authors", "")
+            year = metadata.get("year", "")
+            return " ".join(part for part in (title, authors, str(year) if year else "") if part).strip()
+        if gap.gap_type == "author":
+            return str(metadata.get("author_name", "")).strip()
+        if gap.gap_type == "genre":
+            return f"Western Armenian {metadata.get('genre', '')}"
+        if gap.gap_type == "period":
+            return f"Western Armenian literature {metadata.get('period', '')}"
+        return gap.description
+
+    def build_backfill_targets(self, gap: CoverageGap) -> list[dict[str, str]]:
+        query = self.build_acquisition_query(gap)
+        metadata = gap.metadata or {}
+        year = metadata.get("year")
+        candidates = list(_BACKFILL_SOURCE_RULES.get(gap.gap_type, ("worldcat", "archive_org")))
+
+        if gap.gap_type == "work":
+            content_type = str(metadata.get("content_type", ""))
+            if content_type in {"poetry_collection", "short_stories"} and "nayiri" not in candidates:
+                candidates.append("nayiri")
+            if isinstance(year, int) and year >= 1950:
+                candidates = [source for source in candidates if source != "gallica"]
+
+        seen: set[str] = set()
+        plan: list[dict[str, str]] = []
+        for source in candidates:
+            if source in seen:
+                continue
+            seen.add(source)
+            plan.append({"source": source, "query": query})
+        return plan
     
     def analyze_author_coverage(self) -> list[CoverageGap]:
         """Identify missing or underrepresented authors.
@@ -212,8 +278,20 @@ class CoverageAnalyzer:
             logger.warning("No inventory manager provided; skipping work coverage analysis")
             return gaps
         
+        skipped_implausible = 0
+
         # Check books marked as MISSING or COPYRIGHTED
         for book in self.inventory_manager.books:
+            plausible_title, title_issues = assess_title_plausibility(book.title)
+            if not plausible_title:
+                skipped_implausible += 1
+                logger.debug(
+                    "Skipping implausible inventory title during work coverage analysis: %s (%s)",
+                    book.title,
+                    ", ".join(title_issues),
+                )
+                continue
+
             if book.coverage_status == CoverageStatus.MISSING:
                 # Determine priority based on content type and author
                 priority = "high" if book.content_type in [
@@ -231,7 +309,7 @@ class CoverageAnalyzer:
                     recommended_action=f"Locate and acquire '{book.title}'",
                     impact_score=0.7 if priority == "high" else 0.4,
                     metadata={
-                        "title": book.title,
+                        "title": normalize_inventory_title(book.title),
                         "authors": author_names,
                         "year": book.first_publication_year,
                         "content_type": book.content_type.value,
@@ -251,7 +329,11 @@ class CoverageAnalyzer:
                     },
                 ))
         
-        logger.info(f"Identified {len(gaps)} work coverage gaps")
+        logger.info(
+            "Identified %d work coverage gaps (skipped %d implausible inventory titles)",
+            len(gaps),
+            skipped_implausible,
+        )
         return gaps
     
     def generate_comprehensive_analysis(self) -> list[CoverageGap]:
@@ -307,12 +389,14 @@ class CoverageAnalyzer:
                     "work": len([g for g in gaps if g.gap_type == "work"]),
                 },
             },
+            "inventory_coverage": self.build_inventory_coverage_summary(),
             "gaps": [
                 {
                     "type": g.gap_type,
                     "priority": g.priority,
                     "description": g.description,
                     "recommended_action": g.recommended_action,
+                    "acquisition_query": self.build_acquisition_query(g),
                     "impact_score": g.impact_score,
                     "metadata": g.metadata,
                 }
@@ -357,13 +441,17 @@ class CoverageAnalyzer:
                 "type": g.gap_type,
                 "description": g.description,
                 "action": g.recommended_action,
+                "acquisition_query": self.build_acquisition_query(g),
+                "source_targets": self.build_backfill_targets(g),
                 "impact_score": round(g.impact_score, 2),
+                "metadata": dict(g.metadata or {}),
             }
         priorities_by_filter: dict[str, list[dict]] = {
             "all": [row(g) for g in gaps],
             "high": [row(g) for g in gaps if g.priority == "high"],
             "medium": [row(g) for g in gaps if g.priority == "medium"],
             "low": [row(g) for g in gaps if g.priority == "low"],
+            "inventory_coverage": self.build_inventory_coverage_summary(),
         }
         if not (config and config.get("database", {}).get("mongodb_uri")):
             logger.warning("MongoDB not configured; acquisition priorities not persisted (no file output)")

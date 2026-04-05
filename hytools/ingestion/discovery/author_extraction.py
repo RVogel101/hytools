@@ -28,6 +28,71 @@ from hytools.ingestion.discovery.book_inventory import BookInventoryEntry, BookI
 
 logger = logging.getLogger(__name__)
 
+_AUTHOR_CONTEXT_MARKERS = (
+    "հեղինակ",
+    "գրած",
+    "written by",
+    "author",
+    "by ",
+)
+_AUTHOR_STOPWORD_TOKENS = frozenset(
+    {
+        "այս",
+        "այն",
+        "այդ",
+        "ասիկա",
+        "անիկա",
+        "ադիկա",
+        "ամէն",
+        "ամեն",
+        "բոլոր",
+        "շատ",
+        "մէկ",
+        "մեկ",
+        "տղան",
+        "տղաս",
+        "հայրը",
+        "մայրը",
+        "եկեղեցին",
+        "գիրքը",
+        "վէպը",
+        "վեպը",
+        "պատմուածքը",
+        "պատմվածքը",
+        "բանաստեղծութիւնը",
+        "բանաստեղծությունը",
+        "ուսուցիչը",
+        "ուսուցիչներուն",
+        "ժողովուրդը",
+        "քաղաքը",
+        "գիւղը",
+        "գյուղը",
+        "աշխարհը",
+        "կեանքը",
+        "կյանքը",
+        "ժամանակը",
+        "տունը",
+        "կինը",
+        "մարդը",
+        "դուստրը",
+        "որդին",
+        "եղբայրը",
+        "քոյրը",
+        "քույրը",
+        "մեր",
+        "ձեր",
+        "անոր",
+        "անոնք",
+        "մենք",
+        "դուք",
+        "ինք",
+        "ինքն",
+        "որոնք",
+        "որոնց",
+    }
+)
+_AUTHOR_HONORIFICS = frozenset({"տէր", "տեր", "դոկտ", "տքթ", "դոկտոր", "վրդ", "mr", "mrs", "ms", "dr"})
+
 
 @dataclass
 class ExtractedAuthor:
@@ -46,6 +111,113 @@ class AuthorExtractor:
         """Initialize author extractor."""
         self.extracted_authors: dict[str, ExtractedAuthor] = {}
         self.name_frequency: Counter = Counter()
+
+    def _record_author(self, author: ExtractedAuthor) -> None:
+        normalized = self._normalize_name(author.name)
+        self.extracted_authors[normalized] = author
+        self.name_frequency[author.name] += 1
+
+    def _clean_candidate_name(self, raw_name: str) -> str:
+        cleaned = re.sub(r"[\r\n\t]+", " ", raw_name)
+        cleaned = cleaned.strip(" \"'«»“”[]{}()<>.,;:!?։՝-")
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        return cleaned.strip()
+
+    def _normalize_name_token(self, token: str) -> str:
+        return re.sub(r"[\W_]+", "", token, flags=re.UNICODE).lower()
+
+    def _looks_like_name_token(self, token: str) -> bool:
+        cleaned = token.strip("\"'«»“”[]{}()<>.,;:!?։՝-")
+        if not cleaned or any(char.isdigit() for char in cleaned):
+            return False
+        if any(char.isalpha() and not re.match(r"[A-Za-zԱ-Ֆա-ֆ]", char) for char in cleaned):
+            return False
+        has_armenian = bool(re.search(r"[Ա-Ֆա-ֆ]", cleaned))
+        has_latin = bool(re.search(r"[A-Za-z]", cleaned))
+        if has_armenian and has_latin:
+            return False
+        if len(cleaned) == 1:
+            return token.endswith(".")
+        if not (has_armenian or has_latin):
+            return False
+        return cleaned[0].isupper()
+
+    def _is_plausible_author_name(
+        self,
+        name: str,
+        *,
+        context: str = "",
+        structured: bool = False,
+    ) -> bool:
+        cleaned = self._clean_candidate_name(name)
+        if len(cleaned) < 3 or len(cleaned) > 40:
+            return False
+
+        tokens = [token for token in cleaned.split() if token]
+        if not tokens or len(tokens) > 4:
+            return False
+
+        contextual_cue = any(marker in context.lower() for marker in _AUTHOR_CONTEXT_MARKERS)
+        substantive_tokens = 0
+        initial_tokens = 0
+
+        for token in tokens:
+            normalized = self._normalize_name_token(token)
+            if not normalized:
+                return False
+            if normalized in _AUTHOR_HONORIFICS:
+                continue
+            if normalized in _AUTHOR_STOPWORD_TOKENS:
+                return False
+            if len(normalized) == 1:
+                if token.endswith("."):
+                    initial_tokens += 1
+                    continue
+                return False
+            if not self._looks_like_name_token(token):
+                return False
+            substantive_tokens += 1
+
+        if substantive_tokens == 0:
+            return False
+        if structured:
+            return substantive_tokens >= 1
+        if substantive_tokens >= 2:
+            return True
+        if initial_tokens >= 1 and substantive_tokens >= 1:
+            return contextual_cue
+        return False
+
+    def _build_extracted_author(
+        self,
+        *,
+        name: str,
+        source: str,
+        confidence: float,
+        context: str,
+        structured: bool = False,
+    ) -> ExtractedAuthor | None:
+        cleaned_name = self._clean_candidate_name(name)
+        if not self._is_plausible_author_name(cleaned_name, context=context, structured=structured):
+            return None
+        return ExtractedAuthor(
+            name=cleaned_name,
+            source=source,
+            confidence=confidence,
+            context=context,
+        )
+
+    def _normalize_author_name(self, raw_value: object) -> str:
+        if isinstance(raw_value, str):
+            return raw_value.strip()
+        if isinstance(raw_value, list):
+            return ", ".join(str(part).strip() for part in raw_value if str(part).strip())
+        if isinstance(raw_value, dict):
+            for key in ("name", "author", "creator", "label"):
+                candidate = raw_value.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+        return ""
     
     def extract_from_book_inventory(
         self,
@@ -66,20 +238,22 @@ class AuthorExtractor:
                 name = author.name.strip()
                 if not name or name.lower() == "unknown":
                     continue
-                
-                extracted_author = ExtractedAuthor(
+                extracted_author = self._build_extracted_author(
                     name=name,
                     source=f"book_inventory:{book.title}",
-                    confidence=0.95,  # High confidence from structured data
+                    confidence=0.95,
                     context=f"Author of '{book.title}' ({book.first_publication_year})",
+                    structured=True,
                 )
+                if extracted_author is None:
+                    continue
                 
                 # Add variants if available
                 if book.title_transliteration:
                     extracted_author.name_variants.append(book.title_transliteration)
                 
                 extracted.append(extracted_author)
-                self.name_frequency[name] += 1
+                self._record_author(extracted_author)
         
         logger.info(f"Extracted {len(extracted)} authors from book inventory")
         return extracted
@@ -110,17 +284,27 @@ class AuthorExtractor:
                         if not line.strip():
                             continue
                         
-                        data = json.loads(line)
-                        author_name = data.get("author") or data.get("creator")
+                        try:
+                            data = json.loads(line)
+                        except json.JSONDecodeError as exc:
+                            logger.warning("Skipping malformed JSONL line in %s: %s", metadata_file.name, exc)
+                            continue
+                        if not isinstance(data, dict):
+                            continue
+                        author_name = self._normalize_author_name(data.get("author") or data.get("creator"))
                         
                         if author_name:
-                            extracted.append(ExtractedAuthor(
+                            author = self._build_extracted_author(
                                 name=author_name,
                                 source=f"metadata:{metadata_file.name}",
                                 confidence=0.9,
                                 context=data.get("title", ""),
-                            ))
-                            self.name_frequency[author_name] += 1
+                                structured=True,
+                            )
+                            if author is None:
+                                continue
+                            extracted.append(author)
+                            self._record_author(author)
             
             # Handle JSON
             elif metadata_file.suffix == ".json":
@@ -136,15 +320,21 @@ class AuthorExtractor:
                         items = []
                     
                     for item in items:
-                        author_name = item.get("author") or item.get("creator")
+                        if not isinstance(item, dict):
+                            continue
+                        author_name = self._normalize_author_name(item.get("author") or item.get("creator"))
                         if author_name:
-                            extracted.append(ExtractedAuthor(
+                            author = self._build_extracted_author(
                                 name=author_name,
                                 source=f"metadata:{metadata_file.name}",
                                 confidence=0.9,
                                 context=item.get("title", ""),
-                            ))
-                            self.name_frequency[author_name] += 1
+                                structured=True,
+                            )
+                            if author is None:
+                                continue
+                            extracted.append(author)
+                            self._record_author(author)
         
         except Exception as e:
             logger.error(f"Error reading metadata {metadata_file}: {e}")
@@ -176,10 +366,9 @@ class AuthorExtractor:
         
         # Armenian patterns
         patterns = [
-            r"[Գգ]րած[՝։]\s*([Ա-Ֆա-ֆ\s\.]{3,30})",  # Գրած՝ [Name]
-            r"[Հհ]եղինակ[՝։]\s*([Ա-Ֆա-ֆ\s\.]{3,30})",  # Հեղինակ՝ [Name]
-            r"([Ա-Ֆա-ֆ\s\.]{3,30})\s*\([Հհ]եղինակ\)",  # [Name] (հեղինակ)
-            r"([Ա-Ֆ]\.\s*[Ա-Ֆա-ֆ]{3,20})",  # Օ. Թունեան pattern (initial + surname)
+            r"[Գգ]րած[՝։]\s*([A-Za-zԱ-Ֆա-ֆ\s\.\-']{3,40})",
+            r"[Հհ]եղինակ[՝։]\s*([A-Za-zԱ-Ֆա-ֆ\s\.\-']{3,40})",
+            r"([A-Za-zԱ-Ֆա-ֆ\s\.\-']{3,40})\s*\([Հհ]եղինակ\)",
         ]
         
         for pattern in patterns:
@@ -188,26 +377,27 @@ class AuthorExtractor:
                 for match in matches:
                     # Try to get capture group, fallback to full match
                     try:
-                        name = match.group(1).strip()
-                    except IndexError:
-                        name = match.group(0).strip()
-                    
-                    # Basic validation
-                    if len(name) < 3 or len(name) > 30:
+                        name = (match.group(1) if match.lastindex else match.group(0)).strip()
+                    except (IndexError, AttributeError, TypeError) as exc:
+                        logger.warning("Pattern match group extraction failed for %s: %s", source_name, exc)
                         continue
                     
                     # Extract context
                     start = max(0, match.start() - 50)
                     end = min(len(text), match.end() + 50)
                     context = text[start:end]
-                    
-                    extracted.append(ExtractedAuthor(
+
+                    author = self._build_extracted_author(
                         name=name,
                         source=source_name,
-                        confidence=0.7,  # Lower confidence for pattern matching
+                        confidence=0.7,
                         context=context,
-                    ))
-                    self.name_frequency[name] += 1
+                        structured=False,
+                    )
+                    if author is None:
+                        continue
+                    extracted.append(author)
+                    self._record_author(author)
             except Exception as e:
                 logger.warning(f"Pattern matching error with pattern '{pattern}': {e}")
                 continue
@@ -379,8 +569,16 @@ def extract_authors_from_corpus(
     error_count = 0
     total_processed = 0
 
+    def should_try_inventory_source(path: Path | None) -> bool:
+        if path is None:
+            return False
+        if path.exists():
+            return True
+        normalized = path.as_posix().lower()
+        return normalized.endswith("data/book_inventory.jsonl") or path.name.lower() == "book_inventory.jsonl"
+
     # Extract from book inventory
-    if inventory_file and inventory_file.exists():
+    if should_try_inventory_source(inventory_file):
         try:
             inventory_manager = BookInventoryManager(inventory_file=str(inventory_file))
             extracted = extractor.extract_from_book_inventory(inventory_manager)

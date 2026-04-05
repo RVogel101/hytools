@@ -303,6 +303,7 @@ def _scrape_wol_lang(
 ) -> dict:
     """Scrape all WOL publications for one language and insert into MongoDB."""
     from hytools.ingestion._shared.helpers import insert_or_skip
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     stats = {
         "discovered": 0, "inserted": 0, "skipped": 0,
@@ -344,25 +345,24 @@ def _scrape_wol_lang(
         else:
             stats["ea"] += 1
 
-        meta = {
-            "source_type": "religious",
-            "source_language_code": detected_lc,
-            "source_language_codes": [detected_lc],
-            "wa_score": round(wa_score, 2),
-            "url_lang": wol.code,
-            "content_type": "article",
-            "writing_category": "religious",
-        }
-
-        if insert_or_skip(
-            client,
-            source=source_tag,
-            title=title or doc_url.rsplit("/", 1)[-1] or doc_url,
+        scraped = ScrapedDocument(
+            source_family=source_tag,
             text=body,
-            url=doc_url,
-            metadata=meta,
-            config=config,
-        ):
+            title=title or doc_url.rsplit("/", 1)[-1] or doc_url,
+            source_url=doc_url,
+            source_language_code=detected_lc,
+            internal_language_code="hy",
+            internal_language_branch="hye-w" if detected_lc == "hyw" else "hye-e",
+            source_type="religious",
+            content_type="article",
+            writing_category="religious",
+            wa_score=round(wa_score, 2),
+            extra={
+                "source_language_codes": [detected_lc],
+                "url_lang": wol.code,
+            },
+        )
+        if insert_or_skip(client, doc=scraped, config=config):
             stats["inserted"] += 1
             if stats["inserted"] % 100 == 0:
                 logger.info(

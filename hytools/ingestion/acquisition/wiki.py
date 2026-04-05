@@ -30,6 +30,7 @@ from hytools.ingestion._shared.helpers import (
     resolve_dump_date,
     WA_SCORE_THRESHOLD,
 )
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -92,19 +93,16 @@ def extract_wikipedia_to_mongodb(
                     continue
 
                 wiki_url = f"https://{language_code}.wikipedia.org/wiki/{title.replace(' ', '_')}"
-                ok = insert_or_skip(
-                    mongodb_client,
-                    source=source,
-                    title=title,
+                scraped = ScrapedDocument(
+                    source_family=source,
                     text=cleaned,
-                    url=wiki_url,
-                    metadata={
-                        "source_type": "encyclopedia",
-                        "source_language_code": language_code,
-                        "dump_file": name,
-                    },
-                    config=cfg,
+                    title=title,
+                    source_url=wiki_url,
+                    source_language_code=language_code,
+                    source_type="encyclopedia",
+                    extra={"dump_file": name},
                 )
+                ok = insert_or_skip(mongodb_client, doc=scraped, config=cfg)
                 if ok:
                     stats["inserted"] += 1
                     if stats["inserted"] % 1000 == 0:
@@ -378,20 +376,17 @@ def run_wikisource(config: dict) -> None:
 
                 url = f"https://hy.wikisource.org/wiki/{title.replace(' ', '_')}"
 
-                ok = insert_or_skip(
-                    mongodb_client,
-                    source="wikisource",
-                    title=title,
+                scraped = ScrapedDocument(
+                    source_family="wikisource",
                     text=text,
-                    url=url,
-                    metadata={
-                        "source_type": "literature",
-                        "category": cat_slug,
-                        "source_language_code": source_language_code,
-                        "wa_score": wa_score,
-                    },
-                    config=config,
+                    title=title,
+                    source_url=url,
+                    source_language_code=source_language_code,
+                    source_type="literature",
+                    wa_score=wa_score,
+                    extra={"category": cat_slug},
                 )
+                ok = insert_or_skip(mongodb_client, doc=scraped, config=config)
                 if ok:
                     stats["inserted"] += 1
                     logger.info(

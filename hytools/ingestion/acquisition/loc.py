@@ -40,6 +40,8 @@ from hytools.ingestion._shared.helpers import (
     save_catalog_to_mongodb,
     try_wa_filter,
 )
+from hytools.ingestion._shared.review_queue import get_review_collection, maybe_enqueue_language_review
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
 logger = logging.getLogger(__name__)
 _STAGE = "loc"
@@ -467,6 +469,7 @@ def _download_and_ingest(
     """Download all items and insert directly to MongoDB. No file writes. Updates catalog in MongoDB."""
     stats = {"inserted": 0, "duplicates": 0, "skipped_wa": 0, "skipped_short": 0, "errors": 0}
     error_log: list[tuple[str, int, str]] = []
+    review_coll = get_review_collection(client)
 
     to_process = [
         (item_id, item)
@@ -503,6 +506,17 @@ def _download_and_ingest(
 
         if apply_wa_filter:
             result = try_wa_filter(text[:5000])
+            maybe_enqueue_language_review(
+                review_coll,
+                stage=_STAGE,
+                item_id=item_id,
+                text=text[:5000],
+                title=item.get("title", item_id),
+                source_url=item.get("url", f"https://www.loc.gov/item/{item_id}/"),
+                queue_source="loc",
+                rejected=result is False,
+                extra={"catalog_source": "loc"},
+            )
             if result is False:
                 item["ingested"] = False
                 stats["skipped_wa"] += 1
@@ -511,15 +525,15 @@ def _download_and_ingest(
 
         ok = insert_or_skip(
             client,
-            source="loc",
-            title=item.get("title", item_id),
-            text=text,
-            url=item.get("url", f"https://www.loc.gov/item/{item_id}/"),
-            metadata={
-                "source_type": "library",
-                "loc_id": item_id,
-                "date": item.get("date", ""),
-            },
+            doc=ScrapedDocument(
+                source_family="loc",
+                text=text,
+                title=item.get("title", item_id),
+                source_url=item.get("url", f"https://www.loc.gov/item/{item_id}/"),
+                source_type="library",
+                catalog_id=item_id,
+                extra={"loc_id": item_id, "date": item.get("date", "")},
+            ),
             config=config,
         )
         item["ingested"] = ok

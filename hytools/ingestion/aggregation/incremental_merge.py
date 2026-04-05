@@ -1,53 +1,110 @@
-"""Incremental merge stage: process only updated/added documents since last run."""
+"""Incremental merge stage: apply document deltas to frequency state."""
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
 
-def _get_last_merge_timestamp(client):
-    meta = client.get_latest_metadata("incremental_merge") or {}
-    ts = meta.get("timestamp")
-    return ts
+def _get_last_merge_marker(client):
+    merge_meta = client.get_latest_metadata("incremental_merge") or {}
+    marker = merge_meta.get("last_enrichment_date")
+    if marker:
+        return marker
+
+    rebuild_meta = client.get_latest_metadata("frequency_aggregator") or {}
+    return rebuild_meta.get("last_enrichment_date")
 
 
-def _build_query(last_ts: datetime | None) -> dict:
-    if not last_ts:
-        # First-time run: process all docs with any enriched metadata
-        return {"metadata.enrichment_date": {"$exists": True}}
-    return {"metadata.enrichment_date": {"$gt": last_ts}}
+def _build_query(base_query: dict, last_marker: str | None) -> dict:
+    query = dict(base_query)
+    if not last_marker:
+        query["metadata.enrichment_date"] = {"$exists": True}
+        return query
+
+    query["metadata.enrichment_date"] = {"$gt": last_marker}
+    return query
+
+
+def _find_stale_document_state_ids(client, base_query: dict, doc_state_col, batch_size: int = 1000) -> list:
+    stale_ids: list = []
+    pending_ids: list = []
+
+    def _flush_batch() -> None:
+        if not pending_ids:
+            return
+        query = dict(base_query)
+        query["_id"] = {"$in": list(pending_ids)}
+        active_ids = {
+            doc["_id"]
+            for doc in client.documents.find(query, {"_id": 1})
+        }
+        stale_ids.extend(doc_id for doc_id in pending_ids if doc_id not in active_ids)
+        pending_ids.clear()
+
+    for state in doc_state_col.find({}, {"_id": 1}):
+        pending_ids.append(state["_id"])
+        if len(pending_ids) >= batch_size:
+            _flush_batch()
+
+    _flush_batch()
+    return stale_ids
 
 
 def run(config: dict) -> None:
     from hytools.ingestion._shared.helpers import open_mongodb_client
+    from hytools.ingestion.aggregation import frequency_aggregator
 
     with open_mongodb_client(config) as client:
         if client is None:
             raise RuntimeError("MongoDB is required for incremental merge")
 
-        last_ts = _get_last_merge_timestamp(client)
-        query = _build_query(last_ts)
-        docs_col = client.documents
+        base_query = frequency_aggregator._build_docs_query(config)
+        query_signature = frequency_aggregator._query_signature(base_query)
+        state_meta = client.get_latest_metadata("frequency_aggregator") or {}
 
-        total_docs = docs_col.count_documents(query)
-        logger.info("Incremental merge: found %d docs to process", total_docs)
+        freq_col, doc_state_col, source_totals_col, source_stats_col = frequency_aggregator._get_collections(client)
+        frequency_aggregator._ensure_indexes(freq_col, doc_state_col, source_totals_col, source_stats_col)
 
-        # For now, this stage reuses frequency_aggregator on the subset of docs.
-        # It writes a fresh word_frequencies collection at minimal run count.
-        # TODO: optimize to update only changed words instead of full rebuild.
+        needs_bootstrap = (
+            state_meta.get("query_signature") != query_signature
+            or (
+                client.documents.count_documents(base_query) > 0
+                and doc_state_col.count_documents({}) == 0
+            )
+        )
 
-        from hytools.ingestion.aggregation.frequency_aggregator import run as run_freq
-
-        config_copy = dict(config)
-        config_copy.setdefault("ingestion", {}).setdefault("frequency_aggregator", {})
-        config_copy["ingestion"]["frequency_aggregator"]["_document_filter"] = query
-
-        run_freq(config_copy)
+        if needs_bootstrap:
+            logger.info("Incremental merge: bootstrapping frequency state from current corpus")
+            summary = frequency_aggregator._run_full_rebuild(client, config)
+            summary["note"] = "bootstrapped_full_rebuild"
+        else:
+            last_marker = _get_last_merge_marker(client)
+            query = _build_query(base_query, last_marker)
+            total_docs = client.documents.count_documents(query)
+            stale_doc_ids = _find_stale_document_state_ids(client, base_query, doc_state_col)
+            logger.info(
+                "Incremental merge: found %d changed docs and %d stale document states to reconcile",
+                total_docs,
+                len(stale_doc_ids),
+            )
+            summary = frequency_aggregator.run_incremental_update(
+                client,
+                config,
+                query,
+                removed_doc_ids=stale_doc_ids,
+            )
+            if summary.get("last_enrichment_date") is None and last_marker:
+                summary["last_enrichment_date"] = last_marker
+            if summary.get("removed_docs_processed"):
+                summary["note"] = "reconciled_stale_document_state"
 
         client.metadata.replace_one(
             {"stage": "incremental_merge"},
-            {"stage": "incremental_merge", "timestamp": datetime.now(timezone.utc), "docs_processed": total_docs},
+            frequency_aggregator._build_frequency_metadata_doc(
+                "incremental_merge",
+                summary,
+                query_signature,
+            ),
             upsert=True,
         )

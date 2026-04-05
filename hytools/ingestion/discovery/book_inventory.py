@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import os
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -19,8 +20,18 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+
+def _is_default_inventory_path(inventory_file: str | Path) -> bool:
+    candidate = Path(inventory_file)
+    expected = Path("data") / "book_inventory.jsonl"
+    try:
+        return candidate.as_posix().rstrip("/") == expected.as_posix()
+    except Exception:
+        return str(inventory_file).replace("\\", "/").rstrip("/") == expected.as_posix()
+
 # Armenian Unicode range
 _ARMENIAN_RE = re.compile(r"[\u0530-\u058F]+")
+_LATIN_RE = re.compile(r"[A-Za-z]+")
 
 # Context markers that indicate a following phrase is a book/manuscript title.
 # Includes Western (WA) and Eastern (EA) Armenian plus Latin for mixed text.
@@ -85,6 +96,58 @@ _EXCLUDE_INSTITUTIONS = {
     # Latin
     "mekhitarean", "nubarean",
 }
+
+_IMPLAUSIBLE_TITLE_TAG = "implausible_title"
+_TITLE_ISSUE_PREFIX = "title_issue:"
+_TITLE_STRIP_CHARS = " \t\r\n\"'«»"
+
+
+def normalize_inventory_title(title: str) -> str:
+    """Normalize whitespace and wrapper punctuation around an inventory title."""
+    collapsed = re.sub(r"\s+", " ", (title or "")).strip()
+    return collapsed.strip(_TITLE_STRIP_CHARS)
+
+
+def assess_title_plausibility(
+    title: str,
+    *,
+    min_armenian_ratio: float = 0.6,
+    min_title_len: int = 3,
+    max_title_len: int = 160,
+) -> tuple[bool, list[str]]:
+    """Return whether a title looks plausible enough for acquisition planning.
+
+    The filter is intentionally conservative: it rejects empty strings, titles
+    with too little Armenian script, obvious mixed-script OCR corruption, and
+    entries that are more likely places or institutions than works.
+    """
+    normalized = normalize_inventory_title(title)
+    reasons: list[str] = []
+
+    if not normalized:
+        return False, ["empty"]
+    if not (min_title_len <= len(normalized) <= max_title_len):
+        reasons.append("length")
+
+    armenian_chars = sum(1 for char in normalized if "\u0530" <= char <= "\u058F")
+    alpha_chars = sum(1 for char in normalized if char.isalpha())
+    if armenian_chars == 0:
+        reasons.append("no_armenian_script")
+    elif alpha_chars and (armenian_chars / max(alpha_chars, 1)) < min_armenian_ratio:
+        reasons.append("low_armenian_ratio")
+
+    if armenian_chars and _LATIN_RE.search(normalized):
+        reasons.append("mixed_script_alpha")
+
+    normalized_lower = normalized.lower()
+    if normalized.startswith(_EXCLUDE_PERSON_PREFIXES):
+        reasons.append("person_prefix")
+    if normalized_lower in {place.lower() for place in _EXCLUDE_PLACES}:
+        reasons.append("place_name")
+    if any(inst.lower() in normalized_lower for inst in _EXCLUDE_INSTITUTIONS):
+        reasons.append("institution_name")
+
+    return len(reasons) == 0, list(dict.fromkeys(reasons))
 
 
 class CoverageStatus(str, Enum):
@@ -304,33 +367,31 @@ class BookInventoryManager:
                             self.config = cfg
             except Exception:
                 # Best-effort: leave config empty if YAML not available or parse fails
-                pass
+                logger.debug("Failed to load settings.yaml for book inventory", exc_info=True)
         # When running tests, prefer an isolated test database to avoid
         # loading or modifying a developer's production DB. Detect pytest
         # via environment and set a test database name if not already set.
         try:
-            import os
             if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("HYTOOLS_TESTING"):
                 db_cfg = self.config.setdefault("database", {})
                 # Use a short, deterministic test DB name including PID
                 test_db = f"hytools_test_{os.getpid()}"
                 db_cfg.setdefault("mongodb_database", test_db)
         except Exception:
-            pass
+            logger.debug("Failed to set test database from environment", exc_info=True)
         # If an explicit inventory_file path was provided (typically by tests),
         # prefer using an isolated test database name to avoid touching a user's
         # real database even if settings.yaml points to localhost.
         try:
-            if str(inventory_file) != "data/book_inventory.jsonl":
+            if not _is_default_inventory_path(inventory_file):
                 db_cfg = self.config.setdefault("database", {})
                 test_db = f"hytools_test_{os.getpid()}"
                 # Always force test DB when using isolated inventory file in tests.
                 db_cfg["mongodb_database"] = test_db
         except Exception:
-            pass
+            logger.debug("Failed to override DB for isolated inventory file", exc_info=True)
         # Allow environment variables to override DB connection for test runs
         try:
-            import os
             db_cfg = self.config.setdefault("database", {})
             env_uri = os.environ.get("HYTOOLS_MONGODB_URI")
             env_db = os.environ.get("HYTOOLS_MONGODB_DATABASE")
@@ -339,7 +400,7 @@ class BookInventoryManager:
             if env_db:
                 db_cfg["mongodb_database"] = env_db
         except Exception:
-            pass
+            logger.debug("Failed to read environment variable overrides for DB config", exc_info=True)
         self._use_mongodb = bool(
             self.config.get("database", {}).get("mongodb_uri")
         )
@@ -347,7 +408,7 @@ class BookInventoryManager:
 
         # If an explicit inventory file path was provided (tests/temporary files),
         # use isolated JSONL-backed manager mode and skip MongoDB entirely.
-        if str(inventory_file) != "data/book_inventory.jsonl":
+        if not _is_default_inventory_path(inventory_file):
             self._use_mongodb = False
             logger.info("Using isolated inventory file path; loading JSONL and skipping MongoDB operations.")
             if self.inventory_file.exists():
@@ -382,6 +443,52 @@ class BookInventoryManager:
     def add_books_batch(self, books: list[BookInventoryEntry]) -> None:
         """Add multiple books."""
         self.books.extend(books)
+
+    def cleanup_titles(self) -> dict[str, int]:
+        """Normalize titles and flag implausible entries for later review."""
+        stats = {
+            "total_books": len(self.books),
+            "normalized_titles": 0,
+            "flagged_implausible_titles": 0,
+            "cleared_implausible_flags": 0,
+        }
+
+        for book in self.books:
+            changed = False
+            normalized = normalize_inventory_title(book.title)
+            if normalized != book.title:
+                book.title = normalized
+                stats["normalized_titles"] += 1
+                changed = True
+
+            plausible, reasons = assess_title_plausibility(book.title)
+            existing_tags = list(book.tags)
+            filtered_tags = [
+                tag
+                for tag in existing_tags
+                if tag != _IMPLAUSIBLE_TITLE_TAG and not tag.startswith(_TITLE_ISSUE_PREFIX)
+            ]
+
+            if plausible:
+                if len(filtered_tags) != len(existing_tags):
+                    stats["cleared_implausible_flags"] += 1
+                    changed = True
+            else:
+                if _IMPLAUSIBLE_TITLE_TAG not in existing_tags:
+                    stats["flagged_implausible_titles"] += 1
+                filtered_tags.append(_IMPLAUSIBLE_TITLE_TAG)
+                filtered_tags.extend(f"{_TITLE_ISSUE_PREFIX}{reason}" for reason in reasons)
+                changed = True
+
+            deduped_tags = list(dict.fromkeys(filtered_tags))
+            if deduped_tags != book.tags:
+                book.tags = deduped_tags
+                changed = True
+
+            if changed:
+                book.metadata_last_updated = datetime.now().isoformat()
+
+        return stats
     
     def find_by_title(self, title: str, fuzzy: bool = False) -> list[BookInventoryEntry]:
         """Find books by title."""

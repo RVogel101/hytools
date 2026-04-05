@@ -304,6 +304,25 @@ class CorpusMetadataTagger:
     }
 
 
+def _get_metadata_tagger_config(config: dict) -> dict:
+    scraping_cfg = config.get("scraping", {}).get("metadata_tagger") or {}
+    ingestion_cfg = config.get("ingestion", {}).get("metadata_tagger") or {}
+    merged: dict = {}
+    if isinstance(scraping_cfg, dict):
+        merged.update(scraping_cfg)
+    if isinstance(ingestion_cfg, dict):
+        merged.update(ingestion_cfg)
+
+    review_cfg: dict = {}
+    if isinstance(scraping_cfg, dict) and isinstance(scraping_cfg.get("review_queue"), dict):
+        review_cfg.update(scraping_cfg["review_queue"])
+    if isinstance(ingestion_cfg, dict) and isinstance(ingestion_cfg.get("review_queue"), dict):
+        review_cfg.update(ingestion_cfg["review_queue"])
+    if review_cfg:
+        merged["review_queue"] = review_cfg
+    return merged
+
+
 def get_source_metadata(source: str) -> dict:
     """Return enrichment metadata dict for a given source identifier.
 
@@ -425,6 +444,16 @@ def _enrich_document(doc: dict, source: str, text: str = "", analyzer: object | 
     return updates
 
 
+def _should_enqueue_language_review(existing: dict, updates: dict, text: str) -> bool:
+    if not text.strip():
+        return False
+    if "metadata.internal_language_branch" in updates:
+        return True
+    if existing.get("wa_score") is None and "metadata.wa_score" in updates:
+        return True
+    return False
+
+
 def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
     """Compute all MongoDB updates for one document (primary enrichment + backfill).
 
@@ -448,6 +477,8 @@ def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
     result: dict = {
         "doc_id": doc["_id"],
         "source": source,
+        "title": str(doc.get("title") or ""),
+        "source_url": str(existing.get("url") or existing.get("source_url") or ""),
         "char_count": char_count,
         "word_count": word_count,
         "write_op": None,
@@ -455,6 +486,10 @@ def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
         "was_backfilled": False,
         "text_metrics_computed": False,
         "text_metrics_error": False,
+        "review_candidate": False,
+        "review_text": "",
+        "internal_language_branch": existing.get("internal_language_branch"),
+        "wa_score": existing.get("wa_score"),
     }
 
     # Stats fields are always backfilled regardless of path
@@ -530,8 +565,43 @@ def _process_doc_for_run(doc: dict, analyzer: object | None) -> dict:
             result["was_backfilled"] = True
 
     if combined:
+        result["review_candidate"] = _should_enqueue_language_review(existing, combined, text)
+        if result["review_candidate"]:
+            result["review_text"] = text[:12000]
+            result["internal_language_branch"] = combined.get(
+                "metadata.internal_language_branch",
+                existing.get("internal_language_branch"),
+            )
+            result["wa_score"] = combined.get("metadata.wa_score", existing.get("wa_score"))
         result["write_op"] = _UpdateOne({"_id": doc["_id"]}, {"$set": combined})
     return result
+
+
+def _maybe_enqueue_review_for_result(collection, review_cfg: dict, result: dict) -> str | None:
+    if collection is None or not result.get("review_candidate"):
+        return None
+
+    from hytools.ingestion._shared.review_queue import maybe_enqueue_language_review
+    from hytools.linguistics.dialect.review_audit import get_stage_review_settings
+
+    review_settings = get_stage_review_settings("metadata_tagger", review_cfg)
+
+    return maybe_enqueue_language_review(
+        collection,
+        stage="metadata_tagger",
+        item_id=str(result["doc_id"]),
+        text=result.get("review_text", ""),
+        title=result.get("title", ""),
+        source_url=result.get("source_url", ""),
+        queue_source=str(review_settings.get("queue_source", "ingestion") or "ingestion"),
+        confidence_threshold=float(review_settings.get("confidence_threshold", 0.35) or 0.35),
+        score_margin_threshold=float(review_settings.get("score_margin_threshold", 2.0) or 2.0),
+        extra={
+            "source": result.get("source", ""),
+            "internal_language_branch": result.get("internal_language_branch"),
+            "wa_score": result.get("wa_score"),
+        },
+    )
 
 
 def run(config: dict) -> None:
@@ -551,8 +621,8 @@ def run(config: dict) -> None:
 
     from hytools.ingestion._shared.helpers import open_mongodb_client
 
-    scrape_cfg = config.get("scraping", {}).get("metadata_tagger", {}) or {}
-    output_csv = scrape_cfg.get("output_csv")
+    tagger_cfg = _get_metadata_tagger_config(config)
+    output_csv = tagger_cfg.get("output_csv")
     csv_path: Path | None = None
     if output_csv is True:
         csv_path = Path(config.get("paths", {}).get("log_dir", "data/logs")) / "metadata_tagger_report.csv"
@@ -573,10 +643,20 @@ def run(config: dict) -> None:
         stats_updated = 0
         text_metrics_computed = 0
         text_metrics_errors = 0
+        review_enqueued = 0
         _LOG_INTERVAL = 500
 
-        workers = max(1, scrape_cfg.get("workers", 4))
-        chunk_size = max(10, scrape_cfg.get("write_batch_size", 200))
+        workers = max(1, tagger_cfg.get("workers", 4))
+        chunk_size = max(10, tagger_cfg.get("write_batch_size", 200))
+        review_cfg = tagger_cfg.get("review_queue") or {}
+        review_enabled = bool(review_cfg.get("enabled"))
+        review_collection = None
+        if review_enabled:
+            from hytools.ingestion._shared.review_queue import get_review_collection
+
+            review_collection = get_review_collection(client)
+            if review_collection is None:
+                logger.warning("metadata_tagger: review_queue enabled but no review collection is available")
 
         # Pre-initialize the expensive QuantitativeLinguisticsAnalyzer once and share
         # it across all worker threads.  It is read-only after __init__ → thread-safe.
@@ -643,10 +723,15 @@ def run(config: dict) -> None:
                 if bulk_ops:
                     docs.bulk_write(bulk_ops, ordered=False)
 
+                if review_collection is not None:
+                    for r in results:
+                        if _maybe_enqueue_review_for_result(review_collection, review_cfg, r):
+                            review_enqueued += 1
+
                 if processed - _last_logged >= _LOG_INTERVAL:
                     logger.info(
-                        "  progress: %d/%d docs — enriched=%d  backfilled=%d  text_metrics=%d  errors=%d",
-                        processed, total, enriched, stats_updated, text_metrics_computed, text_metrics_errors,
+                        "  progress: %d/%d docs — enriched=%d  backfilled=%d  text_metrics=%d  review=%d  errors=%d",
+                        processed, total, enriched, stats_updated, text_metrics_computed, review_enqueued, text_metrics_errors,
                     )
                     _last_logged = processed
 
@@ -670,13 +755,17 @@ def run(config: dict) -> None:
                 "stats_updated": stats_updated,
                 "text_metrics_computed": text_metrics_computed,
                 "text_metrics_errors": text_metrics_errors,
+                "review_enqueued": review_enqueued,
             },
             upsert=True,
         )
 
         logger.info(
             "Metadata enrichment complete: %d enriched, %d skipped (already tagged), "
-            "%d stats backfilled, %d text_metrics computed, %d text_metrics errors, %d total",
-            enriched, skipped, stats_updated, text_metrics_computed, text_metrics_errors, total,
+            "%d stats backfilled, %d text_metrics computed, %d review items, %d text_metrics errors, %d total",
+            enriched, skipped, stats_updated, text_metrics_computed, review_enqueued, text_metrics_errors, total,
         )
-        print(f"Metadata enrichment: {enriched} enriched, {skipped} already tagged, {stats_updated} stats backfilled, {total} total")
+        print(
+            f"Metadata enrichment: {enriched} enriched, {skipped} already tagged, "
+            f"{stats_updated} stats backfilled, {review_enqueued} review items, {total} total"
+        )
