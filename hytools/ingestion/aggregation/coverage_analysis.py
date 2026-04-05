@@ -446,7 +446,7 @@ class CoverageAnalyzer:
                 "impact_score": round(g.impact_score, 2),
                 "metadata": dict(g.metadata or {}),
             }
-        priorities_by_filter: dict[str, list[dict]] = {
+        priorities_by_filter: dict[str, Any] = {
             "all": [row(g) for g in gaps],
             "high": [row(g) for g in gaps if g.priority == "high"],
             "medium": [row(g) for g in gaps if g.priority == "medium"],
