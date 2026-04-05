@@ -319,6 +319,7 @@ def run(config: dict) -> None:
             request_delay: 2.0
     """
     from hytools.ingestion._shared.helpers import open_mongodb_client, insert_or_skip
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     src_cfg = config.get("scraping", {}).get("english_sources", {})
 
@@ -362,16 +363,21 @@ def run(config: dict) -> None:
                 continue
             if insert_or_skip(
                 client,
-                source=source_tag,
-                title=title,
-                text=text,
-                url=article.get("url"),
-                metadata={
-                    "source_type": "academic",
-                    "category": article.get("category", ""),
-                    "tags": article.get("tags", []),
-                    "language": "en",
-                },
+                doc=ScrapedDocument(
+                    source_family=source_tag,
+                    text=text,
+                    title=title,
+                    source_url=article.get("url"),
+                    source_type="academic",
+                    source_language_code="en",
+                    internal_language_code="eng",
+                    internal_language_branch="eng",
+                    extra={
+                        "category": article.get("category", ""),
+                        "tags": article.get("tags", []),
+                        "language": "en",
+                    },
+                ),
                 config=config,
             ):
                 mongo_inserted += 1

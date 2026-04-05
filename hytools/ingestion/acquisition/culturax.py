@@ -64,6 +64,7 @@ def run(config: dict) -> None:
     from datasets import load_dataset  # type: ignore[import]
 
     from hytools.ingestion._shared.helpers import insert_or_skip, open_mongodb_client
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     scrape_cfg = config.get("scraping", {}).get("culturax", {})
     dataset_name: str = scrape_cfg.get("dataset_name", "uonlp/CulturaX")
@@ -105,18 +106,18 @@ def run(config: dict) -> None:
 
                 title = (doc.get("url", "") or f"culturax_{processed}") if isinstance(doc, dict) else f"culturax_{processed}"
                 doc_url = (doc.get("url", "") if isinstance(doc, dict) else "") or None
-                if insert_or_skip(
-                    mongodb_client,
-                    source="culturax",
-                    title=str(title),
+                source_lang = "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy"
+                scraped = ScrapedDocument(
+                    source_family="culturax",
                     text=text,
-                    url=doc_url,
-                    metadata={
-                        "source_type": "web_crawl",
-                        "source_language_code": "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy",
-                    },
-                    config=config,
-                ):
+                    title=str(title),
+                    source_url=doc_url,
+                    source_language_code=source_lang,
+                    internal_language_code="hy",
+                    internal_language_branch="hye-w" if dialect == "western_armenian" else "hye-e" if dialect == "eastern_armenian" else None,
+                    source_type="web_crawl",
+                )
+                if insert_or_skip(mongodb_client, doc=scraped, config=config):
                     written += 1
 
                 if processed % 10_000 == 0:

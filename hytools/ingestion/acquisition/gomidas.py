@@ -32,6 +32,8 @@ from hytools.ingestion._shared.helpers import (
     save_catalog_to_mongodb,
     try_wa_filter,
 )
+from hytools.ingestion._shared.review_queue import get_review_collection, maybe_enqueue_language_review
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
 logger = logging.getLogger(__name__)
 _STAGE = "gomidas"
@@ -124,6 +126,7 @@ def _download_pdf_and_ocr(url: str, key: str) -> str | None:
 def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None = None) -> dict:
     """Download PDFs, OCR, insert to MongoDB. No file persistence."""
     stats = {"inserted": 0, "duplicates": 0, "skipped": 0}
+    review_coll = get_review_collection(client)
     for i, (key, item) in enumerate(catalog.items(), 1):
         if item.get("downloaded") and item.get("ingested") is not None:
             continue
@@ -142,21 +145,33 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
             time.sleep(_REQUEST_DELAY)
             continue
 
-        if try_wa_filter(text[:5000]) is False:
+        wa_filter_result = try_wa_filter(text[:5000])
+        maybe_enqueue_language_review(
+            review_coll,
+            stage=_STAGE,
+            item_id=key,
+            text=text[:5000],
+            title=item.get("title", key),
+            source_url=url,
+            queue_source="gomidas",
+            rejected=wa_filter_result is False,
+            extra={"catalog_source": "gomidas"},
+        )
+        if wa_filter_result is False:
             item["ingested"] = False
             stats["skipped"] += 1
             time.sleep(_REQUEST_DELAY)
             continue
 
-        ok = insert_or_skip(
-            client,
-            source="gomidas",
-            title=item.get("title", key),
+        scraped = ScrapedDocument(
+            source_family="gomidas",
             text=text,
-            url=url,
-            metadata={"source_type": "newspaper", "format": "pdf"},
-            config=config,
+            title=item.get("title", key),
+            source_url=url,
+            source_type="newspaper",
+            extra={"format": "pdf"},
         )
+        ok = insert_or_skip(client, doc=scraped, config=config)
         item["ingested"] = ok
         if ok:
             stats["inserted"] += 1

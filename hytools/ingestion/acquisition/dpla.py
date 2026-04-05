@@ -57,6 +57,7 @@ from hytools.ingestion._shared.helpers import (
     open_mongodb_client,
     WA_SCORE_THRESHOLD,
 )
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 from hytools.ingestion.enrichment.metadata_tagger import get_source_metadata
 
 logger = logging.getLogger(__name__)
@@ -301,7 +302,7 @@ def _run_query(
                     elif norm["source_language_code"] in ("hy", "und"):
                         meta["source_language_code"] = "hye"
                 except Exception:
-                    pass
+                    logger.debug("WA score computation failed for DPLA item", exc_info=True)
             elif norm["source_language_code"] == "hy":
                 # No text but DPLA tagged as Armenian — default to Eastern Armenian
                 meta["source_language_code"] = "hye"
@@ -312,12 +313,21 @@ def _run_query(
                     meta["source_language_code"] = "hye"
             ok = insert_or_skip(
                 client,
-                source="dpla",
-                title=norm["title"],
-                text=norm["text"],
-                url=norm["url"],
-                author=norm.get("author"),
-                metadata=meta,
+                doc=ScrapedDocument(
+                    source_family="dpla",
+                    text=norm["text"],
+                    title=norm["title"],
+                    source_url=norm["url"],
+                    author=norm.get("author"),
+                    source_language_code=meta.get("source_language_code"),
+                    wa_score=meta.get("wa_score"),
+                    writing_category=norm["writing_category"],
+                    extra={
+                        "dpla_id": norm.get("dpla_id"),
+                        "data_provider": norm.get("data_provider"),
+                        **{k: v for k, v in meta.items() if k not in ("source_language_code", "wa_score", "writing_category")},
+                    },
+                ),
                 config=config,
             )
             if ok:

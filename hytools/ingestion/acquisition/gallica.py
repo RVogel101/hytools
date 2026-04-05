@@ -39,6 +39,7 @@ from hytools.ingestion._shared.helpers import (
     save_catalog_to_mongodb,
     WA_SCORE_THRESHOLD,
 )
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
 logger = logging.getLogger(__name__)
 _STAGE = "gallica"
@@ -213,18 +214,23 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
         lang_code = "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy"
         ok = insert_or_skip(
             client,
-            source="gallica",
-            title=item.get("title", ark),
-            text=text.strip(),
-            url=f"https://gallica.bnf.fr/ark:/12148/{ark}",
-            metadata={
-                "source_type": "library",
-                "ark": ark,
-                "source_language_code": lang_code,
-                "publication_date": item.get("date") or None,
-                "gallica_date": item.get("date", ""),
-                "gallica_creator": item.get("creator", ""),
-            },
+            doc=ScrapedDocument(
+                source_family="gallica",
+                text=text.strip(),
+                title=item.get("title", ark),
+                source_url=f"https://gallica.bnf.fr/ark:/12148/{ark}",
+                source_language_code=lang_code,
+                internal_language_code="hy",
+                internal_language_branch="hye-w" if dialect == "western_armenian" else "hye-e" if dialect == "eastern_armenian" else None,
+                source_type="library",
+                publication_date=item.get("date") or None,
+                catalog_id=ark,
+                extra={
+                    "ark": ark,
+                    "gallica_date": item.get("date", ""),
+                    "gallica_creator": item.get("creator", ""),
+                },
+            ),
             config=config,
         )
         item["ingested"] = ok

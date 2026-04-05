@@ -236,6 +236,7 @@ def _scrape_agos(
 ) -> dict:
     """Scrape all Agos Armenian articles and insert into MongoDB."""
     from hytools.ingestion._shared.helpers import insert_or_skip
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     stats = {
         "discovered": 0, "inserted": 0, "skipped": 0,
@@ -273,24 +274,21 @@ def _scrape_agos(
         else:
             stats["ea"] += 1
 
-        meta = {
-            "source_type": "newspaper",
-            "source_language_code": detected_lc,
-            "source_language_codes": [detected_lc],
-            "wa_score": round(wa_score, 2),
-            "content_type": "article",
-            "writing_category": "diaspora",
-        }
-
-        if insert_or_skip(
-            client,
-            source=source_tag,
-            title=title or article_url.rsplit("/", 1)[-1] or article_url,
+        scraped = ScrapedDocument(
+            source_family=source_tag,
             text=body,
-            url=article_url,
-            metadata=meta,
-            config=config,
-        ):
+            title=title or article_url.rsplit("/", 1)[-1] or article_url,
+            source_url=article_url,
+            source_language_code=detected_lc,
+            internal_language_code="hy",
+            internal_language_branch="hye-w" if detected_lc == "hyw" else "hye-e",
+            source_type="newspaper",
+            content_type="article",
+            writing_category="diaspora",
+            wa_score=round(wa_score, 2),
+            extra={"source_language_codes": [detected_lc]},
+        )
+        if insert_or_skip(client, doc=scraped, config=config):
             stats["inserted"] += 1
             if stats["inserted"] % 100 == 0:
                 logger.info(

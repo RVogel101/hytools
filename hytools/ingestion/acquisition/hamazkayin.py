@@ -192,7 +192,7 @@ def _scrape_via_wp_api(
                             pdf_url = urljoin(site["base_url"], href)
                             _ingest_pdf(session, pdf_url, client, site["source_tag"], config)
                 except Exception:
-                    pass
+                    logger.debug("PDF discovery failed for %s", url, exc_info=True)
 
                 detected_lc, wa_score = _classify(body)
                 if detected_lc == "hyw":
@@ -200,24 +200,26 @@ def _scrape_via_wp_api(
                 else:
                     stats["ea"] += 1
 
-                meta = {
-                    "source_type": "literary" if site["name"] == "pakine" else "cultural",
-                    "source_language_code": detected_lc,
-                    "source_language_codes": [detected_lc],
-                    "wa_score": round(wa_score, 2),
-                    "content_type": site["content_type"],
-                    "writing_category": site["writing_category"],
-                    "published_at": post.get("date"),
-                    "wp_type": endpoint,
-                }
-
                 if insert_or_skip(
                     client,
-                    source=site["source_tag"],
-                    title=title,
-                    text=body,
-                    url=url,
-                    metadata=meta,
+                    doc=ScrapedDocument(
+                        source_family=site["source_tag"],
+                        text=body,
+                        title=title,
+                        source_url=url,
+                        source_language_code=detected_lc,
+                        internal_language_code="hy",
+                        internal_language_branch="hye-w" if detected_lc == "hyw" else "hye-e",
+                        source_type="literary" if site["name"] == "pakine" else "cultural",
+                        content_type=site["content_type"],
+                        writing_category=site["writing_category"],
+                        wa_score=round(wa_score, 2),
+                        extra={
+                            "source_language_codes": [detected_lc],
+                            "published_at": post.get("date"),
+                            "wp_type": endpoint,
+                        },
+                    ),
                     config=config,
                 ):
                     stats["inserted"] += 1
@@ -251,6 +253,7 @@ def _ingest_pdf(session: requests.Session, pdf_url: str, client, source_tag: str
     Uses `insert_or_skip` to avoid duplicates by URL/title.
     """
     from hytools.ingestion._shared.helpers import insert_or_skip
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     try:
         # simple duplicate check via Mongo (insert_or_skip will also dedupe)
@@ -260,12 +263,14 @@ def _ingest_pdf(session: requests.Session, pdf_url: str, client, source_tag: str
             # Already downloaded; still ensure record exists
             insert_or_skip(
                 client,
-                source=source_tag,
-                title=fname,
-                text=None,
-                url=pdf_url,
-                author=None,
-                metadata={"file_path": str(local_path), "ocr_status": "pending", "source_type": "pdf"},
+                doc=ScrapedDocument(
+                    source_family=source_tag,
+                    text=None,
+                    title=fname,
+                    source_url=pdf_url,
+                    source_type="pdf",
+                    extra={"file_path": str(local_path), "ocr_status": "pending"},
+                ),
                 config=config,
             )
             return
@@ -279,12 +284,14 @@ def _ingest_pdf(session: requests.Session, pdf_url: str, client, source_tag: str
 
         insert_or_skip(
             client,
-            source=source_tag,
-            title=fname,
-            text=None,
-            url=pdf_url,
-            author=None,
-            metadata={"file_path": str(local_path), "ocr_status": "pending", "source_type": "pdf"},
+            doc=ScrapedDocument(
+                source_family=source_tag,
+                text=None,
+                title=fname,
+                source_url=pdf_url,
+                source_type="pdf",
+                extra={"file_path": str(local_path), "ocr_status": "pending"},
+            ),
             config=config,
         )
     except Exception as exc:
@@ -300,6 +307,7 @@ def _scrape_via_html_fallback(
 ) -> dict:
     """Fallback HTML scraper if WP REST API is unavailable."""
     from hytools.ingestion._shared.helpers import insert_or_skip
+    from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
     stats = {"discovered": 0, "inserted": 0, "skipped": 0, "failed": 0, "wa": 0, "ea": 0}
     base_url = site["base_url"]
@@ -378,22 +386,22 @@ def _scrape_via_html_fallback(
             else:
                 stats["ea"] += 1
 
-            meta = {
-                "source_type": "literary" if site["name"] == "pakine" else "cultural",
-                "source_language_code": detected_lc,
-                "source_language_codes": [detected_lc],
-                "wa_score": round(wa_score, 2),
-                "content_type": site["content_type"],
-                "writing_category": site["writing_category"],
-            }
-
             if insert_or_skip(
                 client,
-                source=site["source_tag"],
-                title=title,
-                text=body,
-                url=article_url,
-                metadata=meta,
+                doc=ScrapedDocument(
+                    source_family=site["source_tag"],
+                    text=body,
+                    title=title,
+                    source_url=article_url,
+                    source_language_code=detected_lc,
+                    internal_language_code="hy",
+                    internal_language_branch="hye-w" if detected_lc == "hyw" else "hye-e",
+                    source_type="literary" if site["name"] == "pakine" else "cultural",
+                    content_type=site["content_type"],
+                    writing_category=site["writing_category"],
+                    wa_score=round(wa_score, 2),
+                    extra={"source_language_codes": [detected_lc]},
+                ),
                 config=config,
             ):
                 stats["inserted"] += 1

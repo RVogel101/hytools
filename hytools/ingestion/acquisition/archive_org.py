@@ -49,6 +49,7 @@ from hytools.ingestion._shared.helpers import (
     save_catalog_to_mongodb,
     WA_SCORE_THRESHOLD,
 )
+from hytools.ingestion._shared.scraped_document import ScrapedDocument
 
 from hytools.ingestion._shared.helpers import classify_text_classification
 
@@ -504,7 +505,9 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
             continue
 
         dialect = _classify_dialect(text)
-        lang_code = "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy"
+        source_lang_code = "hyw" if dialect == "western_armenian" else "hye" if dialect == "eastern_armenian" else "hy"
+        internal_lang_code = "hy"
+        internal_lang_branch = "hye-w" if dialect == "western_armenian" else "hye-e" if dialect == "eastern_armenian" else None
 
         # Enrich metadata with MDAPI-record fields (OCR metadata, PDF metadata) and Views API
         metadata_extra: dict[str, Any] = {}
@@ -521,35 +524,36 @@ def _download_and_ingest(client, catalog: dict[str, dict], config: dict | None =
                         metadata_extra.setdefault("file_metadata", []).append({"name": f.get("name"), "format": f.get("format"), "ocr_detected_lang": f.get("ocr_detected_lang")})
 
         except Exception:
-            pass
+            logger.debug("Failed to extract file metadata for %s", ident, exc_info=True)
 
         try:
             views = get_views(session, ident)
             if views:
                 metadata_extra["views"] = views
         except Exception:
-            pass
+            logger.debug("Failed to fetch view stats for %s", ident, exc_info=True)
 
-        meta = {
-            "source_type": "book",
+        extra = {
             "identifier": ident,
-            "source_language_code": lang_code,
-            "publication_date": item.get("date") or None,
             "ia_date": item.get("date", ""),
             "ia_language": item.get("language", ""),
         }
-        # merge extra metadata
-        meta.update(metadata_extra)
+        extra.update(metadata_extra)
 
-        ok = insert_or_skip(
-            client,
-            source="archive_org",
-            title=item.get("title", ident),
+        scraped = ScrapedDocument(
+            source_family="archive_org",
             text=text,
-            url=f"https://archive.org/details/{ident}",
-            metadata=meta,
-            config=config,
+            title=item.get("title", ident),
+            source_url=f"https://archive.org/details/{ident}",
+            source_language_code=source_lang_code,
+            internal_language_code=internal_lang_code,
+            internal_language_branch=internal_lang_branch,
+            publication_date=item.get("date") or None,
+            source_type="book",
+            catalog_id=ident,
+            extra=extra,
         )
+        ok = insert_or_skip(client, doc=scraped, config=config)
         item["ingested"] = ok
         if ok:
             stats["inserted"] += 1
